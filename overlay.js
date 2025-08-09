@@ -6,8 +6,10 @@ const css=`
 :host,*{box-sizing:border-box}
 :host{--radius:12px;--ui:rgba(22,24,28,0.64);--ui-strong:rgba(26,28,34,0.75);--stroke:rgba(255,255,255,0.08);--shadow:0 16px 40px rgba(0,0,0,.45);--accent:#7dd0ff;--text:#e9eef3;--muted:#b8c0c8}
 .overlay{position:fixed;left:80px;top:140px;width:320px;height:240px;z-index:2147483646;background:transparent;border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;opacity:.85;pointer-events:auto}
+.overlay.brush{cursor:crosshair}
 .content{position:absolute;inset:0;overflow:hidden;background:transparent;pointer-events:none}
 img.the-image{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:fill;image-rendering:pixelated;image-rendering:crisp-edges;image-rendering:-moz-crisp-edges;-ms-interpolation-mode:nearest-neighbor;pointer-events:none;backface-visibility:hidden;transform:translateZ(0)}
+.brush-cursor{position:fixed;z-index:2147483647;pointer-events:none;border:1px solid var(--accent);border-radius:9999px;transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.2);display:none}
 .toolbar{position:fixed;left:80px;top:92px;height:48px;width:320px;z-index:2147483647;background:var(--ui);backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;align-items:stretch;gap:0;user-select:none;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;font-size:12px;line-height:1;overflow:hidden}
 .drag-grip{width:36px;height:100%;display:flex;align-items:center;justify-content:center;border-right:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);cursor:move;font-size:16px;color:#d5deea;letter-spacing:.3px;user-select:none;flex:0 0 auto}
 .drag-grip:hover{background:rgba(255,255,255,.07)}
@@ -38,7 +40,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
 .value{min-width:40px;text-align:right;opacity:.8;font-variant-numeric:tabular-nums}
 .scale{min-width:60px;text-align:right;opacity:.9;font-weight:600;color:#d4ecff}
 .resizer{position:fixed;width:16px;height:16px;z-index:2147483647;cursor:nwse-resize;opacity:.9;background:linear-gradient(135deg,transparent 50%,#9aa0a6 50%) no-repeat,linear-gradient(135deg,transparent calc(50% - 1px),#0d0d0f calc(50% - 1px),#0d0d0f calc(50% + 1px),transparent calc(50% + 1px)) no-repeat;background-size:100% 100%,100% 100%;border-radius:3px}
-.sidebar{position:fixed;left:80px;top:140px;width:220px;height:240px;z-index:2147483647;background:var(--ui-strong);backdrop-filter:blur(12px) saturate(1.1);-webkit-backdrop-filter:blur(12px) saturate(1.1);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;font-size:12px;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+.sidebar{position:fixed;left:80px;top:140px;width:250px;height:240px;z-index:2147483647;background:var(--ui-strong);backdrop-filter:blur(12px) saturate(1.1);-webkit-backdrop-filter:blur(12px) saturate(1.1);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;font-size:12px;display:flex;flex-direction:column;overflow:hidden;user-select:none}
 .side-head{position:relative;height:44px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.08);padding:0 0;overflow:hidden}
 .side-scroll{position:relative;flex:1;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
 .side-scroll::-webkit-scrollbar{display:none}
@@ -52,6 +54,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
 .palette{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .swatch{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:8px;border:1px solid #39404a;border-radius:10px;padding:8px;background:#1f232a;cursor:pointer;transition:transform .05s ease,background .15s ease,border-color .15s}
 .swatch:hover{background:#242a33;border-color:#4a5260;transform:translateY(-1px)}
+.swatch.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px rgba(125,208,255,.5)}
 .swatch .box{width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,.25)}
 .swatch .meta{display:flex;flex-direction:column;line-height:1.05}
 .swatch .hex{font-weight:700;color:#f1f6fb;letter-spacing:.2px}
@@ -77,6 +80,8 @@ const content=el("div","content");
 const img=el("img","the-image");
 const dropHint=el("div","drop-hint"); dropHint.innerHTML='<div class="box">Перетащите изображение сюда или нажмите <span class="kbd">📁 Открыть</span></div>';
 content.append(img,dropHint); overlay.append(content);
+
+const brushCursor=el("div","brush-cursor");
 
 const toolbar=el("div","toolbar");
 const dragGrip=el("div","drag-grip","⠿");
@@ -113,7 +118,10 @@ const delayInp=numberInput("5"); delayInp.style.width="64px";
 const ms=el("span",null,"мс"); ms.style.opacity=".85";
 const btnStop=el("button","btn","■ Стоп"); btnStop.title="Остановить автоклик";
 const palStat=chip("— цветов");
-sideRow.append(delayLbl,delayInp,ms,btnStop,palStat);
+const brushChk=checkbox(false); const brushLbl=el("label",null,"Кисть");
+const sizeLbl=el("span",null,"Размер:"); const brushSizeInp=numberInput("1"); brushSizeInp.style.width="56px";
+const activeChip=chip("Кисть: —");
+sideRow.append(delayLbl,delayInp,ms,btnStop,palStat,brushChk,brushLbl,sizeLbl,brushSizeInp,activeChip);
 sideScroll.append(sideRow);
 const sfadeL=el("div","side-fade-left");
 const sfadeR=el("div","side-fade-right");
@@ -126,7 +134,7 @@ const runStat=el("div","stat","—/—");
 sideFoot.append(runStat);
 sidebar.append(sideHead,sideBody,sideFoot);
 
-shadow.append(overlay,toolbar,resizer,sidebar,fileInput);
+shadow.append(overlay,toolbar,resizer,sidebar,fileInput,brushCursor);
 
 const state={
   x:80,y:140,w:320,h:240,
@@ -140,7 +148,10 @@ const state={
   imageData:null,
   palette:[],
   positionsCache:new Map(),
-  running:null
+  posSetCache:new Map(),
+  paintedByColor:new Map(),
+  running:null,
+  brushMode:false, brushSize:1, isBrushing:false, activeColor:null, activeSwatch:null
 };
 
 function applyOpacity(){ overlay.style.opacity=String(state.opacity) }
@@ -288,22 +299,28 @@ async function extractPalette(){
     return {key,r,g,b,count,hex:rgbToHex(r,g,b)}
   }).sort((a,b)=>b.count-a.count);
   state.palette=palette;
-  state.positionsCache.clear()
+  state.positionsCache.clear();
+  state.posSetCache.clear()
 }
 function renderPalette(){
   paletteEl.innerHTML="";
   palStat.textContent=state.palette.length?`${state.palette.length} цветов`:"— цветов";
   for(const c of state.palette){
     const sw=el("div","swatch");
+    sw.dataset.key=c.key;
     const box=el("div","box"); box.style.background=c.hex;
     const meta=el("div","meta");
     const hex=el("div","hex",c.hex.toUpperCase());
     const cnt=el("div","cnt",`${c.count} px`);
     meta.append(hex,cnt);
     sw.append(box,meta);
-    sw.title="Нарисовать все пиксели этого цвета";
-    sw.addEventListener("click",()=>startAutoClick(c));
+    sw.title="Выбрать цвет";
+    sw.addEventListener("click",()=>{ if(state.brushMode){ setActiveColor(c,sw) } else { startAutoClick(c) } });
     paletteEl.append(sw)
+  }
+  if(state.activeColor){
+    const sw=[...paletteEl.children].find(x=>x.dataset.key===state.activeColor.key);
+    if(sw) setActiveColor(state.activeColor, sw, true)
   }
 }
 function getPositionsForColor(key){
@@ -321,6 +338,14 @@ function getPositionsForColor(key){
   }
   state.positionsCache.set(key,out);
   return out
+}
+function getPosSetForColor(key){
+  if(state.posSetCache.has(key)) return state.posSetCache.get(key);
+  const arr=getPositionsForColor(key);
+  const set=new Set();
+  for(const [x,y] of arr) set.add(y*state.iw + x);
+  state.posSetCache.set(key,set);
+  return set
 }
 function simulateClickAt(x,y){
   const prevOverlayPE=overlay.style.pointerEvents, prevToolbarPE=toolbar.style.pointerEvents, prevResizerPE=resizer.style.pointerEvents, prevSidebarPE=sidebar.style.pointerEvents;
@@ -373,6 +398,71 @@ function stopAutoClick(){
 }
 function updateRunStat(){ runStat.textContent=state.running?`${state.running.idx}/${state.running.total}`:"—/—" }
 
+function setActiveColor(color, swatch, silent){
+  state.activeColor=color;
+  activeChip.textContent="Кисть: "+color.hex.toUpperCase();
+  activeChip.style.borderColor=color.hex;
+  brushCursor.style.borderColor=color.hex;
+  if(state.activeSwatch) state.activeSwatch.classList.remove("active");
+  if(swatch){ state.activeSwatch=swatch; swatch.classList.add("active") }
+  if(state.brushMode && !silent) { }
+}
+function setBrushMode(on){
+  state.brushMode=on;
+  brushChk.checked=on;
+  if(on){
+    stopAutoClick();
+    overlay.classList.add("brush");
+    passCheck.checked=false; passCheck.disabled=true;
+    state.passThrough=false; updatePassThrough();
+    brushCursor.style.display=state.activeColor?"block":"none"
+  }else{
+    overlay.classList.remove("brush");
+    passCheck.disabled=false;
+    brushCursor.style.display="none"
+  }
+}
+function updateBrushCursorAt(clientX, clientY){
+  if(!state.brushMode || !state.activeColor) { brushCursor.style.display="none"; return }
+  const rect=img.getBoundingClientRect();
+  const sx=rect.width/state.iw, sy=rect.height/state.ih;
+  const ix=Math.floor((clientX-rect.left)/sx);
+  const iy=Math.floor((clientY-rect.top)/sy);
+  const cx=rect.left+(clamp(ix,0,state.iw-1)+.5)*sx;
+  const cy=rect.top +(clamp(iy,0,state.ih-1)+.5)*sy;
+  const w=Math.max(1, state.brushSize)*sx;
+  const h=Math.max(1, state.brushSize)*sy;
+  brushCursor.style.width=w+"px";
+  brushCursor.style.height=h+"px";
+  brushCursor.style.left=cx+"px";
+  brushCursor.style.top=cy+"px";
+  brushCursor.style.display="block"
+}
+function brushPaintAt(clientX, clientY){
+  if(!state.activeColor || !state.iw || !state.ih) return;
+  const rect=img.getBoundingClientRect();
+  const sx=rect.width/state.iw, sy=rect.height/state.ih;
+  const ix=Math.floor((clientX-rect.left)/sx);
+  const iy=Math.floor((clientY-rect.top)/sy);
+  const size=Math.max(1, state.brushSize);
+  const half=Math.floor((size-1)/2);
+  let x0=ix-half, y0=iy-half, x1=ix+size-half-1, y1=iy+size-half-1;
+  x0=clamp(x0,0,state.iw-1); y0=clamp(y0,0,state.ih-1);
+  x1=clamp(x1,0,state.iw-1); y1=clamp(y1,0,state.ih-1);
+  const set=getPosSetForColor(state.activeColor.key);
+  if(!state.paintedByColor.has(state.activeColor.key)) state.paintedByColor.set(state.activeColor.key,new Set());
+  const painted=state.paintedByColor.get(state.activeColor.key);
+  for(let y=y0;y<=y1;y++){
+    for(let x=x0;x<=x1;x++){
+      const idx=y*state.iw+x;
+      if(!set.has(idx) || painted.has(idx)) continue;
+      const cx=rect.left+(x+.5)*sx, cy=rect.top+(y+.5)*sy;
+      simulateClickAt(cx,cy);
+      painted.add(idx)
+    }
+  }
+}
+
 applyOpacity(); updateOpLabel(); syncUI(); updatePassThrough(); makeHScroll(toolbar,toolbarScroll,fadeL,fadeR); makeHScroll(sideHead,sideScroll,sfadeL,sfadeR);
 
 dragGrip.addEventListener("pointerdown",startDrag);
@@ -381,9 +471,10 @@ dragGrip.addEventListener("pointerup",endDrag);
 toolbar.addEventListener("pointerdown",(e)=>{ if(!e.target.closest("input, button, label, .kbd, select, textarea, .toolbar-scroll")) startDrag(e) });
 toolbar.addEventListener("pointermove",moveDrag);
 toolbar.addEventListener("pointerup",endDrag);
-overlay.addEventListener("pointerdown",(e)=>{ if(e.button===0 && e.shiftKey) startDrag(e) });
-overlay.addEventListener("pointermove",moveDrag);
-overlay.addEventListener("pointerup",endDrag);
+
+overlay.addEventListener("pointermove",(e)=>{ updateBrushCursorAt(e.clientX,e.clientY); if(state.isBrushing) brushPaintAt(e.clientX,e.clientY) });
+overlay.addEventListener("pointerdown",(e)=>{ if(e.button===0 && state.brushMode){ e.preventDefault(); state.isBrushing=true; brushPaintAt(e.clientX,e.clientY); overlay.setPointerCapture?.(e.pointerId) } else if(e.button===0 && e.shiftKey){ startDrag(e) }});
+overlay.addEventListener("pointerup",()=>{ state.isBrushing=false; });
 
 resizer.addEventListener("pointerdown",onResizeDragDown);
 resizer.addEventListener("pointermove",onResizeDragMove);
@@ -418,14 +509,18 @@ img.addEventListener("load",async ()=>{
 passCheck.addEventListener("change",()=>{ state.passThrough=passCheck.checked; updatePassThrough() });
 transCheck.addEventListener("change",()=>{ state.transparencyOn=transCheck.checked; state.opacity=state.transparencyOn?Number(opacity.value)/100:1; opacity.disabled=!state.transparencyOn; applyOpacity(); updateOpLabel() });
 opacity.addEventListener("input",()=>{ if(state.transparencyOn){ state.opacity=Number(opacity.value)/100; applyOpacity(); updateOpLabel() } });
+
 btnStop.addEventListener("click",()=>stopAutoClick());
 btnClose.addEventListener("click",()=>api.destroy());
+
+brushChk.addEventListener("change",()=>{ setBrushMode(brushChk.checked) });
+brushSizeInp.addEventListener("change",()=>{ const v=Math.max(1, Math.round(Number(brushSizeInp.value)||1)); state.brushSize=v; brushSizeInp.value=String(v) });
 
 const ro=new ResizeObserver(()=>{ syncUI() }); ro.observe(overlay);
 const onKey=(e)=>{
   const tag=(e.target&&e.target.tagName)||"";
   if(/INPUT|TEXTAREA|SELECT/.test(tag)) return;
-  if(e.key.toLowerCase()==="p"){ passCheck.checked=!passCheck.checked; passCheck.dispatchEvent(new Event("change")) }
+  if(e.key.toLowerCase()==="p"){ if(!state.brushMode){ passCheck.checked=!passCheck.checked; passCheck.dispatchEvent(new Event("change")) } }
   if(e.key==="["){ const v=+opacity.value; opacity.value=String(Math.max(0,v-5)); opacity.dispatchEvent(new Event("input")) }
   if(e.key==="]"){ const v=+opacity.value; opacity.value=String(Math.min(100,v+5)); opacity.dispatchEvent(new Event("input")) }
   if(e.key==="Escape"){ api.destroy() }
@@ -437,5 +532,5 @@ api.destroy=()=>{ try{ document.removeEventListener("keydown",onKey,true) }catch
 (()=>{ state.x=clamp(state.x,8,window.innerWidth-state.w-8); state.y=clamp(state.y,8+state.barH+state.barGap,window.innerHeight-state.h-8); syncUI() })();
 makeHScroll(toolbar,toolbarScroll,fadeL,fadeR);
 makeHScroll(sideHead,sideScroll,sfadeL,sfadeR);
-console.log("Overlay Image — Pixel-perfect. Палитра/Автоклик. Двигать: за ⠿, за заголовок, или Shift+ЛКМ по окну. Горячие клавиши: [ и ] — прозрачность, P — сквозные клики, Esc — закрыть.");
+console.log("Overlay Image — Pixel-perfect. Палитра/Автоклик и Кисть. Двигать: за ⠿, за заголовок, или Shift+ЛКМ по окну. Хоткеи: [ и ] — прозрачность, P — сквозные клики (в кисти выключено), Esc — закрыть.");
 })();
