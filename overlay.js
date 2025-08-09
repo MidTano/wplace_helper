@@ -80,7 +80,6 @@ const content=el("div","content");
 const img=el("img","the-image");
 const dropHint=el("div","drop-hint"); dropHint.innerHTML='<div class="box">Перетащите изображение сюда или нажмите <span class="kbd">📁 Открыть</span></div>';
 content.append(img,dropHint); overlay.append(content);
-
 const brushCursor=el("div","brush-cursor");
 
 const toolbar=el("div","toolbar");
@@ -94,7 +93,6 @@ const fileInput=document.createElement("input"); fileInput.type="file"; fileInpu
 const wWrap=controlWrap("W"); const inW=numberInput("320"); wWrap.append(inW);
 const hWrap=controlWrap("H"); const inH=numberInput("240"); hWrap.append(inH);
 let lockAspect=true; const btnLock=el("button","btn icon","🔒"); btnLock.title="Сохранять пропорции (вкл/выкл)";
-
 const snapWrap=el("div","control"); const snapCheck=checkbox(true); const snapLabel=el("label",null,"Кратн."); snapWrap.append(snapCheck,snapLabel);
 const scaleView=el("div","scale","—");
 const passWrap=el("div","control"); const passCheck=checkbox(false); passCheck.title="Сквозные клики по странице (P)"; const passLabel=el("label",null,"Сквозь"); passWrap.append(passCheck,passLabel);
@@ -315,12 +313,12 @@ function renderPalette(){
     meta.append(hex,cnt);
     sw.append(box,meta);
     sw.title="Выбрать цвет";
-    sw.addEventListener("click",()=>{ if(state.brushMode){ setActiveColor(c,sw) } else { startAutoClick(c) } });
+    sw.addEventListener("click",()=>{ if(state.brushMode){ setActiveColor(c,sw,false,true) } else { startAutoClick(c) } });
     paletteEl.append(sw)
   }
   if(state.activeColor){
     const sw=[...paletteEl.children].find(x=>x.dataset.key===state.activeColor.key);
-    if(sw) setActiveColor(state.activeColor, sw, true)
+    if(sw) setActiveColor(state.activeColor, sw, true, false)
   }
 }
 function getPositionsForColor(key){
@@ -398,14 +396,15 @@ function stopAutoClick(){
 }
 function updateRunStat(){ runStat.textContent=state.running?`${state.running.idx}/${state.running.total}`:"—/—" }
 
-function setActiveColor(color, swatch, silent){
+function setActiveColor(color, swatch, silent, reset){
   state.activeColor=color;
   activeChip.textContent="Кисть: "+color.hex.toUpperCase();
   activeChip.style.borderColor=color.hex;
   brushCursor.style.borderColor=color.hex;
+  if(reset) state.paintedByColor.delete(color.key);
   if(state.activeSwatch) state.activeSwatch.classList.remove("active");
   if(swatch){ state.activeSwatch=swatch; swatch.classList.add("active") }
-  if(state.brushMode && !silent) { }
+  if(state.brushMode && !silent){ brushCursor.style.display="block" }
 }
 function setBrushMode(on){
   state.brushMode=on;
@@ -532,5 +531,5 @@ api.destroy=()=>{ try{ document.removeEventListener("keydown",onKey,true) }catch
 (()=>{ state.x=clamp(state.x,8,window.innerWidth-state.w-8); state.y=clamp(state.y,8+state.barH+state.barGap,window.innerHeight-state.h-8); syncUI() })();
 makeHScroll(toolbar,toolbarScroll,fadeL,fadeR);
 makeHScroll(sideHead,sideScroll,sfadeL,sfadeR);
-console.log("Overlay Image — Pixel-perfect. Палитра/Автоклик и Кисть. Двигать: за ⠿, за заголовок, или Shift+ЛКМ по окну. Хоткеи: [ и ] — прозрачность, P — сквозные клики (в кисти выключено), Esc — закрыть.");
+console.log("Overlay Image — Pixel-perfect. Палитра/Автоклик и Кисть. Повторный выбор цвета сбрасывает прогресс кисти. Двигать: за ⠿, за заголовок, или Shift+ЛКМ по окну. Хоткеи: [ и ] — прозрачность, P — сквозные клики (в кисти выключено), Esc — закрыть.");
 })();
