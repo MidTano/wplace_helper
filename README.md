@@ -2,6 +2,9 @@
 
 Инструмент для накладывания изображения поверх сайта wplace.live: палитра цветов из картинки и автоклик по всем пикселям выбранного цвета.
 
+Видео работы :
+https://imgur.com/2FyTbzb
+
 <img src="https://github.com/user-attachments/assets/4e5431ac-7969-4040-8ac9-ae10f0d84607" alt="WPlace Overlay Helper screenshot" width="900"/>
 
 
