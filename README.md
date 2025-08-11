@@ -1,7 +1,36 @@
-# WPlace Overlay Art Helper
-<img width="1526" height="956" alt="{734A4119-19E0-4A2F-B7A3-E1261A1B4CD6}" src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
 
-Инструмент-оверлей для наложения/пикселизации изображений и быстрого копирования артов по тайлам. Работает прямо в браузере.
+<p align="right">
+  🌐
+  <a href="README_RU.md">🇷🇺 Русский</a> &nbsp;|&nbsp;
+  <a href="README_EN.md">🇬🇧 English</a> &nbsp;|&nbsp;
+  <a href="README_ZH.md">🇨🇳 中文</a> &nbsp;|&nbsp;
+  <a href="README_DE.md">🇩🇪 Deutsch</a> &nbsp;|&nbsp;
+  <a href="README_FR.md">🇫🇷 Français</a> &nbsp;|&nbsp;
+  <a href="README_ES.md">🇪🇸 Español</a>
+</p>
+
+
+<h1 align="center">🎨 WPlace Overlay Art Helper</h1>
+<p align="center"><em>Инструмент‑оверлей для наложения/пикселизации изображений и быстрого копирования артов</em></p>
+<p align="center">
+  <img src="https://img.shields.io/github/stars/MidTano/wplace_helper?style=for-the-badge" alt="GitHub stars">
+</p>
+
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=ТВОЙ_ID_ВИДЕО" target="_blank">
+    <img width="80%" alt="Смотреть демо на YouTube"src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
+  </a>
+</p>
+
+
+<p align="center">
+✅ Работает прямо в браузере &nbsp;|&nbsp; 
+✅ <span style="color:orange">Не требует установки</span> &nbsp;|&nbsp; 
+✅ Поддержка пикселизации и автоклика &nbsp; 
+</p>
+
+
 
 ## Быстрый старт
 - Откройте wplace.live.  
