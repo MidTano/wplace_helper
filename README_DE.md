@@ -1,6 +1,6 @@
 <p align="right">
   🌐
-  <a href="README_RU.md">🇷🇺 Русский</a> &nbsp;|&nbsp;
+  <a href="README.md">🇷🇺 Русский</a> &nbsp;|&nbsp;
   <a href="README_EN.md">🇬🇧 English</a> &nbsp;|&nbsp;
   <a href="README_ZH.md">🇨🇳 中文</a> &nbsp;|&nbsp;
   <a href="README_DE.md">🇩🇪 Deutsch</a> &nbsp;|&nbsp;
