@@ -2444,11 +2444,11 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             const back = el("div", "pixel-backdrop");
             const modal = el("div", "pixel-modal");
             const head = el("div", "pixel-head");
-            const t = el("div", "pixel-title", t("pixelizationTitle"));
+            const pixelTitle = el("div", "pixel-title", t("pixelizationTitle")); 
             const fname = el("div", "pixel-filename", file.name || "image");
             const btnX = el("button", "btn icon", "✕");
             btnX.title = "Закрыть";
-            head.append(t, fname, btnX);
+            head.append(pixelTitle, fname, btnX); 
             const body = el("div", "pixel-body");
             const controls = el("div", "pixel-controls");
             const rowScale = el("div", "pixel-row");
