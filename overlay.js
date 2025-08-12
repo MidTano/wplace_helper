@@ -1,5 +1,578 @@
-(() => {
+(async () => {
     "use strict";
+    const LANGS = [{
+            code: "RU",
+            flag: "🇷🇺",
+            name: "Русский"
+        },
+        {
+            code: "EN",
+            flag: "🇬🇧",
+            name: "English"
+        },
+        {
+            code: "DE",
+            flag: "🇩🇪",
+            name: "Deutsch"
+        },
+        {
+            code: "FR",
+            flag: "🇫🇷",
+            name: "Français"
+        },
+        {
+            code: "ES",
+            flag: "🇪🇸",
+            name: "Español"
+        },
+        {
+            code: "CN",
+            flag: "🇨🇳",
+            name: "中文"
+        }
+    ];
+
+    const I18N = {
+        RU: {
+            open: "Открыть",
+            copyArt: "Копировать арт",
+            close: "Закрыть",
+            stop: "Стоп",
+            save: "Сохранить",
+            center: "Центр",
+            cancel: "Отмена",
+            transparency: "Прозрачность",
+            passThrough: "Сквозные клики",
+            brush: "Кисть",
+            delay: "Задержка",
+            file: "Файл",
+            width: "Ширина",
+            height: "Высота",
+            keepAspect: "Сохранять пропорции",
+            snap: "Кратн.",
+            scale: "Масштаб",
+            opacity: "Прозрачн.",
+            filename: "Имя файла",
+            zoom: "Масштаб",
+            palette: "Палитра",
+            export: "Экспорт",
+            colorsUsed: "Исп. цветов",
+            horizontal: "Горизонталь",
+            vertical: "Вертикаль",
+            total: "Всего",
+            dropHint: "Перетащите изображение сюда — откроется окно настроек пикселизации, либо нажмите <span class=\"kbd\">📁</span>",
+            keepAspectTitle: "Сохранять пропорции (вкл/выкл)",
+            passThroughTitle: "Сквозные клики по странице (P)",
+            filePrefix: "Файл: ",
+            colorsSuffix: "цветов",
+            selectColor: "Выбрать цвет",
+            brushPrefix: "Кисть: ",
+            copyArtTitle: "Копировать арт",
+            xLabel: "X",
+            yLabel: "Y",
+            delaySec: "Задержка, сек",
+            secondsSuffix: "s",
+            sourceStats: "Source: — × —",
+            tileStats: "Tile: — × —",
+            progressStats: "Progress: —/— (fail 0)",
+            pixelizationTitle: "Пикселизация",
+            closeTitle: "Закрыть",
+            scalingMethod: "Метод масштабирования изображения",
+            nearestNeighbor: "Ближайший сосед",
+            bilinear: "Билинейный",
+            lanczos: "Ланцош (высокое качество)",
+            pixelSize: "Размер пикселя",
+            fullPalette: "Полная (все цвета)",
+            freeOnly: "Только бесплатные",
+            custom: "Пользовательская",
+            ownedDetected: "Имеющиеся (обнаруженные)",
+            distance: "Расстояние",
+            srgb: "sRGB",
+            oklab: "OKLab (перцептивное)",
+            dithering: "Дизеринг",
+            none: "Нет",
+            ordered4: "Упорядоченный (Bayer 4×4)",
+            ordered8: "Упорядоченный (Bayer 8×8)",
+            fs: "Floyd–Steinberg",
+            atkinson: "Atkinson",
+            ditherStrength: "Сила дизеринга",
+            clear: "🧹 Очистить",
+            addFree: "🆓 Добавить бесплатные",
+            selectAll: "🟦 Выбрать все",
+            importOwned: "🔓 Импорт имеющиеся",
+            selectedCount: "Выбрано: ",
+            paidColor: "— платный цвет",
+            horizontalStats: "Горизонталь: —",
+            verticalStats: "Вертикаль: —",
+            totalStats: "Всего: —",
+            exportStats: "Экспорт: — × —",
+            colorsUsedStats: "Исп. цветов: —",
+            saveAsFile: "💾 Сохранить как файл",
+            apply: "✅ Применить",
+            skip: "↩ Продолжить без изменений",
+            transparencyShort: "Прозр.",
+            sizeLabel: "Размер:"
+        },
+        EN: {
+            open: "Open",
+            copyArt: "Copy Art",
+            close: "Close",
+            stop: "Stop",
+            save: "Save",
+            center: "Center",
+            cancel: "Cancel",
+            transparency: "Transparency",
+            passThrough: "Pass-through Clicks",
+            brush: "Brush",
+            delay: "Delay",
+            file: "File",
+            width: "Width",
+            height: "Height",
+            keepAspect: "Keep Aspect Ratio",
+            snap: "Snap",
+            scale: "Scale",
+            opacity: "Opacity",
+            filename: "Filename",
+            zoom: "Zoom",
+            palette: "Palette",
+            export: "Export",
+            colorsUsed: "Colors Used",
+            horizontal: "Horizontal",
+            vertical: "Vertical",
+            total: "Total",
+            dropHint: "Drag image here — pixelization settings window will open, or click <span class=\"kbd\">📁</span>",
+            keepAspectTitle: "Keep aspect ratio (on/off)",
+            passThroughTitle: "Pass-through clicks on page (P)",
+            filePrefix: "File: ",
+            colorsSuffix: "colors",
+            selectColor: "Select color",
+            brushPrefix: "Brush: ",
+            copyArtTitle: "Copy Art",
+            xLabel: "X",
+            yLabel: "Y",
+            delaySec: "Delay, sec",
+            secondsSuffix: "s",
+            sourceStats: "Source: — × —",
+            tileStats: "Tile: — × —",
+            progressStats: "Progress: —/— (fail 0)",
+            pixelizationTitle: "Pixelization",
+            closeTitle: "Close",
+            scalingMethod: "Image Scaling Method",
+            nearestNeighbor: "Nearest Neighbor",
+            bilinear: "Bilinear",
+            lanczos: "Lanczos (High Quality)",
+            pixelSize: "Pixel Size",
+            fullPalette: "Full (all colors)",
+            freeOnly: "Free only",
+            custom: "Custom",
+            ownedDetected: "Owned (detected)",
+            distance: "Distance",
+            srgb: "sRGB",
+            oklab: "OKLab (perceptual)",
+            dithering: "Dithering",
+            none: "None",
+            ordered4: "Ordered (Bayer 4×4)",
+            ordered8: "Ordered (Bayer 8×8)",
+            fs: "Floyd–Steinberg",
+            atkinson: "Atkinson",
+            ditherStrength: "Dither Strength",
+            clear: "🧹 Clear",
+            addFree: "🆓 Add free",
+            selectAll: "🟦 Select all",
+            importOwned: "🔓 Import owned",
+            selectedCount: "Selected: ",
+            paidColor: "— paid color",
+            horizontalStats: "Horizontal: —",
+            verticalStats: "Vertical: —",
+            totalStats: "Total: —",
+            exportStats: "Export: — × —",
+            colorsUsedStats: "Colors used: —",
+            saveAsFile: "💾 Save as file",
+            apply: "✅ Apply",
+            skip: "↩ Continue without changes",
+            transparencyShort: "Transp.",
+            sizeLabel: "Size:"
+        },
+        DE: {
+            open: "Öffnen",
+            copyArt: "Kunst kopieren",
+            close: "Schließen",
+            stop: "Stopp",
+            save: "Speichern",
+            center: "Zentrieren",
+            cancel: "Abbrechen",
+            transparency: "Transparenz",
+            passThrough: "Durchklicken",
+            brush: "Pinsel",
+            delay: "Verzögerung",
+            file: "Datei",
+            width: "Breite",
+            height: "Höhe",
+            keepAspect: "Seitenverhältnis behalten",
+            snap: "Raster",
+            scale: "Maßstab",
+            opacity: "Deckkraft",
+            filename: "Dateiname",
+            zoom: "Zoom",
+            palette: "Palette",
+            export: "Export",
+            colorsUsed: "Farben verwendet",
+            horizontal: "Horizontal",
+            vertical: "Vertikal",
+            total: "Gesamt",
+            dropHint: "Bild hierher ziehen — Pixelisierungs-Einstellungsfenster öffnet sich, oder klicken Sie auf <span class=\"kbd\">📁</span>",
+            keepAspectTitle: "Seitenverhältnis beibehalten (ein/aus)",
+            passThroughTitle: "Durchklicks auf der Seite (P)",
+            filePrefix: "Datei: ",
+            colorsSuffix: "Farben",
+            selectColor: "Farbe auswählen",
+            brushPrefix: "Pinsel: ",
+            copyArtTitle: "Kunst kopieren",
+            xLabel: "X",
+            yLabel: "Y",
+            delaySec: "Verzögerung, Sek",
+            secondsSuffix: "s",
+            sourceStats: "Quelle: — × —",
+            tileStats: "Kachel: — × —",
+            progressStats: "Fortschritt: —/— (Fehler 0)",
+            pixelizationTitle: "Pixelisierung",
+            closeTitle: "Schließen",
+            scalingMethod: "Bildskalierungsmethode",
+            nearestNeighbor: "Nächster Nachbar",
+            bilinear: "Bilineare",
+            lanczos: "Lanczos (Hohe Qualität)",
+            pixelSize: "Pixelgröße",
+            fullPalette: "Voll (alle Farben)",
+            freeOnly: "Nur kostenlos",
+            custom: "Benutzerdefiniert",
+            ownedDetected: "Besessen (erkannt)",
+            distance: "Abstand",
+            srgb: "sRGB",
+            oklab: "OKLab (wahrnehmungsbezogen)",
+            dithering: "Dithering",
+            none: "Kein",
+            ordered4: "Geordnet (Bayer 4×4)",
+            ordered8: "Geordnet (Bayer 8×8)",
+            fs: "Floyd–Steinberg",
+            atkinson: "Atkinson",
+            ditherStrength: "Dither-Stärke",
+            clear: "🧹 Löschen",
+            addFree: "🆓 Kostenlose hinzufügen",
+            selectAll: "🟦 Alle auswählen",
+            importOwned: "🔓 Besessene importieren",
+            selectedCount: "Ausgewählt: ",
+            paidColor: "— bezahlte Farbe",
+            horizontalStats: "Horizontal: —",
+            verticalStats: "Vertikal: —",
+            totalStats: "Gesamt: —",
+            exportStats: "Export: — × —",
+            colorsUsedStats: "Verwendete Farben: —",
+            saveAsFile: "💾 Als Datei speichern",
+            apply: "✅ Anwenden",
+            skip: "↩ Ohne Änderungen fortfahren",
+            transparencyShort: "Transp.",
+            sizeLabel: "Größe:"
+        },
+        FR: {
+            open: "Ouvrir",
+            copyArt: "Copier l'art",
+            close: "Fermer",
+            stop: "Arrêter",
+            save: "Enregistrer",
+            center: "Centrer",
+            cancel: "Annuler",
+            transparency: "Transparence",
+            passThrough: "Clics à travers",
+            brush: "Pinceau",
+            delay: "Délai",
+            file: "Fichier",
+            width: "Largeur",
+            height: "Hauteur",
+            keepAspect: "Conserver proportions",
+            snap: "Aligner",
+            scale: "Échelle",
+            opacity: "Opacité",
+            filename: "Nom du fichier",
+            zoom: "Zoom",
+            palette: "Palette",
+            export: "Exporter",
+            colorsUsed: "Couleurs utilisées",
+            horizontal: "Horizontal",
+            vertical: "Vertical",
+            total: "Total",
+            dropHint: "Glissez l'image ici — la fenêtre des paramètres de pixelisation s'ouvrira, ou cliquez sur <span class=\"kbd\">📁</span>",
+            keepAspectTitle: "Conserver le rapport d'aspect (on/off)",
+            passThroughTitle: "Clics traversants sur la page (P)",
+            filePrefix: "Fichier: ",
+            colorsSuffix: "couleurs",
+            selectColor: "Sélectionner la couleur",
+            brushPrefix: "Pinceau: ",
+            copyArtTitle: "Copier l'art",
+            xLabel: "X",
+            yLabel: "Y",
+            delaySec: "Délai, sec",
+            secondsSuffix: "s",
+            sourceStats: "Source: — × —",
+            tileStats: "Tuile: — × —",
+            progressStats: "Progrès: —/— (échec 0)",
+            pixelizationTitle: "Pixelisation",
+            closeTitle: "Fermer",
+            scalingMethod: "Méthode de mise à l'échelle de l'image",
+            nearestNeighbor: "Voisin le plus proche",
+            bilinear: "Bilinéaire",
+            lanczos: "Lanczos (Haute qualité)",
+            pixelSize: "Taille de pixel",
+            fullPalette: "Complet (toutes les couleurs)",
+            freeOnly: "Gratuit seulement",
+            custom: "Personnalisé",
+            ownedDetected: "Possédé (détecté)",
+            distance: "Distance",
+            srgb: "sRGB",
+            oklab: "OKLab (perceptuel)",
+            dithering: "Dithering",
+            none: "Aucun",
+            ordered4: "Ordonné (Bayer 4×4)",
+            ordered8: "Ordonné (Bayer 8×8)",
+            fs: "Floyd–Steinberg",
+            atkinson: "Atkinson",
+            ditherStrength: "Force de dithering",
+            clear: "🧹 Effacer",
+            addFree: "🆓 Ajouter gratuit",
+            selectAll: "🟦 Sélectionner tout",
+            importOwned: "🔓 Importer possédés",
+            selectedCount: "Sélectionné: ",
+            paidColor: "— couleur payante",
+            horizontalStats: "Horizontal: —",
+            verticalStats: "Vertical: —",
+            totalStats: "Total: —",
+            exportStats: "Export: — × —",
+            colorsUsedStats: "Couleurs utilisées: —",
+            saveAsFile: "💾 Enregistrer comme fichier",
+            apply: "✅ Appliquer",
+            skip: "↩ Continuer sans modifications",
+            transparencyShort: "Transp.",
+            sizeLabel: "Taille:"
+        },
+        ES: {
+            open: "Abrir",
+            copyArt: "Copiar arte",
+            close: "Cerrar",
+            stop: "Detener",
+            save: "Guardar",
+            center: "Centrar",
+            cancel: "Cancelar",
+            transparency: "Transparencia",
+            passThrough: "Clics a través",
+            brush: "Pincel",
+            delay: "Retraso",
+            file: "Archivo",
+            width: "Ancho",
+            height: "Altura",
+            keepAspect: "Mantener proporción",
+            snap: "Ajustar",
+            scale: "Escala",
+            opacity: "Opacidad",
+            filename: "Nombre de archivo",
+            zoom: "Zoom",
+            palette: "Paleta",
+            export: "Exportar",
+            colorsUsed: "Colores usados",
+            horizontal: "Horizontal",
+            vertical: "Vertical",
+            total: "Total",
+            dropHint: "Arrastre la imagen aquí — se abrirá la ventana de configuración de pixelación, o haga clic en <span class=\"kbd\">📁</span>",
+            keepAspectTitle: "Mantener proporción (on/off)",
+            passThroughTitle: "Clics pasantes en la página (P)",
+            filePrefix: "Archivo: ",
+            colorsSuffix: "colores",
+            selectColor: "Seleccionar color",
+            brushPrefix: "Pincel: ",
+            copyArtTitle: "Copiar arte",
+            xLabel: "X",
+            yLabel: "Y",
+            delaySec: "Retraso, seg",
+            secondsSuffix: "s",
+            sourceStats: "Fuente: — × —",
+            tileStats: "Azulejo: — × —",
+            progressStats: "Progreso: —/— (fallo 0)",
+            pixelizationTitle: "Pixelación",
+            closeTitle: "Cerrar",
+            scalingMethod: "Método de escalado de imagen",
+            nearestNeighbor: "Vecino más cercano",
+            bilinear: "Bilineal",
+            lanczos: "Lanczos (Alta calidad)",
+            pixelSize: "Tamaño de píxel",
+            fullPalette: "Completo (todos los colores)",
+            freeOnly: "Solo gratis",
+            custom: "Personalizado",
+            ownedDetected: "Propietario (detectado)",
+            distance: "Distancia",
+            srgb: "sRGB",
+            oklab: "OKLab (perceptivo)",
+            dithering: "Dithering",
+            none: "Ninguno",
+            ordered4: "Ordenado (Bayer 4×4)",
+            ordered8: "Ordenado (Bayer 8×8)",
+            fs: "Floyd–Steinberg",
+            atkinson: "Atkinson",
+            ditherStrength: "Fuerza de dithering",
+            clear: "🧹 Limpiar",
+            addFree: "🆓 Añadir gratis",
+            selectAll: "🟦 Seleccionar todo",
+            importOwned: "🔓 Importar propiedad",
+            selectedCount: "Seleccionado: ",
+            paidColor: "— color pagado",
+            horizontalStats: "Horizontal: —",
+            verticalStats: "Vertical: —",
+            totalStats: "Total: —",
+            exportStats: "Exportar: — × —",
+            colorsUsedStats: "Colores usados: —",
+            saveAsFile: "💾 Guardar como archivo",
+            apply: "✅ Aplicar",
+            skip: "↩ Continuar sin cambios",
+            transparencyShort: "Transp.",
+            sizeLabel: "Tamaño:"
+        },
+        CN: {
+            open: "打开",
+            copyArt: "复制作品",
+            close: "关闭",
+            stop: "停止",
+            save: "保存",
+            center: "居中",
+            cancel: "取消",
+            transparency: "透明度",
+            passThrough: "穿透点击",
+            brush: "画笔",
+            delay: "延迟",
+            file: "文件",
+            width: "宽度",
+            height: "高度",
+            keepAspect: "保持比例",
+            snap: "对齐",
+            scale: "比例",
+            opacity: "不透明度",
+            filename: "文件名",
+            zoom: "缩放",
+            palette: "调色板",
+            export: "导出",
+            colorsUsed: "使用颜色数",
+            horizontal: "水平",
+            vertical: "垂直",
+            total: "总计",
+            dropHint: "将图像拖到这里 — 将打开像素化设置窗口，或单击 <span class=\"kbd\">📁</span>",
+            keepAspectTitle: "保持纵横比 (开/关)",
+            passThroughTitle: "页面穿透点击 (P)",
+            filePrefix: "文件: ",
+            colorsSuffix: "颜色",
+            selectColor: "选择颜色",
+            brushPrefix: "画笔: ",
+            copyArtTitle: "复制艺术",
+            xLabel: "X",
+            yLabel: "Y",
+            delaySec: "延迟, 秒",
+            secondsSuffix: "s",
+            sourceStats: "来源: — × —",
+            tileStats: "图块: — × —",
+            progressStats: "进度: —/— (失败 0)",
+            pixelizationTitle: "像素化",
+            closeTitle: "关闭",
+            scalingMethod: "图像缩放方法",
+            nearestNeighbor: "最近邻",
+            bilinear: "双线性",
+            lanczos: "Lanczos (高质量)",
+            pixelSize: "像素大小",
+            fullPalette: "完整 (所有颜色)",
+            freeOnly: "仅免费",
+            custom: "自定义",
+            ownedDetected: "拥有的 (检测到)",
+            distance: "距离",
+            srgb: "sRGB",
+            oklab: "OKLab (感知)",
+            dithering: "抖动",
+            none: "无",
+            ordered4: "有序 (Bayer 4×4)",
+            ordered8: "有序 (Bayer 8×8)",
+            fs: "Floyd–Steinberg",
+            atkinson: "Atkinson",
+            ditherStrength: "抖动强度",
+            clear: "🧹 清除",
+            addFree: "🆓 添加免费",
+            selectAll: "🟦 选择所有",
+            importOwned: "🔓 导入拥有的",
+            selectedCount: "已选择: ",
+            paidColor: "— 付费颜色",
+            horizontalStats: "水平: —",
+            verticalStats: "垂直: —",
+            totalStats: "总计: —",
+            exportStats: "导出: — × —",
+            colorsUsedStats: "使用的颜色: —",
+            saveAsFile: "💾 保存为文件",
+            apply: "✅ 应用",
+            skip: "↩ 继续而不更改",
+            transparencyShort: "透明",
+            sizeLabel: "大小:"
+        }
+    };
+
+    function t(key) {
+        const dict = I18N[currentLang] || I18N.EN;
+        return dict[key] || key;
+    }
+
+    let currentLang = localStorage.getItem("overlay_tool_lang") || null;
+
+    function showLanguageSelector() {
+        return new Promise(resolve => {
+            const back = document.createElement("div");
+            back.style.cssText = `
+      position:fixed; inset:0; background:rgba(0,0,0,0.6);
+      display:flex; align-items:center; justify-content:center; z-index:2147483660;`;
+            const modal = document.createElement("div");
+            modal.style.cssText = `
+      background:#1a1f27; color:#fff; border-radius:12px; padding:20px 30px;
+      display:flex; flex-direction:column; align-items:center; gap:14px;
+      font-family:sans-serif; min-width:300px;`;
+            const emoji = document.createElement("div");
+            emoji.style.fontSize = "42px";
+            emoji.textContent = "🌍";
+            modal.appendChild(emoji);
+            const title = document.createElement("div");
+            title.style.fontSize = "18px";
+            title.textContent = "Выберите язык / Select language";
+            modal.appendChild(title);
+
+            const list = document.createElement("div");
+            list.style.display = "flex";
+            list.style.flexWrap = "wrap";
+            list.style.gap = "8px";
+            list.style.justifyContent = "center";
+
+            LANGS.forEach(lang => {
+                const btn = document.createElement("button");
+                btn.style.cssText = `
+        flex:0 0 auto; padding:8px 12px; border-radius:8px; border:1px solid #444;
+        display:flex; align-items:center; gap:6px; background:#262a30; color:#fff;
+        cursor:pointer; font-size:14px;`;
+                btn.innerHTML = `${lang.flag} ${lang.name}`;
+                btn.addEventListener("click", () => {
+                    localStorage.setItem("overlay_tool_lang", lang.code);
+                    currentLang = lang.code;
+                    document.body.removeChild(back);
+                    resolve(lang.code);
+                });
+                list.appendChild(btn);
+            });
+            modal.appendChild(list);
+            back.appendChild(modal);
+            document.body.appendChild(back);
+        });
+    }
+
+    if (!currentLang) {
+        await showLanguageSelector();
+    }
+
     try {
         if (window.__IMG_OVERLAY_TOOL__?.destroy) {
             window.__IMG_OVERLAY_TOOL__.destroy()
@@ -166,7 +739,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         return i
     }
 
-    function checkbox(ch = false) {
+    function checkbox(ch = !1) {
         const c = document.createElement("input");
         c.type = "checkbox";
         c.checked = ch;
@@ -204,7 +777,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     const content = el("div", "content");
     const img = el("img", "the-image");
     const dropHint = el("div", "drop-hint");
-    dropHint.innerHTML = '<div class="box">Перетащите изображение сюда — откроется окно настроек пикселизации, либо нажмите <span class="kbd">📁 Открыть</span></div>';
+    dropHint.innerHTML = '<div class="box">' + t("dropHint") + '</div>';
     content.append(img, dropHint);
     overlay.append(content);
     const brushCursor = el("div", "brush-cursor");
@@ -214,8 +787,13 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     const toolbarRow = el("div", "toolbar-row");
     const title = el("div", "title");
     title.innerHTML = 'Overlay Image <span class="badge">Pixel-perfect</span>';
-    const btnOpen = el("button", "btn", "📁 Открыть");
-    const btnCopyArt = el("button", "btn", "✂️ Копировать арт");
+
+    const btnOpen = el("button", "btn icon", "📁");
+    btnOpen.title = t("open");
+
+    const btnCopyArt = el("button", "btn icon", "✂️");
+    btnCopyArt.title = t("copyArt");
+
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = "image/*";
@@ -226,22 +804,24 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     const hWrap = controlWrap("H");
     const inH = numberInput("240");
     hWrap.append(inH);
-    let lockAspect = true;
+    let lockAspect = !0;
     const btnLock = el("button", "btn icon", "🔒");
-    btnLock.title = "Сохранять пропорции (вкл/выкл)";
+    btnLock.title = t("keepAspectTitle");
     const snapWrap = el("div", "control");
-    const snapCheck = checkbox(true);
-    const snapLabel = el("label", null, "Кратн.");
+    const snapCheck = checkbox(!0);
+    const snapLabel = el("label", null, t("snap"));
     snapWrap.append(snapCheck, snapLabel);
     const scaleView = el("div", "scale", "—");
     const passWrap = el("div", "control");
-    const passCheck = checkbox(false);
-    passCheck.title = "Сквозные клики по странице (P)";
-    const passLabel = el("label", null, "Сквозь");
+    const passCheck = checkbox(!1);
+    passCheck.title = t("passThroughTitle");
+
+    const passLabel = el("label", null, t("passThrough"));
+
     passWrap.append(passCheck, passLabel);
     const transWrap = el("div", "control");
-    const transLabel = el("label", null, "Прозр.");
-    const transCheck = checkbox(true);
+    const transLabel = el("label", null, t("transparencyShort"));
+    const transCheck = checkbox(!0);
     const opacity = document.createElement("input");
     opacity.type = "range";
     opacity.min = "0";
@@ -249,8 +829,13 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     opacity.value = "85";
     const opVal = el("span", "value", "85%");
     transWrap.append(transLabel, transCheck, opacity, opVal);
-    const btnClose = el("button", "btn danger", "✕ Закрыть");
-    const fileChip = chip("Файл: —");
+
+    const btnClose = el("button", "btn danger icon", "✕");
+    btnClose.title = t("close");
+
+
+    const fileChip = chip("—");
+    fileChip.textContent = t("filePrefix") + "—";
     fileChip.style.maxWidth = "220px";
     fileChip.style.whiteSpace = "nowrap";
     fileChip.style.textOverflow = "ellipsis";
@@ -265,20 +850,26 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     const sideHead = el("div", "side-head");
     const sideScroll = el("div", "side-scroll");
     const sideRow = el("div", "side-row");
-    const delayLbl = el("span", null, "Задержка:");
+
+    const delayLbl = el("span", null, t("delay") + ":");
+
     const delayInp = numberInput("5");
     delayInp.style.width = "64px";
     const ms = el("span", null, "мс");
     ms.style.opacity = ".85";
-    const btnStop = el("button", "btn", "■ Стоп");
-    btnStop.title = "Остановить автоклик";
-    const palStat = chip("— цветов");
-    const brushChk = checkbox(false);
-    const brushLbl = el("label", null, "Кисть");
-    const sizeLbl = el("span", null, "Размер:");
+
+    const btnStop = el("button", "btn icon", "■");
+    btnStop.title = t("stop");
+
+    const palStat = chip("— " + t("colorsSuffix"));
+    const brushChk = checkbox(!1);
+
+    const brushLbl = el("label", null, t("brush"));
+
+    const sizeLbl = el("span", null, t("sizeLabel"));
     const brushSizeInp = numberInput("1");
     brushSizeInp.style.width = "56px";
-    const activeChip = chip("Кисть: —");
+    const activeChip = t("brushPrefix") + "—";
     sideRow.append(delayLbl, delayInp, ms, btnStop, palStat, brushChk, brushLbl, sizeLbl, brushSizeInp, activeChip);
     sideScroll.append(sideRow);
     const sfadeL = el("div", "side-fade-left");
@@ -300,10 +891,10 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         barH: 48,
         barGap: 8,
         opacity: .85,
-        transparencyOn: true,
-        passThrough: false,
-        dragging: false,
-        resizing: false,
+        transparencyOn: !0,
+        passThrough: !1,
+        dragging: !1,
+        resizing: !1,
         start: {
             x: 0,
             y: 0,
@@ -322,9 +913,9 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         posSetCache: new Map(),
         paintedByColor: new Map(),
         running: null,
-        brushMode: false,
+        brushMode: !1,
         brushSize: 1,
-        isBrushing: false,
+        isBrushing: !1,
         activeColor: null,
         activeSwatch: null,
         currentURL: null,
@@ -394,7 +985,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             }
         };
         scroller.addEventListener("wheel", onWheel, {
-            passive: false
+            passive: !1
         });
         scroller.addEventListener("scroll", update);
         new ResizeObserver(update).observe(scroller);
@@ -404,7 +995,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     function startDrag(e) {
         if (e.button !== 0) return;
         e.preventDefault();
-        state.dragging = true;
+        state.dragging = !0;
         state.start.x = e.clientX;
         state.start.y = e.clientY;
         state.start.left = state.x;
@@ -422,7 +1013,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     }
 
     function endDrag() {
-        state.dragging = false
+        state.dragging = !1
     }
 
     function applySizeFromInputs(source) {
@@ -460,7 +1051,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     function onResizeDragDown(e) {
         if (e.button !== 0) return;
         e.preventDefault();
-        state.resizing = true;
+        state.resizing = !0;
         state.start.x = e.clientX;
         state.start.y = e.clientY;
         state.start.w = state.w;
@@ -497,7 +1088,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     }
 
     function onResizeDragUp() {
-        state.resizing = false
+        state.resizing = !1
     }
     async function extractPalette() {
         if (!state.iw || !state.ih) return;
@@ -505,9 +1096,9 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         cnv.width = state.iw;
         cnv.height = state.ih;
         const ctx = cnv.getContext("2d", {
-            willReadFrequently: true
+            willReadFrequently: !0
         });
-        ctx.imageSmoothingEnabled = false;
+        ctx.imageSmoothingEnabled = !1;
         ctx.drawImage(img, 0, 0, state.iw, state.ih);
         const imageData = ctx.getImageData(0, 0, state.iw, state.ih);
         state.imageData = imageData;
@@ -540,7 +1131,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
 
     function renderPalette() {
         paletteEl.innerHTML = "";
-        palStat.textContent = state.palette.length ? `${state.palette.length} цветов` : "— цветов";
+        palStat.textContent = state.palette.length ? state.palette.length + " " + t("colorsSuffix") : "— " + t("colorsSuffix");
         for (const c of state.palette) {
             const sw = el("div", "swatch");
             sw.dataset.key = c.key;
@@ -549,13 +1140,13 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             const meta = el("div", "meta");
             const nameText = COLOR_NAME_MAP.get(c.key) || c.hex.toUpperCase();
             const nameEl = el("div", "name", nameText);
-            const cnt = el("div", "cnt", `${c.count} px`);
+            const cnt = el("div", "cnt", c.count + " px");
             meta.append(nameEl, cnt);
             sw.append(box, meta);
-            sw.title = "Выбрать цвет";
+            sw.title = t("selectColor");
             sw.addEventListener("click", () => {
                 if (state.brushMode) {
-                    setActiveColor(c, sw, false, true)
+                    setActiveColor(c, sw, !1, !0)
                 } else {
                     startAutoClick(c)
                 }
@@ -564,7 +1155,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         }
         if (state.activeColor) {
             const sw = [...paletteEl.children].find(x => x.dataset.key === state.activeColor.key);
-            if (sw) setActiveColor(state.activeColor, sw, true, false)
+            if (sw) setActiveColor(state.activeColor, sw, !0, !1)
         }
     }
 
@@ -607,9 +1198,9 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         resizer.style.pointerEvents = "none";
         const target = document.elementFromPoint(x, y);
         const build = (extra = {}) => ({
-            bubbles: true,
-            cancelable: true,
-            composed: true,
+            bubbles: !0,
+            cancelable: !0,
+            composed: !0,
             clientX: x,
             clientY: y,
             screenX: (window.screenX || 0) + x,
@@ -626,7 +1217,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         ...build(),
                         pointerId: 1,
                         pointerType: "mouse",
-                        isPrimary: true,
+                        isPrimary: !0,
                         pressure: 0
                     }));
                     target.dispatchEvent(new PointerEvent("pointerdown", {
@@ -635,7 +1226,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         }),
                         pointerId: 1,
                         pointerType: "mouse",
-                        isPrimary: true,
+                        isPrimary: !0,
                         pressure: .5
                     }))
                 }
@@ -648,7 +1239,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         ...build(),
                         pointerId: 1,
                         pointerType: "mouse",
-                        isPrimary: true,
+                        isPrimary: !0,
                         pressure: 0
                     }))
                 }
@@ -681,7 +1272,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             idx: 0,
             total: positions.length,
             timer: null,
-            running: true,
+            running: !0,
             delay
         };
         state.running = runner;
@@ -705,7 +1296,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     function stopAutoClick() {
         const r = state.running;
         if (!r) return;
-        r.running = false;
+        r.running = !1;
         if (r.timer != null) {
             if (typeof r.timer === "number") clearTimeout(r.timer);
             else cancelAnimationFrame(r.timer)
@@ -720,7 +1311,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
 
     function setActiveColor(color, swatch, silent, reset) {
         state.activeColor = color;
-        activeChip.textContent = "Кисть: " + (COLOR_NAME_MAP.get(color.key) || color.hex.toUpperCase());
+        activeChip.textContent = t("brushPrefix") + (COLOR_NAME_MAP.get(color.key) || color.hex.toUpperCase());
         activeChip.style.borderColor = color.hex;
         brushCursor.style.borderColor = color.hex;
         if (reset) state.paintedByColor.delete(color.key);
@@ -740,14 +1331,14 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         if (on) {
             stopAutoClick();
             overlay.classList.add("brush");
-            passCheck.checked = false;
-            passCheck.disabled = true;
-            state.passThrough = false;
+            passCheck.checked = !1;
+            passCheck.disabled = !0;
+            state.passThrough = !1;
             updatePassThrough();
             brushCursor.style.display = state.activeColor ? "block" : "none"
         } else {
             overlay.classList.remove("brush");
-            passCheck.disabled = false;
+            passCheck.disabled = !1;
             brushCursor.style.display = "none"
         }
     }
@@ -815,7 +1406,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         state.currentFileName = fileName || null;
         img.src = url;
         fileChip.textContent = "Файл: " + (fileName || "—");
-        fileChip.title = fileName || "";
+        fileChip.title = fileName || ""
     }
 
     function createImageElementFromURL(url) {
@@ -824,8 +1415,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             im.decoding = "async";
             im.onload = () => resolve(im);
             im.onerror = reject;
-            im.src = url;
-        });
+            im.src = url
+        })
     }
 
     function downloadBlob(blob, filename) {
@@ -836,7 +1427,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setTimeout(() => URL.revokeObjectURL(u), 1000);
+        setTimeout(() => URL.revokeObjectURL(u), 1000)
     }
 
     function srgb8ToLinear(u) {
@@ -854,11 +1445,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         const l_ = Math.cbrt(Math.max(1e-9, l));
         const m_ = Math.cbrt(Math.max(1e-9, m));
         const s_ = Math.cbrt(Math.max(1e-9, s));
-        return [
-            0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-            1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-            0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
-        ];
+        return [0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_, 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_, 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_]
     }
 
     function sqr(x) {
@@ -911,321 +1498,258 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         [63, 31, 55, 23, 61, 29, 53, 21]
     ];
     const MASTER_COLORS = [{
-            rgb: [0, 0, 0],
-            name: "Black",
-            paid: false
-        },
-        {
-            rgb: [60, 60, 60],
-            name: "Dark Gray",
-            paid: false
-        },
-        {
-            rgb: [120, 120, 120],
-            name: "Gray",
-            paid: false
-        },
-        {
-            rgb: [170, 170, 170],
-            name: "Medium Gray",
-            paid: true
-        },
-        {
-            rgb: [210, 210, 210],
-            name: "Light Gray",
-            paid: false
-        },
-        {
-            rgb: [255, 255, 255],
-            name: "White",
-            paid: false
-        },
-        {
-            rgb: [96, 0, 24],
-            name: "Deep Red",
-            paid: false
-        },
-        {
-            rgb: [165, 14, 30],
-            name: "Dark Red",
-            paid: false
-        },
-        {
-            rgb: [237, 28, 36],
-            name: "Red",
-            paid: false
-        },
-        {
-            rgb: [250, 128, 114],
-            name: "Light Red",
-            paid: true
-        },
-        {
-            rgb: [228, 92, 26],
-            name: "Dark Orange",
-            paid: true
-        },
-        {
-            rgb: [255, 127, 39],
-            name: "Orange",
-            paid: false
-        },
-        {
-            rgb: [246, 170, 9],
-            name: "Gold",
-            paid: false
-        },
-        {
-            rgb: [249, 221, 59],
-            name: "Yellow",
-            paid: false
-        },
-        {
-            rgb: [255, 250, 188],
-            name: "Light Yellow",
-            paid: false
-        },
-        {
-            rgb: [156, 132, 49],
-            name: "Dark Goldenrod",
-            paid: true
-        },
-        {
-            rgb: [197, 173, 49],
-            name: "Goldenrod",
-            paid: true
-        },
-        {
-            rgb: [232, 212, 95],
-            name: "Light Goldenrod",
-            paid: true
-        },
-        {
-            rgb: [74, 107, 58],
-            name: "Dark Olive",
-            paid: true
-        },
-        {
-            rgb: [90, 148, 74],
-            name: "Olive",
-            paid: true
-        },
-        {
-            rgb: [132, 197, 115],
-            name: "Light Olive",
-            paid: true
-        },
-        {
-            rgb: [14, 185, 104],
-            name: "Dark Green",
-            paid: false
-        },
-        {
-            rgb: [19, 230, 123],
-            name: "Green",
-            paid: false
-        },
-        {
-            rgb: [135, 255, 94],
-            name: "Light Green",
-            paid: false
-        },
-        {
-            rgb: [12, 129, 110],
-            name: "Dark Teal",
-            paid: false
-        },
-        {
-            rgb: [16, 174, 166],
-            name: "Teal",
-            paid: false
-        },
-        {
-            rgb: [19, 225, 190],
-            name: "Light Teal",
-            paid: false
-        },
-        {
-            rgb: [15, 121, 159],
-            name: "Dark Cyan",
-            paid: true
-        },
-        {
-            rgb: [96, 247, 242],
-            name: "Cyan",
-            paid: false
-        },
-        {
-            rgb: [187, 250, 242],
-            name: "Light Cyan",
-            paid: true
-        },
-        {
-            rgb: [40, 80, 158],
-            name: "Dark Blue",
-            paid: false
-        },
-        {
-            rgb: [64, 147, 228],
-            name: "Blue",
-            paid: false
-        },
-        {
-            rgb: [125, 199, 255],
-            name: "Light Blue",
-            paid: true
-        },
-        {
-            rgb: [77, 49, 184],
-            name: "Dark Indigo",
-            paid: true
-        },
-        {
-            rgb: [107, 80, 246],
-            name: "Indigo",
-            paid: false
-        },
-        {
-            rgb: [153, 177, 251],
-            name: "Light Indigo",
-            paid: false
-        },
-        {
-            rgb: [74, 66, 132],
-            name: "Dark Slate Blue",
-            paid: true
-        },
-        {
-            rgb: [122, 113, 196],
-            name: "Slate Blue",
-            paid: true
-        },
-        {
-            rgb: [181, 174, 241],
-            name: "Light Slate Blue",
-            paid: true
-        },
-        {
-            rgb: [120, 12, 153],
-            name: "Dark Purple",
-            paid: false
-        },
-        {
-            rgb: [170, 56, 185],
-            name: "Purple",
-            paid: false
-        },
-        {
-            rgb: [224, 159, 249],
-            name: "Light Purple",
-            paid: false
-        },
-        {
-            rgb: [203, 0, 122],
-            name: "Dark Pink",
-            paid: false
-        },
-        {
-            rgb: [236, 31, 128],
-            name: "Pink",
-            paid: false
-        },
-        {
-            rgb: [243, 141, 169],
-            name: "Light Pink",
-            paid: false
-        },
-        {
-            rgb: [155, 82, 73],
-            name: "Dark Peach",
-            paid: true
-        },
-        {
-            rgb: [209, 128, 120],
-            name: "Peach",
-            paid: true
-        },
-        {
-            rgb: [250, 182, 164],
-            name: "Light Peach",
-            paid: true
-        },
-        {
-            rgb: [104, 70, 52],
-            name: "Dark Brown",
-            paid: false
-        },
-        {
-            rgb: [149, 104, 42],
-            name: "Brown",
-            paid: false
-        },
-        {
-            rgb: [219, 164, 99],
-            name: "Light Brown",
-            paid: true
-        },
-        {
-            rgb: [123, 99, 82],
-            name: "Dark Tan",
-            paid: true
-        },
-        {
-            rgb: [156, 132, 107],
-            name: "Tan",
-            paid: true
-        },
-        {
-            rgb: [214, 181, 148],
-            name: "Light Tan",
-            paid: true
-        },
-        {
-            rgb: [209, 128, 81],
-            name: "Dark Beige",
-            paid: true
-        },
-        {
-            rgb: [248, 178, 119],
-            name: "Beige",
-            paid: false
-        },
-        {
-            rgb: [255, 197, 165],
-            name: "Light Beige",
-            paid: true
-        },
-        {
-            rgb: [109, 100, 63],
-            name: "Dark Stone",
-            paid: true
-        },
-        {
-            rgb: [148, 140, 107],
-            name: "Stone",
-            paid: true
-        },
-        {
-            rgb: [205, 197, 158],
-            name: "Light Stone",
-            paid: true
-        },
-        {
-            rgb: [51, 57, 65],
-            name: "Dark Slate",
-            paid: true
-        },
-        {
-            rgb: [109, 117, 141],
-            name: "Slate",
-            paid: true
-        },
-        {
-            rgb: [179, 185, 209],
-            name: "Light Slate",
-            paid: true
-        }
-    ];
+        rgb: [0, 0, 0],
+        name: "Black",
+        paid: !1
+    }, {
+        rgb: [60, 60, 60],
+        name: "Dark Gray",
+        paid: !1
+    }, {
+        rgb: [120, 120, 120],
+        name: "Gray",
+        paid: !1
+    }, {
+        rgb: [170, 170, 170],
+        name: "Medium Gray",
+        paid: !0
+    }, {
+        rgb: [210, 210, 210],
+        name: "Light Gray",
+        paid: !1
+    }, {
+        rgb: [255, 255, 255],
+        name: "White",
+        paid: !1
+    }, {
+        rgb: [96, 0, 24],
+        name: "Deep Red",
+        paid: !1
+    }, {
+        rgb: [165, 14, 30],
+        name: "Dark Red",
+        paid: !1
+    }, {
+        rgb: [237, 28, 36],
+        name: "Red",
+        paid: !1
+    }, {
+        rgb: [250, 128, 114],
+        name: "Light Red",
+        paid: !0
+    }, {
+        rgb: [228, 92, 26],
+        name: "Dark Orange",
+        paid: !0
+    }, {
+        rgb: [255, 127, 39],
+        name: "Orange",
+        paid: !1
+    }, {
+        rgb: [246, 170, 9],
+        name: "Gold",
+        paid: !1
+    }, {
+        rgb: [249, 221, 59],
+        name: "Yellow",
+        paid: !1
+    }, {
+        rgb: [255, 250, 188],
+        name: "Light Yellow",
+        paid: !1
+    }, {
+        rgb: [156, 132, 49],
+        name: "Dark Goldenrod",
+        paid: !0
+    }, {
+        rgb: [197, 173, 49],
+        name: "Goldenrod",
+        paid: !0
+    }, {
+        rgb: [232, 212, 95],
+        name: "Light Goldenrod",
+        paid: !0
+    }, {
+        rgb: [74, 107, 58],
+        name: "Dark Olive",
+        paid: !0
+    }, {
+        rgb: [90, 148, 74],
+        name: "Olive",
+        paid: !0
+    }, {
+        rgb: [132, 197, 115],
+        name: "Light Olive",
+        paid: !0
+    }, {
+        rgb: [14, 185, 104],
+        name: "Dark Green",
+        paid: !1
+    }, {
+        rgb: [19, 230, 123],
+        name: "Green",
+        paid: !1
+    }, {
+        rgb: [135, 255, 94],
+        name: "Light Green",
+        paid: !1
+    }, {
+        rgb: [12, 129, 110],
+        name: "Dark Teal",
+        paid: !1
+    }, {
+        rgb: [16, 174, 166],
+        name: "Teal",
+        paid: !1
+    }, {
+        rgb: [19, 225, 190],
+        name: "Light Teal",
+        paid: !1
+    }, {
+        rgb: [15, 121, 159],
+        name: "Dark Cyan",
+        paid: !0
+    }, {
+        rgb: [96, 247, 242],
+        name: "Cyan",
+        paid: !1
+    }, {
+        rgb: [187, 250, 242],
+        name: "Light Cyan",
+        paid: !0
+    }, {
+        rgb: [40, 80, 158],
+        name: "Dark Blue",
+        paid: !1
+    }, {
+        rgb: [64, 147, 228],
+        name: "Blue",
+        paid: !1
+    }, {
+        rgb: [125, 199, 255],
+        name: "Light Blue",
+        paid: !0
+    }, {
+        rgb: [77, 49, 184],
+        name: "Dark Indigo",
+        paid: !0
+    }, {
+        rgb: [107, 80, 246],
+        name: "Indigo",
+        paid: !1
+    }, {
+        rgb: [153, 177, 251],
+        name: "Light Indigo",
+        paid: !1
+    }, {
+        rgb: [74, 66, 132],
+        name: "Dark Slate Blue",
+        paid: !0
+    }, {
+        rgb: [122, 113, 196],
+        name: "Slate Blue",
+        paid: !0
+    }, {
+        rgb: [181, 174, 241],
+        name: "Light Slate Blue",
+        paid: !0
+    }, {
+        rgb: [120, 12, 153],
+        name: "Dark Purple",
+        paid: !1
+    }, {
+        rgb: [170, 56, 185],
+        name: "Purple",
+        paid: !1
+    }, {
+        rgb: [224, 159, 249],
+        name: "Light Purple",
+        paid: !1
+    }, {
+        rgb: [203, 0, 122],
+        name: "Dark Pink",
+        paid: !1
+    }, {
+        rgb: [236, 31, 128],
+        name: "Pink",
+        paid: !1
+    }, {
+        rgb: [243, 141, 169],
+        name: "Light Pink",
+        paid: !1
+    }, {
+        rgb: [155, 82, 73],
+        name: "Dark Peach",
+        paid: !0
+    }, {
+        rgb: [209, 128, 120],
+        name: "Peach",
+        paid: !0
+    }, {
+        rgb: [250, 182, 164],
+        name: "Light Peach",
+        paid: !0
+    }, {
+        rgb: [104, 70, 52],
+        name: "Dark Brown",
+        paid: !1
+    }, {
+        rgb: [149, 104, 42],
+        name: "Brown",
+        paid: !1
+    }, {
+        rgb: [219, 164, 99],
+        name: "Light Brown",
+        paid: !0
+    }, {
+        rgb: [123, 99, 82],
+        name: "Dark Tan",
+        paid: !0
+    }, {
+        rgb: [156, 132, 107],
+        name: "Tan",
+        paid: !0
+    }, {
+        rgb: [214, 181, 148],
+        name: "Light Tan",
+        paid: !0
+    }, {
+        rgb: [209, 128, 81],
+        name: "Dark Beige",
+        paid: !0
+    }, {
+        rgb: [248, 178, 119],
+        name: "Beige",
+        paid: !1
+    }, {
+        rgb: [255, 197, 165],
+        name: "Light Beige",
+        paid: !0
+    }, {
+        rgb: [109, 100, 63],
+        name: "Dark Stone",
+        paid: !0
+    }, {
+        rgb: [148, 140, 107],
+        name: "Stone",
+        paid: !0
+    }, {
+        rgb: [205, 197, 158],
+        name: "Light Stone",
+        paid: !0
+    }, {
+        rgb: [51, 57, 65],
+        name: "Dark Slate",
+        paid: !0
+    }, {
+        rgb: [109, 117, 141],
+        name: "Slate",
+        paid: !0
+    }, {
+        rgb: [179, 185, 209],
+        name: "Light Slate",
+        paid: !0
+    }];
     const COLOR_NAME_MAP = new Map(MASTER_COLORS.map(c => [rgbKey(c.rgb[0], c.rgb[1], c.rgb[2]), c.name]));
 
     function quantizeAndDitherSmall(sctx, w, h, options) {
@@ -1270,7 +1794,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     out[p + 1] = q[1];
                     out[p + 2] = q[2];
                     out[p + 3] = a;
-                    usedIdx.add(qi);
+                    usedIdx.add(qi)
                 }
             }
         } else if (dither === "fs" || dither === "atkinson") {
@@ -1285,10 +1809,10 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     wr[i] = src[p];
                     wg[i] = src[p + 1];
                     wb[i] = src[p + 2];
-                    wa[i] = src[p + 3];
+                    wa[i] = src[p + 3]
                 }
             }
-            const serp = true;
+            const serp = !0;
             for (let y = 0; y < h; y++) {
                 const leftToRight = !serp || (y % 2 === 0);
                 const xStart = leftToRight ? 0 : w - 1,
@@ -1361,7 +1885,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         add(x - dir, y + 1, w8);
                         add(x, y + 1, w8);
                         add(x + dir, y + 1, w8);
-                        add(x, y + 2, w8);
+                        add(x, y + 2, w8)
                     }
                 }
             }
@@ -1381,7 +1905,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 out[i + 1] = q[1];
                 out[i + 2] = q[2];
                 out[i + 3] = a;
-                usedIdx.add(qi);
+                usedIdx.add(qi)
             }
         }
         img.data.set(out);
@@ -1389,7 +1913,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         return {
             used: usedIdx.size,
             total: pal.length
-        };
+        }
     }
 
     function tileRegex(url) {
@@ -1437,7 +1961,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         return res
                     })
                 };
-                wf.__twrapped = true;
+                wf.__twrapped = !0;
                 window.fetch = wf
             }
         } catch (e) {}
@@ -1458,7 +1982,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     })
                     return send.apply(this, args)
                 };
-                XHR.prototype.__twrapped = true
+                XHR.prototype.__twrapped = !0
             }
         } catch (e) {}
         if (!state.lastTileURL) {
@@ -1471,13 +1995,11 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             const back = el("div", "crop-backdrop");
             const modal = el("div", "crop-modal");
             const head = el("div", "crop-head");
-            const title = el("div", "crop-title", "Копировать арт");
+            const title = el("div", "crop-title", t("copyArtTitle"));
             const btnCloseX = el("button", "btn icon", "✕");
             head.append(title, btnCloseX);
-
             const body = el("div", "crop-body");
             const controls = el("div", "crop-controls");
-
             const rowXY = el("div", "crop-row");
             const lblX = el("label", null, "X");
             const inX = numberInput("0");
@@ -1486,7 +2008,6 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             const inY = numberInput("0");
             inY.style.width = "90px";
             rowXY.append(lblX, inX, lblY, inY);
-
             const rowSizes = el("div", "crop-row");
             const makeSizeBtn = n => {
                 const b = el("button", "crop-btn", `${n}×${n}`);
@@ -1499,9 +2020,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 btn5 = makeSizeBtn(5),
                 btn10 = makeSizeBtn(10);
             rowSizes.append(btn2, btn3, btn4, btn5, btn10);
-
             const rowDelay = el("div", "crop-row");
-            const lblDelay = el("label", null, "Задержка, сек");
+            const lblDelay = el("label", null, t("delaySec"));
             const delay = document.createElement("input");
             delay.type = "range";
             delay.min = "0.2";
@@ -1511,7 +2031,6 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             delay.className = "pixel-slider";
             const delayVal = el("span", "value", "0.5s");
             rowDelay.append(lblDelay, delay, delayVal);
-
             const stats = el("div", "crop-stats");
             const stSrc = el("div", null, "Source: — × —");
             const sMid = el("div", null, "|");
@@ -1523,26 +2042,30 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             sMid2.style.margin = "0 6px";
             const stProg = el("div", null, "Progress: —/— (fail 0)");
             stats.append(stSrc, sMid, stTile, sMid2, stProg);
-
             controls.append(rowXY, rowSizes, rowDelay, stats);
-
             const preview = el("div", "crop-preview");
             const canvas = document.createElement("canvas");
             canvas.className = "crop-canvas";
             const ctx = canvas.getContext("2d", {
-                alpha: true
+                alpha: !0
             });
             const sel = el("div", "sel");
             preview.append(canvas, sel);
-
             const foot = el("div", "crop-foot");
             const zoomLbl = el("div", "crop-zoom", "Zoom: 1×");
-            const btnCenter = el("button", "btn", "🎯 Центр");
-            const spacer = el("div", "spacer");
-            const btnSave = el("button", "btn", "💾 Сохранить PNG");
-            const btnCancel = el("button", "btn danger", "Отмена");
-            foot.append(zoomLbl, btnCenter, spacer, btnSave, btnCancel);
 
+            const btnCenter = el("button", "btn icon", "🎯");
+            btnCenter.title = t("center");
+
+            const spacer = el("div", "spacer");
+
+            const btnSave = el("button", "btn icon", "💾");
+            btnSave.title = t("save");
+
+            const btnCancel = el("button", "btn danger", "✖");
+            btnCancel.title = t("cancel");
+
+            foot.append(zoomLbl, btnCenter, spacer, btnSave, btnCancel);
             modal.append(head, body, foot);
             body.append(controls, preview);
             back.append(modal);
@@ -1551,7 +2074,6 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             function sleep(ms) {
                 return new Promise(r => setTimeout(r, ms))
             }
-
             let origin = "https://backend.wplace.live",
                 sSeg = "s0";
             if (state.lastTileURL) {
@@ -1570,20 +2092,18 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 ih = 0;
             let mosaic = null,
                 mctx = null;
-
             let zoom = 1,
                 baseScale = 1,
                 offX = 0,
                 offY = 0;
             const zoomLevels = [0.5, 1, 2, 3, 4, 5, 10, 20, 30, 40, 50];
-
-            let dragging = false,
-                panMode = false,
+            let dragging = !1,
+                panMode = !1,
                 sx = 0,
                 sy = 0,
                 sox = 0,
                 soy = 0;
-            let selActive = false,
+            let selActive = !1,
                 selStart = {
                     x: 0,
                     y: 0
@@ -1594,7 +2114,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     w: 0,
                     h: 0
                 };
-            let abortLoad = false;
+            let abortLoad = !1;
 
             function draw() {
                 const vw = canvas.width,
@@ -1606,7 +2126,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         drawH = ih * s;
                     const cx = (vw - drawW) / 2 + offX,
                         cy = (vh - drawH) / 2 + offY;
-                    ctx.imageSmoothingEnabled = false;
+                    ctx.imageSmoothingEnabled = !1;
                     ctx.drawImage(mosaic, Math.round(cx), Math.round(cy), Math.round(drawW), Math.round(drawH));
                     if (selBox.w > 0 && selBox.h > 0) {
                         const rx = cx + selBox.x * s,
@@ -1617,10 +2137,10 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         sel.style.left = rx + "px";
                         sel.style.top = ry + "px";
                         sel.style.width = rw + "px";
-                        sel.style.height = rh + "px";
-                    } else sel.style.display = "none";
+                        sel.style.height = rh + "px"
+                    } else sel.style.display = "none"
                 } else sel.style.display = "none";
-                zoomLbl.textContent = `Zoom: ${zoom.toFixed(2)}×`;
+                zoomLbl.textContent = `Zoom: ${zoom.toFixed(2)}×`
             }
 
             function fit(resetZoom) {
@@ -1634,17 +2154,15 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     if (resetZoom) {
                         zoom = 1;
                         offX = 0;
-                        offY = 0;
+                        offY = 0
                     }
                 }
-                draw();
+                draw()
             }
 
             function zoomAt(mx, my, nz) {
                 if (!mosaic) return;
-                const idx = zoomLevels.reduce((best, i, cur) =>
-                    Math.abs(zoomLevels[cur] - nz) < Math.abs(zoomLevels[best] - nz) ? cur : best, 0
-                );
+                const idx = zoomLevels.reduce((best, i, cur) => Math.abs(zoomLevels[cur] - nz) < Math.abs(zoomLevels[best] - nz) ? cur : best, 0);
                 const z2 = zoomLevels[idx];
                 const vw = canvas.width,
                     vh = canvas.height;
@@ -1659,7 +2177,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 offX = sx1 - (vw - iw * ns) / 2;
                 offY = sy1 - (vh - ih * ns) / 2;
                 zoom = z2;
-                draw();
+                draw()
             }
 
             function viewToImg(px, py) {
@@ -1676,16 +2194,14 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     inside: ix >= 0 && iy >= 0 && ix < iw && iy < ih
                 }
             }
-
-            const roPrev = new ResizeObserver(() => fit(false));
+            const roPrev = new ResizeObserver(() => fit(!1));
             roPrev.observe(preview);
-
             preview.addEventListener("pointerdown", (e) => {
                 if (!mosaic) return;
                 const rect = preview.getBoundingClientRect();
                 if (e.button === 2) {
-                    panMode = true;
-                    dragging = true;
+                    panMode = !0;
+                    dragging = !0;
                     sx = e.clientX;
                     sy = e.clientY;
                     sox = offX;
@@ -1697,8 +2213,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 if (e.button === 0) {
                     const pt = viewToImg(e.clientX - rect.left, e.clientY - rect.top);
                     if (pt.inside) {
-                        selActive = true;
-                        dragging = true;
+                        selActive = !0;
+                        dragging = !0;
                         selStart = {
                             x: Math.floor(pt.x),
                             y: Math.floor(pt.y)
@@ -1710,11 +2226,10 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                             h: 0
                         };
                         preview.setPointerCapture?.(e.pointerId);
-                        e.preventDefault();
+                        e.preventDefault()
                     }
                 }
             });
-
             preview.addEventListener("pointermove", (e) => {
                 if (!mosaic) return;
                 if (panMode && dragging) {
@@ -1738,39 +2253,35 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         w: x1 - x0 + 1,
                         h: y1 - y0 + 1
                     };
-                    draw();
+                    draw()
                 }
             });
-
             preview.addEventListener("pointerup", () => {
-                dragging = false;
-                selActive = false;
-                panMode = false
+                dragging = !1;
+                selActive = !1;
+                panMode = !1
             });
             preview.addEventListener("contextmenu", e => e.preventDefault());
-
             preview.addEventListener("wheel", (e) => {
                 e.preventDefault();
                 if (!mosaic) return;
                 const rect = preview.getBoundingClientRect();
                 const mx = e.clientX - rect.left,
                     my = e.clientY - rect.top;
-
                 let curIdx = zoomLevels.reduce((best, i, cur) => Math.abs(zoomLevels[cur] - zoom) < Math.abs(zoomLevels[best] - zoom) ? cur : best, 0);
-                const dir = e.deltaY > 0 ? -1 : 1; 
+                const dir = e.deltaY > 0 ? -1 : 1;
                 let nextIdx = Math.max(0, Math.min(zoomLevels.length - 1, curIdx + dir));
                 const nz = zoomLevels[nextIdx];
-                zoomAt(mx, my, nz);
+                zoomAt(mx, my, nz)
             }, {
-                passive: false
+                passive: !1
             });
-
             btnCenter.addEventListener("click", () => {
                 if (!mosaic) return;
                 zoom = 1;
                 offX = 0;
                 offY = 0;
-                draw();
+                draw()
             });
 
             function buildTileURL(x, y) {
@@ -1787,8 +2298,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     const im = new Image();
                     im.onload = () => resolve(im);
                     im.onerror = reject;
-                    im.src = URL.createObjectURL(blob);
-                });
+                    im.src = URL.createObjectURL(blob)
+                })
             }
             async function fetchTileWithRetry(url, attempts, baseDelayMs) {
                 let d = baseDelayMs;
@@ -1804,7 +2315,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 }
             }
             async function loadMosaic(centerX, centerY, n) {
-                abortLoad = false;
+                abortLoad = !1;
                 const delaySec = Math.max(0.2, Math.min(5, parseFloat(delay.value) || 0.5));
                 const startX = centerX - Math.floor(n / 2),
                     startY = centerY - Math.floor(n / 2);
@@ -1836,30 +2347,29 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                                 mosaic.width = iw;
                                 mosaic.height = ih;
                                 mctx = mosaic.getContext("2d");
-                                mctx.imageSmoothingEnabled = false;
+                                mctx.imageSmoothingEnabled = !1;
                                 stSrc.textContent = `Source: ${iw} × ${ih}`;
                                 stTile.textContent = `Tile: ${tileW} × ${tileH}`;
-                                fit(true)
+                                fit(!0)
                             }
                             mctx.drawImage(im, c * tileW, r * tileH);
                             URL.revokeObjectURL(im.src);
-                            success++;
+                            success++
                         } catch (e) {
                             fail++;
                             if (mctx && tileW && tileH) {
                                 mctx.fillStyle = "rgba(255,255,255,0.06)";
                                 mctx.fillRect(c * tileW, r * tileH, tileW, tileH);
                                 mctx.strokeStyle = "rgba(255,255,255,0.12)";
-                                mctx.strokeRect(c * tileW + 0.5, r * tileH + 0.5, tileW - 1, tileH - 1);
+                                mctx.strokeRect(c * tileW + 0.5, r * tileH + 0.5, tileW - 1, tileH - 1)
                             }
                         }
                         stProg.textContent = `Progress: ${success+fail}/${total} (fail ${fail})`;
                         draw();
-                        await sleep(delaySec * 1000);
+                        await sleep(delaySec * 1000)
                     }
                 }
             }
-
             delay.addEventListener("input", () => {
                 delayVal.textContent = `${parseFloat(delay.value).toFixed(1)}s`
             });
@@ -1868,10 +2378,9 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     const cx = Math.max(0, Math.round(+inX.value || 0));
                     const cy = Math.max(0, Math.round(+inY.value || 0));
                     nSize = parseInt(b.dataset.n, 10);
-                    await loadMosaic(cx, cy, nSize);
+                    await loadMosaic(cx, cy, nSize)
                 })
             });
-
             btnSave.addEventListener("click", async () => {
                 if (!mosaic || selBox.w <= 0 || selBox.h <= 0) {
                     alert("Нет выделения или изображение не загружено");
@@ -1881,14 +2390,13 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 out.width = selBox.w;
                 out.height = selBox.h;
                 const octx = out.getContext("2d");
-                octx.imageSmoothingEnabled = false;
+                octx.imageSmoothingEnabled = !1;
                 octx.drawImage(mosaic, selBox.x, selBox.y, selBox.w, selBox.h, 0, 0, out.width, out.height);
                 const blob = await new Promise(res => out.toBlob(b => res(b), "image/png", 1));
                 if (blob) downloadBlob(blob, `art_${selBox.w}x${selBox.h}.png`);
             });
-
             const close = () => {
-                abortLoad = true;
+                abortLoad = !0;
                 try {
                     roPrev.disconnect()
                 } catch (e) {};
@@ -1901,11 +2409,9 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             };
             btnCancel.addEventListener("click", close);
             btnCloseX.addEventListener("click", close);
-
-            fit(true);
-        });
+            fit(!0)
+        })
     }
-
     async function openPixelArtDialog(file) {
         return new Promise(async (resolve) => {
             const fileURL = URL.createObjectURL(file);
@@ -1917,12 +2423,12 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 try {
                     bitmap = await createImageBitmap(file);
                     ow = bitmap.width;
-                    oh = bitmap.height;
+                    oh = bitmap.height
                 } catch (e) {
                     try {
                         imEl = await createImageElementFromURL(fileURL);
                         ow = imEl.naturalWidth;
-                        oh = imEl.naturalHeight;
+                        oh = imEl.naturalHeight
                     } catch (err) {}
                 }
             }
@@ -1933,20 +2439,18 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 } catch (e) {}
                 return resolve({
                     action: "cancel"
-                });
+                })
             }
             const back = el("div", "pixel-backdrop");
             const modal = el("div", "pixel-modal");
             const head = el("div", "pixel-head");
-            const t = el("div", "pixel-title", "Пикселизация");
+            const t = el("div", "pixel-title", t("pixelizationTitle"));
             const fname = el("div", "pixel-filename", file.name || "image");
             const btnX = el("button", "btn icon", "✕");
             btnX.title = "Закрыть";
             head.append(t, fname, btnX);
-
             const body = el("div", "pixel-body");
             const controls = el("div", "pixel-controls");
-
             const rowScale = el("div", "pixel-row");
             const lblScale = el("label", null, "Image Scaling Method");
             const method = document.createElement("select");
@@ -1957,7 +2461,6 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
       <option value="lanczos">Lanczos (High Quality)</option>
     `;
             rowScale.append(lblScale, method);
-
             const rowPx = el("div", "pixel-row");
             const lblPx = el("label", null, "Pixel Size");
             const slider = document.createElement("input");
@@ -1968,7 +2471,6 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             slider.className = "pixel-slider";
             const pxVal = el("span", "value", "14");
             rowPx.append(lblPx, slider, pxVal);
-
             const rowQuant = el("div", "pixel-row");
             const lblQuant = el("label", null, "Palette");
             const quant = document.createElement("select");
@@ -1980,14 +2482,12 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
       <option value="owned">Owned (detected)</option>
     `;
             rowQuant.append(lblQuant, quant);
-
             const rowSpace = el("div", "pixel-row");
             const lblSpace = el("label", null, "Distance");
             const space = document.createElement("select");
             space.className = "pixel-select";
             space.innerHTML = `<option value="srgb">sRGB</option><option value="oklab">OKLab (perceptual)</option>`;
             rowSpace.append(lblSpace, space);
-
             const rowDith = el("div", "pixel-row");
             const lblDith = el("label", null, "Dithering");
             const dith = document.createElement("select");
@@ -2000,7 +2500,6 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
       <option value="atkinson">Atkinson</option>
     `;
             rowDith.append(lblDith, dith);
-
             const rowDithStr = el("div", "pixel-row");
             const lblDithStr = el("label", null, "Dither Strength");
             const dithStr = document.createElement("input");
@@ -2011,7 +2510,6 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             dithStr.className = "pixel-slider";
             const dithVal = el("span", "value", "70");
             rowDithStr.append(lblDithStr, dithStr, dithVal);
-
             const customPanel = el("div", "custom-panel hidden");
             const actions = el("div", "custom-actions");
             const btnClear = el("button", "btn", "🧹 Очистить");
@@ -2026,7 +2524,6 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             legend.append(lockIcon, el("span", null, "— платный цвет"));
             const grid = el("div", "color-grid");
             customPanel.append(actions, legend, grid);
-
             const stats = el("div", "pixel-stats");
             const stH = el("div", null, "Horizontal: —");
             const s1 = el("div", null, "|");
@@ -2046,45 +2543,37 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             s4.style.margin = "0 6px";
             const stC = el("div", null, "Colors used: —");
             stats.append(stH, s1, stV, s2, stT, s3, stExport, s4, stC);
-
             controls.append(rowScale, rowPx, rowQuant, rowSpace, rowDith, rowDithStr, customPanel, stats);
-
             const preview = el("div", "pixel-preview");
             const canvas = document.createElement("canvas");
             canvas.className = "pixel-canvas";
             const ctx = canvas.getContext("2d", {
-                alpha: true
+                alpha: !0
             });
             preview.append(canvas);
-
             body.append(controls, preview);
-
             const foot = el("div", "pixel-foot");
             const zoomLbl = el("div", "pixel-zoom", "Zoom: 1×");
             const spacer = el("div", "spacer");
-            const btnSave = el("button", "btn", "💾 Сохранить как файл");
-            const btnApply = el("button", "btn primary", "✅ Применить");
-            const btnSkip = el("button", "btn", "↩ Продолжить без изменений");
-            const btnCancel = el("button", "btn danger", "Отмена");
+            const btnSave = el("button", "btn", t("saveAsFile"));
+            const btnApply = el("button", "btn primary", t("apply"));
+            const btnSkip = el("button", "btn", t("skip"));
+            const btnCancel = el("button", "btn danger", t("cancel"));
             foot.append(zoomLbl, spacer, btnSave, btnApply, btnSkip, btnCancel);
-
             modal.append(head, body, foot);
             back.append(modal);
             shadow.append(back);
-
             const small = document.createElement("canvas");
             const sctx = small.getContext("2d", {
-                willReadFrequently: true
+                willReadFrequently: !0
             });
-
             let pixelSize = Math.max(1, Math.min(parseInt(slider.max, 10) || 14, 14));
             slider.value = String(pixelSize);
             pxVal.textContent = String(pixelSize);
             let dwnW = 0,
                 dwnH = 0;
-
             let selectedCustom = new Set();
-            let customInit = false;
+            let customInit = !1;
 
             function updateSelInfo() {
                 selInfo.textContent = "Выбрано: " + selectedCustom.size
@@ -2106,18 +2595,18 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                         const lock = document.createElement("span");
                         lock.className = "lock";
                         lock.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor"><path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-720v80h40q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm0-80h480v-400H240v400Zm240-120q33 0 56.5-23.5T560-360q0-33-23.5-56.5T480-440q-33 0-56.5 23.5T400-360q0 33 23.5 56.5T480-280ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80Z"></path></svg>';
-                        btn.append(lock);
+                        btn.append(lock)
                     }
                     btn.addEventListener("click", () => {
                         if (selectedCustom.has(idx)) selectedCustom.delete(idx);
                         else selectedCustom.add(idx);
                         btn.classList.toggle("selected");
                         updateSelInfo();
-                        fullRecalc();
+                        fullRecalc()
                     });
-                    grid.append(btn);
+                    grid.append(btn)
                 });
-                updateSelInfo();
+                updateSelInfo()
             }
 
             function selectFree() {
@@ -2126,20 +2615,20 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     if (!c.paid) selectedCustom.add(idx)
                 });
                 updateSelInfo();
-                renderColorGrid();
+                renderColorGrid()
             }
 
             function selectAllColors() {
                 selectedCustom.clear();
                 MASTER_COLORS.forEach((c, idx) => selectedCustom.add(idx));
                 updateSelInfo();
-                renderColorGrid();
+                renderColorGrid()
             }
 
             function clearCustom() {
                 selectedCustom.clear();
                 updateSelInfo();
-                renderColorGrid();
+                renderColorGrid()
             }
 
             function importOwnedToCustom() {
@@ -2149,9 +2638,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     if (!c.paid) selectedCustom.add(idx)
                 });
                 updateSelInfo();
-                renderColorGrid();
+                renderColorGrid()
             }
-
             const btnClearRef = btnClear,
                 btnAddFreeRef = btnAddFree,
                 btnSelectAllRef = btnSelectAll,
@@ -2182,7 +2670,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 if (isCustom && !customInit) {
                     selectFree();
                     renderColorGrid();
-                    customInit = true
+                    customInit = !0
                 }
             }
 
@@ -2205,23 +2693,23 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 stH.textContent = "Horizontal: " + dwnW;
                 stV.textContent = "Vertical: " + dwnH;
                 stT.textContent = "Total: " + (dwnW * dwnH).toLocaleString("ru-RU");
-                stExport.textContent = `Export: ${dwnW} × ${dwnH}`;
+                stExport.textContent = `Export: ${dwnW} × ${dwnH}`
             }
 
             function getPaletteForMode() {
                 if (quant.value === "full") {
-                    return MASTER_COLORS.map(c => c.rgb);
+                    return MASTER_COLORS.map(c => c.rgb)
                 } else if (quant.value === "free") {
-                    return MASTER_COLORS.filter(c => !c.paid).map(c => c.rgb);
+                    return MASTER_COLORS.filter(c => !c.paid).map(c => c.rgb)
                 } else if (quant.value === "custom") {
                     const arr = [];
                     selectedCustom.forEach(idx => {
                         const c = MASTER_COLORS[idx];
                         if (c) arr.push(c.rgb)
                     });
-                    return arr;
+                    return arr
                 } else if (quant.value === "owned") {
-                    return MASTER_COLORS.filter(c => !c.paid).map(c => c.rgb);
+                    return MASTER_COLORS.filter(c => !c.paid).map(c => c.rgb)
                 }
                 return MASTER_COLORS.map(c => c.rgb)
             }
@@ -2241,9 +2729,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     dither: dith.value,
                     ditherStrength: (Math.max(0, Math.min(100, Number(dithStr.value) || 70))) / 100
                 });
-                stC.textContent = `Colors used: ${used}/${total}`;
+                stC.textContent = `Colors used: ${used}/${total}`
             }
-
             let zoom2 = 1,
                 minZoom2 = 1,
                 maxZoom2 = 40,
@@ -2259,7 +2746,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 const fit = Math.max(1, Math.floor(Math.min(vw / dwnW, vh / dwnH)));
                 if (zoom2 < fit) zoom2 = fit;
                 minZoom2 = fit;
-                render();
+                render()
             }
 
             function render() {
@@ -2270,34 +2757,33 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     drawH = dwnH * zoom2;
                 const cx = (vw - drawW) / 2 + offX2,
                     cy = (vh - drawH) / 2 + offY2;
-                ctx.imageSmoothingEnabled = false;
+                ctx.imageSmoothingEnabled = !1;
                 ctx.drawImage(small, 0, 0, dwnW, dwnH, Math.round(cx), Math.round(cy), Math.round(drawW), Math.round(drawH));
-                zoomLbl.textContent = `Zoom: ${zoom2}×`;
+                zoomLbl.textContent = `Zoom: ${zoom2}×`
             }
             const roPrev = new ResizeObserver(() => fitAndRender());
             roPrev.observe(preview);
-
-            let dragging2 = false,
+            let dragging2 = !1,
                 sx2 = 0,
                 sy2 = 0,
                 sox2 = 0,
                 soy2 = 0;
             preview.addEventListener("pointerdown", (e) => {
-                dragging2 = true;
+                dragging2 = !0;
                 preview.setPointerCapture?.(e.pointerId);
                 sx2 = e.clientX;
                 sy2 = e.clientY;
                 sox2 = offX2;
-                soy2 = offY2;
+                soy2 = offY2
             });
             preview.addEventListener("pointermove", (e) => {
                 if (!dragging2) return;
                 offX2 = sox2 + (e.clientX - sx2);
                 offY2 = soy2 + (e.clientY - sy2);
-                render();
+                render()
             });
             preview.addEventListener("pointerup", () => {
-                dragging2 = false
+                dragging2 = !1
             });
             preview.addEventListener("wheel", (e) => {
                 e.preventDefault();
@@ -2311,10 +2797,10 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     offX2 = (offX2 - mx) * k + mx;
                     offY2 = (offY2 - my) * k + my;
                     zoom2 = nz;
-                    render();
+                    render()
                 }
             }, {
-                passive: false
+                passive: !1
             });
             preview.addEventListener("dblclick", () => {
                 offX2 = 0;
@@ -2326,9 +2812,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             function fullRecalc() {
                 resizeSmall();
                 processQuantAndDither();
-                fitAndRender();
+                fitAndRender()
             }
-
             quant.value = "full";
             applyUIState();
             slider.addEventListener("input", () => {
@@ -2351,11 +2836,9 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 dithVal.textContent = dithStr.value;
                 fullRecalc()
             });
-
             async function buildPixelatedBlob() {
                 return new Promise(res => small.toBlob(b => res(b), "image/png", 1))
             }
-
             btnSave.addEventListener("click", async () => {
                 const blob = await buildPixelatedBlob();
                 if (blob) downloadBlob(blob, (file.name || "image").replace(/\.(\w+)$/, "") + `_grid${dwnW}x${dwnH}.png`);
@@ -2375,16 +2858,15 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                 cleanup();
                 resolve({
                     action: "apply"
-                });
+                })
             });
             btnSkip.addEventListener("click", () => {
                 setImageURL(fileURL, file.name || "image");
-                cleanup(false);
+                cleanup(!1);
                 resolve({
                     action: "skip"
-                });
+                })
             });
-
             const close = () => {
                 cleanup();
                 resolve({
@@ -2394,7 +2876,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             btnCancel.addEventListener("click", close);
             btnX.addEventListener("click", close);
 
-            function cleanup(revoke = true) {
+            function cleanup(revoke = !0) {
                 try {
                     roPrev.disconnect()
                 } catch (e) {}
@@ -2410,8 +2892,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
                     } catch (e) {}
                 }
             }
-            fullRecalc();
-        });
+            fullRecalc()
+        })
     }
     applyOpacity();
     updateOpLabel();
@@ -2434,7 +2916,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
     overlay.addEventListener("pointerdown", (e) => {
         if (e.button === 0 && state.brushMode) {
             e.preventDefault();
-            state.isBrushing = true;
+            state.isBrushing = !0;
             brushPaintAt(e.clientX, e.clientY);
             overlay.setPointerCapture?.(e.pointerId)
         } else if (e.button === 0 && e.shiftKey) {
@@ -2442,7 +2924,7 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         }
     });
     overlay.addEventListener("pointerup", () => {
-        state.isBrushing = false;
+        state.isBrushing = !1
     });
     resizer.addEventListener("pointerdown", onResizeDragDown);
     resizer.addEventListener("pointermove", onResizeDragMove);
@@ -2493,8 +2975,8 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             state.h = Math.max(1, state.ih);
             state.x = clamp(state.x, 8, Math.max(8, window.innerWidth - state.w - 8));
             state.y = clamp(state.y, 8 + state.barH + state.barGap, Math.max(8 + state.barH + state.barGap, window.innerHeight - state.h - 8));
-            snapCheck.checked = true;
-            lockAspect = true;
+            snapCheck.checked = !0;
+            lockAspect = !0;
             btnLock.textContent = "🔒";
             syncUI()
         }
@@ -2556,10 +3038,10 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
             api.destroy()
         }
     };
-    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("keydown", onKey, !0);
     api.destroy = () => {
         try {
-            document.removeEventListener("keydown", onKey, true)
+            document.removeEventListener("keydown", onKey, !0)
         } catch (e) {}
         try {
             ro.disconnect()
@@ -2579,5 +3061,5 @@ input[type=color]{width:32px;height:28px;padding:0;border:1px solid #3a3f47;bord
         installTileSniffer()
     })();
     makeHScroll(toolbar, toolbarScroll, fadeL, fadeR);
-    makeHScroll(sideHead, sideScroll, sfadeL, sfadeR);
-})();
+    makeHScroll(sideHead, sideScroll, sfadeL, sfadeR)
+})()
