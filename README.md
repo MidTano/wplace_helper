@@ -18,7 +18,7 @@
 
 
 <p align="center">
-  <img width="80%" alt="Смотреть демо на YouTube"src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
+  <img width="80%" alt="demo"src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
 </p>
 
 

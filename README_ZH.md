@@ -15,9 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=YOUR_VIDEO_ID" target="_blank">
-    <img width="80%" alt="在 YouTube 上观看演示" src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
-  </a>
+  <img width="80%" alt="demo"src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
 </p>
 
 <p align="center">
