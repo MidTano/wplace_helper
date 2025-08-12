@@ -18,9 +18,7 @@
 
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=ТВОЙ_ID_ВИДЕО" target="_blank">
-    <img width="80%" alt="Смотреть демо на YouTube"src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
-  </a>
+  <img width="80%" alt="Смотреть демо на YouTube"src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
 </p>
 
 
