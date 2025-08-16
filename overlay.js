@@ -114,7 +114,13 @@
             pcPreviewTitle: "Показать улучшеные цвета",
             selectLanguageTitle: "Выберите язык",
             autoSelectTitle: "Автовыбор",
-            calibrationTitle: "Калибровка"
+            calibrationTitle: "Калибровка",
+            startupTitle: "Требуется доступ к этой вкладке",
+            startupBody: "Этому инструменту нужно разрешение на захват экрана окна/вкладки, где он запущен, чтобы корректно кликать по пикселям.",
+            ok: "ОК",
+            giveAccess: "Понял / Дать доступ",
+            accessActive: "Доступ активен",
+            hintAccessRequired: "Нужно дать доступ к экрану"
         },
         EN: {
             open: "Open",
@@ -207,7 +213,13 @@
             pcPreviewTitle: "Show improved colors",
             selectLanguageTitle: "Select language",
             autoSelectTitle: "Auto select",
-            calibrationTitle: "Calibration"
+            calibrationTitle: "Calibration",
+            startupTitle: "Access to this tab is required",
+            startupBody: "This tool needs permission to capture the window/tab where it runs to auto‑click pixels correctly.",
+            ok: "OK",
+            giveAccess: "Give access",
+            accessActive: "Access active",
+            hintAccessRequired: "You need to grant screen access"
         },
         DE: {
             open: "Öffnen",
@@ -300,7 +312,13 @@
             pcPreviewTitle: "Verbesserte Farben anzeigen",
             selectLanguageTitle: "Sprache wählen",
             autoSelectTitle: "Autoauswahl",
-            calibrationTitle: "Kalibrierung"
+            calibrationTitle: "Kalibrierung",
+            startupTitle: "Zugriff auf diesen Tab erforderlich",
+            startupBody: "Dieses Tool benötigt die Berechtigung, das Fenster/den Tab aufzunehmen, in dem es läuft, um Pixel korrekt automatisch zu klicken.",
+            ok: "OK",
+            giveAccess: "Zugriff geben",
+            accessActive: "Zugriff aktiv",
+            hintAccessRequired: "Bildschirmzugriff muss erteilt werden"
         },
         FR: {
             open: "Ouvrir",
@@ -393,7 +411,13 @@
             pcPreviewTitle: "Afficher les couleurs améliorées",
             selectLanguageTitle: "Choisir la langue",
             autoSelectTitle: "Sélection auto",
-            calibrationTitle: "Étalonnage"
+            calibrationTitle: "Étalonnage",
+            startupTitle: "Accès à cet onglet requis",
+            startupBody: "Cet outil doit pouvoir capturer la fenêtre/onglet où il s’exécute afin de cliquer automatiquement sur les pixels correctement.",
+            ok: "OK",
+            giveAccess: "Donner l’accès",
+            accessActive: "Accès actif",
+            hintAccessRequired: "Vous devez autoriser l’accès à l’écran"
         },
         ES: {
             open: "Abrir",
@@ -486,7 +510,13 @@
             pcPreviewTitle: "Mostrar colores mejorados",
             selectLanguageTitle: "Seleccionar idioma",
             autoSelectTitle: "Selección automática",
-            calibrationTitle: "Calibración"
+            calibrationTitle: "Calibración",
+            startupTitle: "Se requiere acceso a esta pestaña",
+            startupBody: "Esta herramienta necesita permiso para capturar la ventana/pestaña donde se ejecuta para hacer clic automático en píxeles correctamente.",
+            ok: "OK",
+            giveAccess: "Dar acceso",
+            accessActive: "Acceso activo",
+            hintAccessRequired: "Debe otorgar acceso a la pantalla"
         },
         CN: {
             open: "打开",
@@ -579,7 +609,13 @@
             pcPreviewTitle: "显示增强色彩",
             selectLanguageTitle: "选择语言",
             autoSelectTitle: "自动选择",
-            calibrationTitle: "校准"
+            calibrationTitle: "校准",
+            startupTitle: "需要访问此选项卡",
+            startupBody: "该工具需要权限捕获运行所在的窗口/选项卡，以便正确自动点击像素。",
+            ok: "确定",
+            giveAccess: "授予访问权限",
+            accessActive: "访问已启用",
+            hintAccessRequired: "需要授予屏幕访问权限"
         }
     };
 
@@ -724,6 +760,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
   .rbtn:hover{transform:translateY(-1px);background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12)}
   .rbtn.active{background:rgba(125,208,255,.15);border-color:rgba(125,208,255,.35);color:#cfeeff}
   .rbtn.danger{background:#40272c;border-color:#5a2c32;color:#ffc9cf}
+  .rbtn.success{background:#243a2b;border-color:#2d6a3a;color:#b8f6c7}
   /* Rail expanding panels under buttons */
   .rail-panel{width:44px;overflow:hidden;height:0;border:1px solid var(--stroke);border-radius:12px;background:#1a1f27;transition:height .2s ease}
   .rail-panel .panel-body{padding:8px;display:flex;flex-direction:column;align-items:center;gap:8px}
@@ -733,10 +770,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 .swatch:hover{border-color:#4a5260;transform:translateY(-1px)}
 .swatch.active{box-shadow:inset 0 0 0 2px var(--accent);border-color:var(--accent)}
 .swatch .box{width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,.2)}
-.swatch .meta{display:none}
- .swatch::after{display:none}
- .hover-tip{position:fixed;z-index:2147483651;left:0;top:0;background:#0e1117;color:#dfe7f1;border:1px solid #2b313b;border-radius:8px;padding:4px 8px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.45);font-size:11px;display:none}
-.side-foot{border-top:1px solid rgba(255,255,255,.08);padding:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .swatch .meta{display:none}
+  .swatch::after{display:none}
+  .hover-tip{position:fixed;z-index:2147483651;left:0;top:0;background:#0e1117;color:#dfe7f1;border:1px solid #2b313b;border-radius:8px;padding:4px 8px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.45);font-size:11px;display:none}
+  /* Account stats tooltip */
+  .acc-tip{position:fixed;z-index:2147483651;left:0;top:0;background:#0e1117;color:#dfe7f1;border:1px solid #2b313b;border-radius:10px;padding:10px 12px;box-shadow:0 12px 32px rgba(0,0,0,.5);font-size:12px;display:none;max-width:280px}
+  .acc-tip .title{font-weight:700;margin-bottom:6px}
+  .acc-tip .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .acc-tip .muted{opacity:.85;font-size:11px}
+  .side-foot{border-top:1px solid rgba(255,255,255,.08);padding:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .side-foot .stat{margin-left:auto;opacity:.9;color:#cfe4ff;font-weight:600}
 .range-wrap{position:relative;display:inline-block}
 .range-wrap + .value{margin-left:4px}
@@ -755,12 +797,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     shadow.append(style);
     const pixelCss = `
 .pixel-backdrop{position:fixed;inset:0;z-index:2147483650;background:rgba(0,0,0,.45);display:grid;place-items:center}
-.pixel-modal{width:980px;max-width:96vw;height:640px;max-height:92vh;background:var(--ui-strong);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif}
+.pixel-modal{width:auto;max-width:min(420px,96vw);height:auto;max-height:70vh;background:var(--ui-strong);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif}
 .pixel-head{height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.08)}
 .pixel-title{font-weight:700;letter-spacing:.2px}
 .pixel-filename{margin-left:auto;opacity:.9;background:#1f232a;border:1px solid #3a3f47;border-radius:999px;padding:6px 10px;max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pixel-body{flex:1;display:grid;grid-template-columns:360px 1fr;gap:0;min-height:0}
-.pixel-controls{border-right:1px solid rgba(255,255,255,.08);padding:12px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.pixel-body{flex:1;display:flex;flex-direction:column;gap:12px;min-height:0;padding:12px}
+.pixel-controls{border-right:0;padding:0;display:flex;flex-direction:column;gap:12px;overflow:auto}
 .pixel-row{display:flex;align-items:center;gap:8px}
 .pixel-row .value{margin-left:auto;opacity:.9}
 .pixel-select{height:32px;padding:0 10px;border:1px solid #3a3f47;background:#1f232a;color:#e7eef6;border-radius:8px}
@@ -944,6 +986,120 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             hint.style.top = `${Math.max(0, rect.bottom + offset)}px`;
         } catch (_) {}
     }
+    let __accStats = null;
+    let __accPrevStats = null;
+    let __accPerPixelLevel = null;
+    let __accRemainEst = null;
+    let __accLastRemainInt = null;
+    let __accLastPxCount = null;
+    let __accHooked = false;
+
+    function hookNetworkForAccountStats() {
+        if (__accHooked) return;
+        __accHooked = true;
+        try {
+            const ORIG_FETCH = window.fetch?.bind(window);
+            if (ORIG_FETCH) {
+                window.fetch = async function(...args) {
+                    const res = await ORIG_FETCH(...args);
+                    try {
+                        const url = (args && args[0] && (typeof args[0] === 'string' ? args[0] : args[0]?.url)) || '';
+                        if (typeof url === 'string' && url.includes('/me')) {
+                            const clone = res.clone();
+                            clone.json().then(j => {
+                                try {
+                                    __accPrevStats = __accStats;
+                                    __accStats = j;
+                                    const lvlNowRaw = readNum(deepFindKey(j, 'level'));
+                                    const pxNow = deepPickNumberFlex(j, ['pixelsPainted', 'pixels', 'totalPixels', 'paintedPixels']);
+                                    if (__accPrevStats) {
+                                        const lvlPrevRaw = readNum(deepFindKey(__accPrevStats, 'level'));
+                                        const pxPrev = deepPickNumberFlex(__accPrevStats, ['pixelsPainted', 'pixels', 'totalPixels', 'paintedPixels']);
+                                        const dPct = (lvlNowRaw != null && lvlPrevRaw != null) ? ((lvlNowRaw - lvlPrevRaw) * 100) : null;
+                                        const dPx = (pxNow != null && pxPrev != null) ? (pxNow - pxPrev) : null;
+                                        if (dPct != null && dPx != null && dPx > 0 && isFinite(dPct) && dPct > 0) {
+                                            const candidate = dPct / dPx;
+                                            __accPerPixelLevel = (__accPerPixelLevel == null) ? candidate : Math.max(__accPerPixelLevel, candidate);
+                                        }
+                                        if (__accPerPixelLevel != null && lvlNowRaw != null) {
+                                            const pct = levelValueToPercent(lvlNowRaw);
+                                            if (pct != null) {
+                                                let newEst = (100 - pct) / __accPerPixelLevel;
+                                                if (__accRemainEst != null && isFinite(newEst)) {
+                                                    newEst = Math.min(newEst, __accRemainEst - Math.max(0, dPx || 0));
+                                                }
+                                                if (isFinite(newEst)) __accRemainEst = Math.max(0, newEst);
+                                            }
+                                        }
+                                    }
+                                    try {
+                                        console.debug('[acc] /me captured (fetch)', j, {
+                                            perPixelLevel: __accPerPixelLevel,
+                                            remainEst: __accRemainEst
+                                        });
+                                    } catch (_) {}
+                                } catch (_) {}
+                            }).catch(() => {});
+                        }
+                    } catch (_) {}
+                    return res;
+                };
+            }
+        } catch (_) {}
+        try {
+            const ORIG_XHR_OPEN = XMLHttpRequest.prototype.open;
+            const ORIG_XHR_SEND = XMLHttpRequest.prototype.send;
+            XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+                this.__acc_url = url;
+                return ORIG_XHR_OPEN.call(this, method, url, ...rest);
+            };
+            XMLHttpRequest.prototype.send = function(...args) {
+                try {
+                    this.addEventListener('loadend', () => {
+                        try {
+                            const url = this.__acc_url || this.responseURL || '';
+                            if (this.status === 200 && typeof url === 'string' && url.includes('/me')) {
+                                try {
+                                    const j = JSON.parse(this.responseText);
+                                    __accPrevStats = __accStats;
+                                    __accStats = j;
+                                    const lvlNowRaw = readNum(deepFindKey(j, 'level'));
+                                    const pxNow = deepPickNumberFlex(j, ['pixelsPainted', 'pixels', 'totalPixels', 'paintedPixels']);
+                                    if (__accPrevStats) {
+                                        const lvlPrevRaw = readNum(deepFindKey(__accPrevStats, 'level'));
+                                        const pxPrev = deepPickNumberFlex(__accPrevStats, ['pixelsPainted', 'pixels', 'totalPixels', 'paintedPixels']);
+                                        const dPct = (lvlNowRaw != null && lvlPrevRaw != null) ? ((lvlNowRaw - lvlPrevRaw) * 100) : null;
+                                        const dPx = (pxNow != null && pxPrev != null) ? (pxNow - pxPrev) : null;
+                                        if (dPct != null && dPx != null && dPx > 0 && isFinite(dPct) && dPct > 0) {
+                                            const candidate = dPct / dPx;
+                                            __accPerPixelLevel = (__accPerPixelLevel == null) ? candidate : Math.max(__accPerPixelLevel, candidate);
+                                        }
+                                        if (__accPerPixelLevel != null && lvlNowRaw != null) {
+                                            const pct = levelValueToPercent(lvlNowRaw);
+                                            if (pct != null) {
+                                                let newEst = (100 - pct) / __accPerPixelLevel;
+                                                if (__accRemainEst != null && isFinite(newEst)) {
+                                                    newEst = Math.min(newEst, __accRemainEst - Math.max(0, dPx || 0));
+                                                }
+                                                if (isFinite(newEst)) __accRemainEst = Math.max(0, newEst);
+                                            }
+                                        }
+                                    }
+                                    try {
+                                        console.debug('[acc] /me captured (xhr)', j, {
+                                            perPixelLevel: __accPerPixelLevel,
+                                            remainEst: __accRemainEst
+                                        });
+                                    } catch (_) {}
+                                } catch {}
+                            }
+                        } catch {}
+                    });
+                } catch {}
+                return ORIG_XHR_SEND.call(this, ...args);
+            };
+        } catch (_) {}
+    }
 
     let hintTimer = null;
 
@@ -987,7 +1143,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     btnMove.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3V9M12 3L9 6M12 3L15 6M12 15V21M12 21L15 18M12 21L9 18M3 12H9M3 12L6 15M3 12L6 9M15 12H21M21 12L18 9M21 12L18 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     btnMove.title = t("moveModeTitle");
     const btnAcid = el("button", "btn icon");
-    const eyeOpenSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const eyeOpenSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const eyeOffSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19C5 19 1 12 1 12a21.8 21.8 0 0 1 5.06-5.94m3.38-1.57A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.83 21.83 0 0 1-3.06 4.2M1 1l22 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     btnAcid.title = t("acidToggleTitle");
     btnAcid.innerHTML = eyeOpenSvg;
@@ -1016,7 +1172,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
     const spacer = el('div');
     spacer.style.flex = '1';
-    toolbarRow.append(btnOpen, btnAcid, fileChip, spacer, btnClear, btnClose);
+    const btnAcc = el("button", "btn icon");
+    btnAcc.title = "Статистика аккаунта";
+    btnAcc.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    toolbarRow.append(btnAcc, btnOpen, btnAcid, fileChip, spacer, btnClear, btnClose);
     toolbarScroll.append(toolbarRow);
     const fadeL = el("div", "fade-edge fade-left");
     const fadeR = el("div", "fade-edge fade-right");
@@ -1085,16 +1244,16 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     const rAuto = el("button", "rbtn");
     rAuto.title = t("autoSelectTitle");
     rAuto.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-    const rCalib = el("button", "rbtn");
-    rCalib.title = t("calibrationTitle");
-    rCalib.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12h18M12 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>';
+    const rAccess = el("button", "rbtn danger");
+    rAccess.title = t("giveAccess");
+    rAccess.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     const rStop = el("button", "rbtn stop");
     rStop.title = t("stop");
     rStop.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="2"/></svg>';
     const rCopy = el("button", "rbtn");
     rCopy.title = t("copyArt");
-    rCopy.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.15179 15.85L21 4M12.3249 12L8.15 8.15M21 20L15 14.4669M9 6C9 7.65685 7.65685 9 6 9C4.34315 9 3 7.65685 3 6C3 4.34315 4.34315 3 6 3C7.65685 3 9 4.34315 9 6ZM9 18C9 19.6569 7.65685 21 6 21C4.34315 21 3 19.6569 3 18C3 16.3431 4.34315 15 6 15C7.65685 15 9 16.3431 9 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-    rail.append(rClock, rMove, rBrush, rAuto, rCalib, rStop, rCopy);
+    rCopy.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.15179 15.85L21 4M12.3249 12L8.15 8.15M21 20L15 14.4669M9 6C9 7.65685 7.65685 9 6 9C4.34315 9 3 7.65685 3 6C3 4.34315 4.34315 3 6 3C7.65685 3 9 4.34315 9 6ZM9 18C9 19.6569 7.65685 21 6 21C4.34315 21 3 19.6569 3 18C3 16.3431 4.34315 15 6 15C7.65685 15 9 16.3431 9 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    rail.append(rClock, rMove, rBrush, rAuto, rAccess, rStop, rCopy);
     railCol.append(rail);
     const palTitle = el("div", "side-title", t("palette"));
     const paletteEl = el("div", "palette");
@@ -1128,6 +1287,238 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     shadow.append(toolbar, sidebar, fileInput, brushCursor);
     const hoverTip = el("div", "hover-tip");
     shadow.append(hoverTip);
+    const accTip = el("div", "acc-tip");
+    shadow.append(accTip);
+
+    function deepFindKey(obj, key) {
+        try {
+            if (!obj || typeof obj !== 'object') return null;
+            if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+            for (const k of Object.keys(obj)) {
+                const v = obj[k];
+                if (v && typeof v === 'object') {
+                    const found = deepFindKey(v, key);
+                    if (found != null) return found;
+                }
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    function readNum(val) {
+        return (val == null) ? null : (typeof val === 'number' && !Number.isNaN(val)) ? val : (typeof val === 'string' && val.trim() !== '' && !Number.isNaN(+val)) ? (+val) : null;
+    }
+
+    function normalizeKeyName(k) {
+        try {
+            return String(k).replace(/[^a-z0-9]+/gi, '').toLowerCase();
+        } catch (_) {
+            return String(k || '');
+        }
+    }
+
+    function deepPickNumberFlex(obj, names) {
+        const wanted = names.map(normalizeKeyName);
+        const visit = (node) => {
+            if (!node || typeof node !== 'object') return null;
+            for (const [k, v] of Object.entries(node)) {
+                const nk = normalizeKeyName(k);
+                if (wanted.includes(nk)) {
+                    const num = readNum(v);
+                    if (num != null) return num;
+                }
+                if (v && typeof v === 'object') {
+                    const found = visit(v);
+                    if (found != null) return found;
+                }
+            }
+            return null;
+        };
+        return visit(obj);
+    }
+
+    function levelValueToPercent(val) {
+        const n = readNum(val);
+        if (n == null) return null;
+        const base = Math.floor(n);
+        const frac = n - base;
+        return Math.max(0, Math.min(100, frac * 100));
+    }
+
+    function computePixelsToNextLevel(s) {
+        try {
+            const current = deepPickNumberFlex(s, [
+                'pixelsPainted', 'pixels', 'totalPixels', 'paintedPixels',
+                'pixels_painted', 'total_pixels', 'painted_pixels', 'total_placed', 'pixel_count', 'placed'
+            ]);
+            const directRemain = deepPickNumberFlex(s, [
+                'pixelsToNextLevel', 'pixelsRemaining', 'remainingPixels', 'toNextPixels',
+                'pixels_to_next_level', 'pixels_remaining', 'remaining_pixels', 'to_next_pixels', 'pixels_until_next_level', 'remaining_to_next_level'
+            ]);
+            const target = deepPickNumberFlex(s, [
+                'nextLevelPixels', 'nextLevelAt', 'nextLevelThreshold', 'nextLevelGoal', 'levelGoal', 'levelNextRequirement', 'nextLevelRequiredPixels',
+                'next_level_pixels', 'next_level_at', 'next_level_threshold', 'next_level_goal', 'level_goal', 'level_next_requirement', 'next_level_required_pixels', 'pixels_total_for_next_level'
+            ]);
+
+            let remainFloat = null;
+            if (directRemain != null) {
+                remainFloat = directRemain;
+            } else if (__accRemainEst != null) {
+                remainFloat = __accRemainEst;
+            } else {
+
+                const lvlRaw = readNum(deepFindKey(s, 'level'));
+                if (__accPerPixelLevel != null && __accPerPixelLevel > 0 && lvlRaw != null) {
+                    const pct = levelValueToPercent(lvlRaw);
+                    const remPct = 100 - pct;
+                    const est = remPct / __accPerPixelLevel;
+                    if (isFinite(est) && est >= 0) remainFloat = est;
+                } else if (current != null && target != null) {
+                    remainFloat = target - current;
+                }
+            }
+
+
+            let remainInt = (remainFloat != null) ? Math.max(0, Math.ceil(remainFloat)) : null;
+
+
+            const pxNow = current;
+            if (__accLastRemainInt != null && __accLastPxCount != null && pxNow != null) {
+                const dPx = pxNow - __accLastPxCount;
+                if (remainInt != null) {
+                    if (dPx > 0) remainInt = Math.max(0, Math.min(remainInt, __accLastRemainInt - dPx));
+                } else {
+
+                    if (dPx > 0) remainInt = Math.max(0, __accLastRemainInt - dPx);
+                }
+            }
+            if (pxNow != null) __accLastPxCount = pxNow;
+            if (remainInt != null) __accLastRemainInt = remainInt;
+            return remainInt;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function renderAccTip() {
+        accTip.innerHTML = '';
+        const title = el('div', 'title', 'Статистика аккаунта');
+        accTip.appendChild(title);
+        if (!__accStats) {
+            const msg = el('div', 'muted', 'Отправьте пиксель для получения статистики');
+            accTip.appendChild(msg);
+            return;
+        }
+        const s = __accStats;
+        const nameVal = deepFindKey(s, 'name') ?? '—';
+        const chargesObj = deepFindKey(s, 'charges');
+        const chargesMax = (chargesObj && typeof chargesObj === 'object') ? deepFindKey(chargesObj, 'max') : null;
+        const dropletsVal = deepFindKey(s, 'droplets');
+        const pixelsPaintedVal = deepFindKey(s, 'pixelsPainted');
+        const levelRaw = readNum(deepFindKey(s, 'level'));
+        const levelInt = (levelRaw != null) ? Math.floor(Number(levelRaw)) : null;
+        const levelPct = (levelRaw != null) ? levelValueToPercent(levelRaw) : null;
+        const rows = [
+            ['Имя', String(nameVal ?? '—')],
+            ['Заряды (макс)', (chargesMax != null) ? String(chargesMax) : '—'],
+            ['Капли', (dropletsVal != null) ? String(dropletsVal) : '—'],
+            ['Пикселей', (pixelsPaintedVal != null) ? String(pixelsPaintedVal) : '—'],
+            ['Уровень', (levelInt != null && levelPct != null) ? (`${levelInt} (${levelPct.toFixed(1)}%)`) : (levelInt != null ? String(levelInt) : '—')]
+        ];
+        for (const [k, v] of rows) {
+            const row = el('div', 'row');
+            row.append(el('div', null, k), el('div', null, v));
+            accTip.appendChild(row);
+        }
+        const needed = computePixelsToNextLevel(s);
+        const msg = (needed != null) ?
+            `Пикселей до нового уровня: ${needed}` :
+            'Пикселей до нового уровня: — (нет данных от API)';
+        accTip.appendChild(el('div', 'muted', msg));
+    }
+
+    function positionAccTip(btn) {
+        try {
+            const r = btn.getBoundingClientRect();
+            const pad = 8;
+            accTip.style.left = Math.max(8, Math.min(window.innerWidth - 300, r.left)) + 'px';
+            accTip.style.top = Math.max(8, r.bottom + pad) + 'px';
+        } catch {}
+    }
+    let accTipTimer = null;
+
+    function showAccTip() {
+        renderAccTip();
+        positionAccTip(btnAcc);
+        accTip.style.display = 'block';
+    }
+
+    function hideAccTip() {
+        accTip.style.display = 'none';
+    }
+    btnAcc.addEventListener('mouseenter', () => {
+        if (accTipTimer) clearTimeout(accTipTimer);
+        showAccTip();
+    });
+    btnAcc.addEventListener('mouseleave', () => {
+        accTipTimer = setTimeout(hideAccTip, 120);
+    });
+    accTip.addEventListener('mouseenter', () => {
+        if (accTipTimer) clearTimeout(accTipTimer);
+    });
+    accTip.addEventListener('mouseleave', () => {
+        hideAccTip();
+    });
+    hookNetworkForAccountStats();
+
+    function showStartupModal() {
+        try {
+            const back = el("div", "pixel-backdrop");
+            const modal = el("div", "pixel-modal");
+            const head = el("div", "pixel-head");
+            const title = el("div", "pixel-title", t("startupTitle"));
+            head.append(title);
+            const body = el("div", "pixel-body");
+            const controls = el("div", "pixel-controls");
+            const msg = document.createElement("div");
+            msg.style.opacity = ".95";
+            msg.style.lineHeight = "1.4";
+            msg.textContent = t("startupBody");
+            controls.append(msg);
+            body.append(controls);
+            const foot = el("div", "pixel-foot");
+            const spacer = el("div", "spacer");
+            const btnOk = el("button", "btn primary", t("giveAccess"));
+            btnOk.addEventListener("click", async () => {
+                btnOk.disabled = true;
+                let ok = false;
+                try {
+                    ok = await ensureScreenCapture();
+                } catch (_) {}
+                if (ok) {
+                    try {
+                        shadow.removeChild(back);
+                    } catch (_) {}
+                } else {
+                    btnOk.disabled = false;
+                }
+            });
+            foot.append(spacer, btnOk);
+            modal.append(head, body, foot);
+            back.append(modal);
+            shadow.append(back);
+        } catch (_) {}
+    }
+
+    try {
+        setTimeout(() => {
+            try {
+                if (!isScreenCaptureReady()) showStartupModal();
+            } catch (_) {
+                showStartupModal();
+            }
+        }, 0);
+    } catch (_) {}
     const state = {
         x: 80,
         y: 140,
@@ -1575,7 +1966,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             sw.setAttribute("data-tip", `${nameText} • ${c.count} px`);
             sw.append(box);
 
-            sw.addEventListener("click", () => {
+            sw.addEventListener("click", async () => {
                 if (state.brushMode) {
                     setActiveColor(c, sw, false, true);
 
@@ -1594,6 +1985,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         const colorFound = autoPickColorOnPage(COLOR_NAME_MAP.get(c.key) || c.hex.toUpperCase());
                         if (!colorFound) return;
                     }
+                    if (!isScreenCaptureReady()) {
+                        try {
+                            showHint(t('hintAccessRequired'), 2400);
+                        } catch (_) {}
+                        return;
+                    }
+                    try {
+                        await startPreciseCalibration();
+                    } catch (_) {}
                     startAutoClick(c);
                 }
             });
@@ -1746,10 +2146,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }
             stopAutoClick();
         }
-
-        try {
-            await ensureScreenCapture();
-        } catch {}
+        if (!isScreenCaptureReady()) {
+            try {
+                showHint(t('hintAccessRequired'), 2400);
+            } catch (_) {}
+            return;
+        }
 
         let snap = null;
         try {
@@ -1766,7 +2168,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             running: true,
             delay,
             building: true,
-            colorKey: color && color.key ? color.key : null
+            colorKey: color && color.key ? color.key : null,
+
+            buildStartAt: performance.now(),
+            lastBuildProgressAt: performance.now()
         };
         state.running = runner;
         let statTick = 0;
@@ -1868,6 +2273,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     runner.points.push(...batch);
                     runner.total = runner.points.length;
                     updateStat();
+
+                    runner.lastBuildProgressAt = performance.now();
                     batch.length = 0;
                 }
                 if (sy < h) {
@@ -1877,6 +2284,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     scheduleBuildStep();
                 } else {
                     runner.building = false;
+                    runner.lastBuildProgressAt = performance.now();
                 }
             };
             step();
@@ -1886,7 +2294,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
             try {
                 if (document.querySelector('body > div:nth-child(1) > section > ol')) {
-                    /* removed debug */
+
                     stopAutoClick();
                     return;
                 }
@@ -1895,6 +2303,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             if (!runner.running) return;
 
             if (runner.idx >= runner.total) {
+
+                if (runner.building) {
+                    const now = performance.now();
+                    const last = runner.lastBuildProgressAt || runner.buildStartAt || now;
+
+                    if (now - last > 4000) {
+                        runner.building = false;
+                    }
+                }
 
                 if (runner.building) {
                     const latestDelay = Math.max(0, Math.round(Number(delayInp?.value) || 0));
@@ -2079,15 +2496,50 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             screenCtx = screenCanvas.getContext('2d', {
                 willReadFrequently: true
             });
+            try {
+                const tracks = (stream && stream.getVideoTracks) ? stream.getVideoTracks() : [];
+                for (const tr of tracks) {
+                    tr.onended = () => {
+                        try {
+                            const so = screenVideo && screenVideo.srcObject;
+                            if (so && so.getTracks) so.getTracks().forEach(t => {
+                                try {
+                                    t.stop();
+                                } catch (_) {}
+                            });
+                        } catch (_) {}
+                        screenVideo = null;
+                        screenCtx = null;
+                        screenCanvas = null;
+                        try {
+                            updateAccessButtonUI();
+                        } catch (_) {}
+                    };
+                }
+            } catch (_) {}
+            try {
+                updateAccessButtonUI();
+            } catch (_) {}
             return !!screenCtx;
         } catch {
             return false;
         }
     }
 
-    try {
-        ensureScreenCapture();
-    } catch {}
+    function isScreenCaptureReady() {
+        return !!(screenVideo && screenCtx && screenCanvas);
+    }
+
+    function updateAccessButtonUI() {
+        try {
+            const ready = isScreenCaptureReady();
+            if (rAccess) {
+                rAccess.classList.toggle('success', !!ready);
+                rAccess.classList.toggle('danger', !ready);
+                rAccess.title = ready ? t('accessActive') : t('giveAccess');
+            }
+        } catch (_) {}
+    }
 
     function captureScreenSnapshot() {
         if (!screenVideo || !screenCtx || !screenCanvas) return null;
@@ -2167,7 +2619,18 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         const by = Math.max(1, window.innerHeight - margin - 1);
         drawCalMark(CAL_MARK_A_ID, ax, ay, '#ff00ff');
         drawCalMark(CAL_MARK_B_ID, bx, by, '#ff00ff');
-        const ok = await ensureScreenCapture();
+        const ok = isScreenCaptureReady();
+        if (!ok) {
+            if (hint) {
+                try {
+                    hint.textContent = t('hintAccessRequired');
+                } catch (_) {
+                    hint.textContent = 'Нужно дать доступ к экрану';
+                }
+            }
+            removeCalMarks();
+            return;
+        }
         await new Promise(r => setTimeout(r, 120));
         const snap = ok ? captureScreenSnapshot() : null;
         removeCalMarks();
@@ -2450,7 +2913,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             } catch (_) {}
         };
         im.onerror = () => {
-            /* ignore */ };
+            /* ignore */
+        };
         im.src = url;
     }
 
@@ -4296,10 +4760,21 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         autoColorChk.checked = !autoColorChk.checked;
         rAuto.classList.toggle("active", autoColorChk.checked);
     });
-    rCalib.addEventListener("click", async () => {
+    rAccess.addEventListener("click", async () => {
         try {
-            await startPreciseCalibration();
-        } catch {}
+            rAccess.disabled = true;
+            const ok = await ensureScreenCapture();
+            if (!ok) {
+                try {
+                    showHint(t('hintAccessRequired'), 2000);
+                } catch (_) {}
+            }
+        } catch (_) {} finally {
+            rAccess.disabled = false;
+            try {
+                updateAccessButtonUI();
+            } catch (_) {}
+        }
     });
 
     rClock.addEventListener("click", () => {
@@ -4316,11 +4791,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             setPanelOpen(railDelayPanel, false);
         }
         if (!insideBrush && state.brushMode) {
-            /* не сворачиваем при режиме кисти */ }
+            /* не сворачиваем при режиме кисти */
+        }
     }, true);
 
     setTimeout(() => {
         if (autoColorChk.checked) rAuto.classList.add("active");
+        try {
+            updateAccessButtonUI();
+        } catch (_) {}
     }, 0);
     btnClose.addEventListener("click", () => api.destroy());
     btnMove.addEventListener("click", () => setMoveMode(!state.moveMode));
@@ -4499,7 +4978,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }
             octx.putImageData(over, 0, 0);
         } catch {
-            /* ignore */ }
+            /* ignore */
+        }
     }
 
     function applySubtleColorPerturbation(canvas, seedX, seedY) {
@@ -4524,7 +5004,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }
             ctx.putImageData(img, 0, 0);
         } catch {
-            /* ignore */ }
+            /* ignore */
+        }
     }
 
     function applyAcidSurrogateToCanvas(canvas) {
@@ -4552,7 +5033,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }
             ctx.putImageData(img, 0, 0);
         } catch {
-            /* ignore */ }
+            /* ignore */
+        }
     }
 
     function computeIntersectionDrawOnTile(ctx, tileX, tileY) {
@@ -4632,7 +5114,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 } catch (_) {}
                             }
                         } catch {
-                            /* noop */ }
+                            /* noop */
+                        }
                     });
                 }
 
@@ -4737,7 +5220,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     });
                 }
             } catch {
-                /* ignore */ }
+                /* ignore */
+            }
             return response;
         };
     })();
