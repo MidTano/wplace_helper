@@ -13,12 +13,12 @@
 <h1 align="center">🎨 WPlace Overlay Art Helper</h1>
 <p align="center"><em>Инструмент‑оверлей для наложения/пикселизации изображений и быстрого копирования артов</em></p>
 <p align="center">
-  <img src="https://img.shields.io/github/stars/MidTano/wplace_helper?style=for-the-badge" alt="GitHub stars">
+  
 </p>
 
 
 <p align="center">
-  <img width="80%" alt="demo"src="https://github.com/user-attachments/assets/af0a1714-8a89-4374-851f-8bdacbba1129" />
+  <img width="3440" height="1336" alt="{43728919-9EF1-4CC7-92A3-C22CC4A62652}" src="https://github.com/user-attachments/assets/6fa0dcc0-7999-46a9-9b63-024f0debccab" />
 </p>
 
 
@@ -98,7 +98,8 @@ javascript:(async()=>{const u='https://raw.githubusercontent.com/MidTano/wplace_
   - Прогресс кисти для цвета сбрасывается при повторном выборе этого цвета.
 
 ## Пикселизация
-<img width="1233" height="809" alt="{A1F8D140-A3DB-487F-B6F2-862115710D82}" src="https://github.com/user-attachments/assets/f9767323-6c85-4cf9-ab3e-cee6361e1550" />
+<img width="3440" height="1341" alt="{FD7EC058-0862-4849-9149-F516385FAF61}" src="https://github.com/user-attachments/assets/7aae7a9f-1ccd-40d8-ae6e-b57242fc3174" />
+
 
 Откройте через 📁 Открыть (или перетащите изображение) — появится окно “Пикселизация”.
 
@@ -119,7 +120,7 @@ javascript:(async()=>{const u='https://raw.githubusercontent.com/MidTano/wplace_
 - Отмена — закрыть окно.
 
 ## Копировать арт
-<img width="1221" height="797" alt="{FB6080A1-4192-4290-9C5B-A5F2F247ABB3}" src="https://github.com/user-attachments/assets/11f25a54-3b86-4b1d-b77a-f44a2aa029de" />
+<img width="3440" height="1344" alt="{A169857D-331E-4B3B-8EB6-D90CDE3B4E35}" src="https://github.com/user-attachments/assets/ba475e8a-15d1-430c-8704-51a06c9b0580" />
 
 Инструмент для сборки тайлов и вырезания области.
 
