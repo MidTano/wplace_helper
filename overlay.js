@@ -120,7 +120,12 @@
             ok: "ОК",
             giveAccess: "Понял / Дать доступ",
             accessActive: "Доступ активен",
-            hintAccessRequired: "Нужно дать доступ к экрану"
+            hintAccessRequired: "Нужно дать доступ к экрану",
+            timeSpend: "Время",
+            dayShort: "д",
+            hourShort: "ч",
+            minuteShort: "мин",
+            secondShort: "с"
         },
         EN: {
             open: "Open",
@@ -219,7 +224,12 @@
             ok: "OK",
             giveAccess: "Give access",
             accessActive: "Access active",
-            hintAccessRequired: "You need to grant screen access"
+            hintAccessRequired: "You need to grant screen access",
+            timeSpend: "Time",
+            dayShort: "d",
+            hourShort: "h",
+            minuteShort: "min",
+            secondShort: "s"
         },
         DE: {
             open: "Öffnen",
@@ -318,7 +328,12 @@
             ok: "OK",
             giveAccess: "Zugriff geben",
             accessActive: "Zugriff aktiv",
-            hintAccessRequired: "Bildschirmzugriff muss erteilt werden"
+            hintAccessRequired: "Bildschirmzugriff muss erteilt werden",
+            timeSpend: "Zeit",
+            dayShort: "T",
+            hourShort: "Std",
+            minuteShort: "Min",
+            secondShort: "s"
         },
         FR: {
             open: "Ouvrir",
@@ -417,7 +432,12 @@
             ok: "OK",
             giveAccess: "Donner l’accès",
             accessActive: "Accès actif",
-            hintAccessRequired: "Vous devez autoriser l’accès à l’écran"
+            hintAccessRequired: "Vous devez autoriser l’accès à l’écran",
+            timeSpend: "Temps",
+            dayShort: "j",
+            hourShort: "h",
+            minuteShort: "min",
+            secondShort: "s"
         },
         ES: {
             open: "Abrir",
@@ -516,7 +536,12 @@
             ok: "OK",
             giveAccess: "Dar acceso",
             accessActive: "Acceso activo",
-            hintAccessRequired: "Debe otorgar acceso a la pantalla"
+            hintAccessRequired: "Debe otorgar acceso a la pantalla",
+            timeSpend: "Tiempo",
+            dayShort: "d",
+            hourShort: "h",
+            minuteShort: "min",
+            secondShort: "s"
         },
         CN: {
             open: "打开",
@@ -615,7 +640,12 @@
             ok: "确定",
             giveAccess: "授予访问权限",
             accessActive: "访问已启用",
-            hintAccessRequired: "需要授予屏幕访问权限"
+            hintAccessRequired: "需要授予屏幕访问权限",
+            timeSpend: "时间",
+            dayShort: "天",
+            hourShort: "小时",
+            minuteShort: "分钟",
+            secondShort: "秒"
         }
     };
 
@@ -797,12 +827,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     shadow.append(style);
     const pixelCss = `
 .pixel-backdrop{position:fixed;inset:0;z-index:2147483650;background:rgba(0,0,0,.45);display:grid;place-items:center}
-.pixel-modal{width:auto;max-width:min(420px,96vw);height:auto;max-height:70vh;background:var(--ui-strong);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif}
+.pixel-modal{width:980px;max-width:96vw;height:640px;max-height:92vh;background:var(--ui-strong);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif}
 .pixel-head{height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.08)}
 .pixel-title{font-weight:700;letter-spacing:.2px}
 .pixel-filename{margin-left:auto;opacity:.9;background:#1f232a;border:1px solid #3a3f47;border-radius:999px;padding:6px 10px;max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pixel-body{flex:1;display:flex;flex-direction:column;gap:12px;min-height:0;padding:12px}
-.pixel-controls{border-right:0;padding:0;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.pixel-body{flex:1;display:grid;grid-template-columns:360px 1fr;gap:0;min-height:0}
+.pixel-controls{border-right:1px solid rgba(255,255,255,.08);padding:12px;display:flex;flex-direction:column;gap:12px;overflow:auto}
 .pixel-row{display:flex;align-items:center;gap:8px}
 .pixel-row .value{margin-left:auto;opacity:.9}
 .pixel-select{height:32px;padding:0 10px;border:1px solid #3a3f47;background:#1f232a;color:#e7eef6;border-radius:8px}
@@ -819,6 +849,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 .pixel-foot{height:56px;display:flex;align-items:center;gap:8px;padding:0 12px;border-top:1px solid rgba(255,255,255,.08)}
 .pixel-foot .spacer{flex:1}
 .pixel-zoom{opacity:.9}
+
+/* Access/startup modal (separate from pixel editor) */
+.access-backdrop{position:fixed;inset:0;z-index:2147483650;background:rgba(0,0,0,.45);display:grid;place-items:center}
+.access-modal{width:auto;max-width:min(420px,96vw);height:auto;max-height:70vh;background:var(--ui-strong);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif}
+.access-head{height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.08)}
+.access-title{font-weight:700;letter-spacing:.2px}
+.access-body{flex:1;display:flex;flex-direction:column;gap:12px;min-height:0;padding:12px}
+.access-controls{border-right:0;padding:0;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.access-foot{height:56px;display:flex;align-items:center;gap:8px;padding:0 12px;border-top:1px solid rgba(255,255,255,.08)}
 .hidden{display:none !important}
 .custom-panel{border:1px solid rgba(255,255,255,.08);background:#1a1f27;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px}
 .custom-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1473,20 +1512,20 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
     function showStartupModal() {
         try {
-            const back = el("div", "pixel-backdrop");
-            const modal = el("div", "pixel-modal");
-            const head = el("div", "pixel-head");
-            const title = el("div", "pixel-title", t("startupTitle"));
+            const back = el("div", "access-backdrop");
+            const modal = el("div", "access-modal");
+            const head = el("div", "access-head");
+            const title = el("div", "access-title", t("startupTitle"));
             head.append(title);
-            const body = el("div", "pixel-body");
-            const controls = el("div", "pixel-controls");
+            const body = el("div", "access-body");
+            const controls = el("div", "access-controls");
             const msg = document.createElement("div");
             msg.style.opacity = ".95";
             msg.style.lineHeight = "1.4";
             msg.textContent = t("startupBody");
             controls.append(msg);
             body.append(controls);
-            const foot = el("div", "pixel-foot");
+            const foot = el("div", "access-foot");
             const spacer = el("div", "spacer");
             const btnOk = el("button", "btn primary", t("giveAccess"));
             btnOk.addEventListener("click", async () => {
@@ -4211,6 +4250,22 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 fullRecalc();
             });
             rowShrink.append(lblShrink, sliderShrink, shrinkVal);
+
+            const TIME_PER_PIXEL_SECONDS = 30;
+
+            function formatDuration(seconds) {
+                let s = Math.max(0, Math.round(seconds));
+                if (s < 60) return `${s} ${t("secondShort")}`;
+                const days = Math.floor(s / 86400);
+                s -= days * 86400;
+                const hours = Math.floor(s / 3600);
+                s -= hours * 3600;
+                const minutes = Math.ceil(s / 60);
+                if (days > 0) return `${days} ${t("dayShort")} ${hours} ${t("hourShort")}`;
+                if (hours > 0) return `${hours} ${t("hourShort")} ${minutes} ${t("minuteShort")}`;
+                return `${minutes} ${t("minuteShort")}`;
+            }
+
             const stats = el("div", "pixel-stats");
             const stH = el("div", null, t("horizontal") + ": —");
             const s1 = el("div", null, "|");
@@ -4229,7 +4284,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             s4.style.opacity = ".6";
             s4.style.margin = "0 6px";
             const stC = el("div", null, t("colorsUsed") + ": —");
-            stats.append(stH, s1, stV, s2, stT, s3, stExport, s4, stC);
+            const s5 = el("div", null, "|");
+            s5.style.opacity = ".6";
+            s5.style.margin = "0 6px";
+            const stTime = el("div", null, t("timeSpend") + ": —");
+            stats.append(stH, s1, stV, s2, stT, s3, stExport, s4, stC, s5, stTime);
             controls.append(rowScale, rowPx, rowQuant, rowSpace, rowDith, rowDithStr, rowGrow, rowShrink, customPanel, stats);
             const preview = el("div", "pixel-preview");
             const canvas = document.createElement("canvas");
@@ -4421,6 +4480,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 stV.textContent = t("vertical") + ": " + dwnH;
                 stT.textContent = t("total") + ": " + (dwnW * dwnH).toLocaleString("ru-RU");
                 stExport.textContent = `${t("export")}: ${dwnW} × ${dwnH}`
+                const totalPx = dwnW * dwnH;
+                stTime.textContent = `${t("timeSpend")}: ${formatDuration(totalPx * TIME_PER_PIXEL_SECONDS)}`
             }
 
             function getPaletteForMode() {
