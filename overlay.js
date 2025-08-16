@@ -2264,35 +2264,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const h = snap.height;
             const mapCanvas = getMainCanvas();
             const mapRect = mapCanvas ? mapCanvas.getBoundingClientRect() : null;
-            let scanMinX = 0,
-                scanMinY = 0,
-                scanMaxX = w - 1,
-                scanMaxY = h - 1;
-            if (mapRect) {
-                if (calibScaleX && calibScaleY) {
-                    scanMinX = Math.max(0, Math.floor(mapRect.left * calibScaleX + calibOffsetX));
-                    scanMinY = Math.max(0, Math.floor(mapRect.top * calibScaleY + calibOffsetY));
-                    scanMaxX = Math.min(w - 1, Math.ceil(mapRect.right * calibScaleX + calibOffsetX));
-                    scanMaxY = Math.min(h - 1, Math.ceil(mapRect.bottom * calibScaleY + calibOffsetY));
-                } else {
-                    const scaleX = w / Math.max(1, window.innerWidth);
-                    const scaleY = h / Math.max(1, window.innerHeight);
-                    scanMinX = Math.max(0, Math.floor(mapRect.left * scaleX));
-                    scanMinY = Math.max(0, Math.floor(mapRect.top * scaleY));
-                    scanMaxX = Math.min(w - 1, Math.ceil(mapRect.right * scaleX));
-                    scanMaxY = Math.min(h - 1, Math.ceil(mapRect.bottom * scaleY));
-                }
-                if (scanMinX > scanMaxX || scanMinY > scanMaxY) {
-                    scanMinX = 0;
-                    scanMinY = 0;
-                    scanMaxX = w - 1;
-                    scanMaxY = h - 1;
-                }
-            }
             const taken = new Set();
             const batch = [];
             let rowsPerChunk = 60;
-            let sy = scanMinY;
+            let sy = 0;
             const scheduleBuildStep = () => {
                 if (typeof requestIdleCallback === 'function') {
                     requestIdleCallback(() => step());
@@ -2306,10 +2281,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     runner.building = false;
                     return;
                 }
-                const end = Math.min(scanMaxY + 1, sy + rowsPerChunk);
+                const end = Math.min(h, sy + rowsPerChunk);
                 for (; sy < end; sy++) {
                     const row = sy * w * 4;
-                    for (let sx = scanMinX; sx <= scanMaxX; sx++) {
+                    for (let sx = 0; sx < w; sx++) {
                         const i = row + sx * 4;
                         const r = data[i],
                             g = data[i + 1],
@@ -2341,7 +2316,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     runner.lastBuildProgressAt = performance.now();
                     batch.length = 0;
                 }
-                if (sy < scanMaxY + 1) {
+                if (sy < h) {
                     const dur = performance.now() - stepStart;
                     if (dur > 12 && rowsPerChunk > 20) rowsPerChunk = Math.max(20, Math.floor(rowsPerChunk * 0.8));
                     else if (dur < 4 && rowsPerChunk < 160) rowsPerChunk = Math.min(160, Math.floor(rowsPerChunk * 1.25));
@@ -2495,24 +2470,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         return inTree(toolbar) || inTree(sidebar);
     }
 
-    let __captureScratch = null;
-
     function captureViewportSnapshot() {
         try {
             const w = Math.max(1, Math.floor(window.innerWidth));
             const h = Math.max(1, Math.floor(window.innerHeight));
-            const c = (__captureScratch && __captureScratch.width === w && __captureScratch.height === h) ?
-                __captureScratch :
-                (() => {
-                    const nc = document.createElement('canvas');
-                    nc.width = w;
-                    nc.height = h;
-                    __captureScratch = nc;
-                    return nc;
-                })();
-            const ctx = c.getContext('2d', {
-                willReadFrequently: true
-            });
+            const c = document.createElement('canvas');
+            c.width = w;
+            c.height = h;
+            const ctx = c.getContext('2d');
             if (!ctx) return null;
             ctx.imageSmoothingEnabled = false;
             ctx.clearRect(0, 0, w, h);
@@ -3035,92 +3000,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         return x * x
     }
 
-    const __PAL_LUT_CACHE = new Map()
-
-    function __paletteKey(pal) {
-        try {
-            let s = ''
-            for (let i = 0; i < pal.length; i++) {
-                const p = pal[i]
-                s += String.fromCharCode(p[0]) + String.fromCharCode(p[1]) + String.fromCharCode(p[2])
-            }
-            return s
-        } catch {
-            return pal.map(p => p.join(',')).join('|')
-        }
-    }
-
-    function __getOrBuildLUT(pal, useOKLab) {
-        if (!pal || pal.length === 0) return null
-        const key = (useOKLab ? 'ok:' : 'sr:') + __paletteKey(pal)
-        let cached = __PAL_LUT_CACHE.get(key)
-        if (cached) return cached
-        const BIN_BITS = 5
-        const BIN_SIZE = 1 << BIN_BITS
-        const STRIDE = 256 >> BIN_BITS
-        const total = BIN_SIZE * BIN_SIZE * BIN_SIZE
-        const needs16 = pal.length >= 256
-        const lut = needs16 ? new Uint16Array(total) : new Uint8Array(total)
-        let palLabLocal = null
-        if (useOKLab) {
-            palLabLocal = pal.map(p => rgb8ToOKLab(p[0], p[1], p[2]))
-        }
-        let idx = 0
-        for (let ri = 0; ri < BIN_SIZE; ri++) {
-            const rSamp = (ri * STRIDE + (STRIDE >> 1)) | 0
-            for (let gi = 0; gi < BIN_SIZE; gi++) {
-                const gSamp = (gi * STRIDE + (STRIDE >> 1)) | 0
-                for (let bi = 0; bi < BIN_SIZE; bi++) {
-                    const bSamp = (bi * STRIDE + (STRIDE >> 1)) | 0
-                    let best = 0,
-                        bd = Infinity
-                    if (useOKLab) {
-                        const [L, a, b2] = rgb8ToOKLab(rSamp, gSamp, bSamp)
-                        for (let i = 0; i < pal.length; i++) {
-                            const p = palLabLocal[i]
-                            const d = sqr(L - p[0]) + sqr(a - p[1]) + sqr(b2 - p[2])
-                            if (d < bd) {
-                                bd = d;
-                                best = i
-                            }
-                        }
-                    } else {
-                        for (let i = 0; i < pal.length; i++) {
-                            const p = pal[i]
-                            const d = sqr(rSamp - p[0]) + sqr(gSamp - p[1]) + sqr(bSamp - p[2])
-                            if (d < bd) {
-                                bd = d;
-                                best = i
-                            }
-                        }
-                    }
-                    lut[idx++] = best
-                }
-            }
-        }
-        cached = {
-            lut,
-            bits: BIN_BITS
-        }
-        __PAL_LUT_CACHE.set(key, cached)
-        return cached
-    }
-
     function nearestColorIndex(r, g, b, pal, palLab, useOKLab) {
-        try {
-            const lutObj = __getOrBuildLUT(pal, !!useOKLab)
-            if (lutObj && lutObj.lut && lutObj.bits === 5) {
-                const idx = ((r & 255) >>> 3) << 10 | ((g & 255) >>> 3) << 5 | ((b & 255) >>> 3)
-                return lutObj.lut[idx] | 0
-            }
-        } catch {}
         let best = 0,
-            bd = Infinity
+            bd = Infinity;
         if (useOKLab) {
-            const [L, a, b2] = rgb8ToOKLab(r, g, b)
+            const [L, a, b2] = rgb8ToOKLab(r, g, b);
             for (let i = 0; i < pal.length; i++) {
-                const p = palLab ? palLab[i] : rgb8ToOKLab(pal[i][0], pal[i][1], pal[i][2])
-                const d = sqr(L - p[0]) + sqr(a - p[1]) + sqr(b2 - p[2])
+                const p = palLab[i];
+                const d = sqr(L - p[0]) + sqr(a - p[1]) + sqr(b2 - p[2]);
                 if (d < bd) {
                     bd = d;
                     best = i
@@ -3128,8 +3015,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }
         } else {
             for (let i = 0; i < pal.length; i++) {
-                const p = pal[i]
-                const d = sqr(r - p[0]) + sqr(g - p[1]) + sqr(b - p[2])
+                const p = pal[i];
+                const d = sqr(r - p[0]) + sqr(g - p[1]) + sqr(b - p[2]);
                 if (d < bd) {
                     bd = d;
                     best = i
@@ -5130,45 +5017,16 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const w = overlayCanvas.width | 0;
             const h = overlayCanvas.height | 0;
             if (w <= 0 || h <= 0) return;
-            const octx = overlayCanvas.getContext('2d', {
-                willReadFrequently: true
-            });
+            const octx = overlayCanvas.getContext('2d');
             if (!octx) return;
+            const base = baseCtx.getImageData(0, 0, w, h);
             const over = octx.getImageData(0, 0, w, h);
-            let minX = w,
-                minY = h,
-                maxX = -1,
-                maxY = -1;
-            {
-                const od = over.data;
-                for (let y = 0, i = 3; y < h; y++) {
-                    for (let x = 0; x < w; x++, i += 4) {
-                        if (od[i] !== 0) {
-                            if (x < minX) minX = x;
-                            if (y < minY) minY = y;
-                            if (x > maxX) maxX = x;
-                            if (y > maxY) maxY = y;
-                        }
-                    }
-                }
-            }
-            if (maxX < minX || maxY < minY) return;
-
-            minX = Math.max(0, minX);
-            minY = Math.max(0, minY);
-            maxX = Math.min(w - 1, maxX);
-            maxY = Math.min(h - 1, maxY);
-            const rw = maxX - minX + 1;
-            const rh = maxY - minY + 1;
-
-            const base = baseCtx.getImageData(minX, minY, rw, rh);
-            const bd = base.data;
-            const sub = octx.getImageData(minX, minY, rw, rh);
-            const od = sub.data;
+            const bd = base.data,
+                od = over.data;
             const tol = 8;
             let i = 0;
-            for (let y = 0; y < rh; y++) {
-                for (let x = 0; x < rw; x++, i += 4) {
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++, i += 4) {
                     const a = od[i + 3];
                     if (a === 0) continue;
                     const dr = Math.abs(od[i] - bd[i]);
@@ -5179,16 +5037,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     }
                 }
             }
-            octx.putImageData(sub, minX, minY);
+            octx.putImageData(over, 0, 0);
         } catch {
             /* ignore */
         }
     }
 
     function applySubtleColorPerturbation(canvas, seedX, seedY) {
-        const ctx = canvas.getContext('2d', {
-            willReadFrequently: true
-        });
+        const ctx = canvas.getContext('2d');
         if (!ctx) return;
         const {
             width,
@@ -5214,9 +5070,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
     function applyAcidSurrogateToCanvas(canvas) {
-        const ctx = canvas.getContext('2d', {
-            willReadFrequently: true
-        });
+        const ctx = canvas.getContext('2d');
         if (!ctx) return;
         const {
             width,
@@ -5281,31 +5135,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
 
-
-    let __lastPointerTs = 0;
-    try {
-        for (const ev of ['pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) {
-            window.addEventListener(ev, () => {
-                __lastPointerTs = performance.now();
-            }, {
-                passive: true
-            });
-        }
-    } catch {}
-    const TILE_RESPONSE_CACHE = new Map();
-    const MAX_TILE_CACHE = 256;
-
-    function __tileCacheSet(key, value) {
-        try {
-            TILE_RESPONSE_CACHE.set(key, value);
-            if (TILE_RESPONSE_CACHE.size > MAX_TILE_CACHE) {
-                const it = TILE_RESPONSE_CACHE.keys();
-                const first = it && typeof it.next === 'function' ? it.next().value : null;
-                if (first != null) TILE_RESPONSE_CACHE.delete(first);
-            }
-        } catch {}
-    }
-
     (function setupFetchInterceptor() {
         const originalFetch = window.fetch;
         window.fetch = async function(...args) {
@@ -5352,27 +5181,17 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 }
 
                 if (endpoint.includes('tiles') && state.selectedImageBitmap && state.anchorSet) {
-                    const path = endpoint.split('?')[0];
-                    const parts = path.split('/').filter(Boolean);
-                    const numbers = parts.filter(p => /^\d+(?:\.png)?$/.test(p)).map(p => Number(p.replace('.png', '')));
-                    const tileY = numbers[numbers.length - 1];
-                    const tileX = numbers[numbers.length - 2];
-                    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
-                        return response;
-                    }
-                    const cacheKey = `${path}|${state.anchorTx},${state.anchorTy},${state.anchorPx},${state.anchorPy}|${state.acidModeEnabled?'1':'0'}|${state.selectedImageSize?.w||0}x${state.selectedImageSize?.h||0}`;
-                    const cached = TILE_RESPONSE_CACHE.get(cacheKey);
-                    if (cached) {
-                        return cached;
-                    }
                     const tileBlob = await cloned.blob();
                     return new Promise((resolve) => {
-                        try {
-                            if (performance.now() - __lastPointerTs < 150) {
-                                resolve(response);
-                                return;
-                            }
-                        } catch {}
+                        const path = endpoint.split('?')[0];
+                        const parts = path.split('/').filter(Boolean);
+                        const numbers = parts.filter(p => /^\d+(?:\.png)?$/.test(p)).map(p => Number(p.replace('.png', '')));
+                        const tileY = numbers[numbers.length - 1];
+                        const tileX = numbers[numbers.length - 2];
+                        if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+                            resolve(response);
+                            return;
+                        }
                         (async () => {
                             try {
                                 const drawSize = TILE_SIZE * DRAW_MULT;
@@ -5389,8 +5208,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 };
                                 const canvas = makeCanvas();
                                 const ctxCandidate = canvas.getContext('2d', {
-                                    alpha: true,
-                                    willReadFrequently: true
+                                    alpha: true
                                 });
                                 if (!ctxCandidate || !('drawImage' in ctxCandidate)) {
                                     resolve(response);
@@ -5403,8 +5221,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
                                 const overlayCanvas = makeCanvas();
                                 const octxCandidate = overlayCanvas.getContext('2d', {
-                                    alpha: true,
-                                    willReadFrequently: true
+                                    alpha: true
                                 });
                                 if (octxCandidate && ('drawImage' in octxCandidate)) {
                                     const octx = /** @type {any} */ (octxCandidate);
@@ -5444,21 +5261,20 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                         type: 'image/png'
                                     });
                                 } else if (typeof anyCanvas.toBlob === 'function') {
-                                    outBlob = await new Promise(r => anyCanvas.toBlob(r, 'image/png'));
-                                }
-                                if (outBlob) {
-                                    const arr = new Uint8Array(await outBlob.arrayBuffer());
-                                    const outResp = new Response(arr, {
-                                        headers: {
-                                            'Content-Type': 'image/png'
-                                        }
+                                    outBlob = await new Promise((res) => {
+                                        anyCanvas.toBlob(res, 'image/png');
                                     });
-                                    __tileCacheSet(cacheKey, outResp.clone());
-                                    resolve(outResp);
                                 } else {
                                     resolve(response);
+                                    return;
                                 }
-                            } catch (e) {
+
+                                resolve(new Response(outBlob, {
+                                    headers: cloned.headers,
+                                    status: cloned.status,
+                                    statusText: cloned.statusText
+                                }));
+                            } catch {
                                 resolve(response);
                             }
                         })();
