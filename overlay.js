@@ -125,7 +125,12 @@
             dayShort: "д",
             hourShort: "ч",
             minuteShort: "мин",
-            secondShort: "с"
+            secondShort: "с",
+            history: "История",
+            historyEmpty: "История пуста",
+            mismatchTitle: "Несоответствие",
+            mismatchBody: "Текущее изображение отличается от записи истории. Разместить по сохранённым координатам?",
+            continue: "Продолжить"
         },
         EN: {
             open: "Open",
@@ -229,7 +234,12 @@
             dayShort: "d",
             hourShort: "h",
             minuteShort: "min",
-            secondShort: "s"
+            secondShort: "s",
+            history: "History",
+            historyEmpty: "History is empty",
+            mismatchTitle: "Mismatch",
+            mismatchBody: "The current image differs from the history entry. Place at saved coordinates anyway?",
+            continue: "Continue"
         },
         DE: {
             open: "Öffnen",
@@ -903,6 +913,41 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     style2.textContent = pixelCss;
     shadow.append(style2);
 
+    const historyCss = `
+.history-pop{position:fixed;z-index:2147483651;min-width:300px;max-width:460px;background:rgba(16,19,25,.98);border:1px solid rgba(255,255,255,.08);border-radius:14px;box-shadow:0 10px 28px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.3);color:#e9eef5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Inter,Arial,sans-serif;padding:12px 12px}
+.history-pop:after{content:"";position:absolute;top:-8px;left:var(--hx,24px);border:8px solid transparent;border-bottom-color:rgba(16,19,25,.98);filter:drop-shadow(0 -1px 0 rgba(255,255,255,.08))}
+.history-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 2px 8px 2px}
+.history-title{font-weight:700;font-size:14px;color:#f2f6fb}
+.history-controls{display:flex;align-items:center;gap:6px}
+.history-controls .btn.icon{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#242a33;color:#cfd6df;cursor:pointer}
+.history-controls .btn.icon:hover{background:#2a303a}
+.history-controls .btn.icon.danger{color:#ff8a8a;border-color:rgba(255,138,138,.35)}
+.history-list{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}
+.history-row{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;text-align:left;padding:8px 10px;border-radius:10px;background:transparent}
+.history-row:hover{background:rgba(255,255,255,.06)}
+.history-left{flex:1;white-space:normal;word-break:break-word}
+.history-left .h-title{font-weight:700;color:#f2f6fb}
+.history-left .h-sub{opacity:.75;font-size:12px;margin-top:2px}
+.history-right{opacity:.8;white-space:nowrap}
+.history-empty{opacity:.8;padding:6px 8px}
+`;
+    const histStyle = document.createElement("style");
+    histStyle.textContent = historyCss;
+    shadow.append(histStyle);
+
+    const confirmCss = `
+.confirm-back{position:fixed;inset:0;z-index:2147483652;background:rgba(12,14,18,.45);backdrop-filter:blur(2px);display:grid;place-items:center}
+.confirm-pop{min-width:340px;max-width:520px;background:var(--ui-strong);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--shadow);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Inter,Arial,sans-serif}
+.confirm-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.08)}
+.confirm-title{font-weight:700}
+.confirm-body{padding:10px 12px 0 12px;line-height:1.45;opacity:.95}
+.confirm-foot{padding:12px;display:flex;gap:8px}
+.confirm-foot .spacer{flex:1}
+`;
+    const confirmStyle = document.createElement('style');
+    confirmStyle.textContent = confirmCss;
+    shadow.append(confirmStyle);
+
     function el(t, c, txt) {
         const n = document.createElement(t);
         if (c) n.className = c;
@@ -1209,12 +1254,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     fileChip.style.textOverflow = "ellipsis";
     fileChip.style.overflow = "hidden";
 
+    const btnHistory = el("button", "btn icon");
+    btnHistory.title = t("history");
+    btnHistory.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12a9 9 0 1 0 3-6.708" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 3v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const spacer = el('div');
     spacer.style.flex = '1';
     const btnAcc = el("button", "btn icon");
     btnAcc.title = "Статистика аккаунта";
     btnAcc.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-    toolbarRow.append(btnAcc, btnOpen, btnAcid, fileChip, spacer, btnClear, btnClose);
+    toolbarRow.append(btnAcc, btnOpen, btnHistory, btnAcid, fileChip, spacer, btnClear, btnClose);
     toolbarScroll.append(toolbarRow);
     const fadeL = el("div", "fade-edge fade-left");
     const fadeR = el("div", "fade-edge fade-right");
@@ -1622,10 +1670,479 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             lastY: 0
         },
 
-        acidModeEnabled: false
+        acidModeEnabled: false,
+
+        history: [],
+
+        historyPopupEl: null,
+        suppressAutoMoveOnce: false
     };
 
     const PERSIST_KEY = "overlay_tool_persist_v2";
+
+    const HISTORY_KEY = "overlay_tool_history_v1";
+
+    function historyIdOf(fileName, w, h) {
+        return `${fileName}__${w}x${h}`
+    }
+
+    function historyLoad() {
+        try {
+            const raw = localStorage.getItem(HISTORY_KEY);
+            const arr = raw ? JSON.parse(raw) : [];
+            state.history = Array.isArray(arr) ? arr.filter(e => e && typeof e === 'object') : [];
+        } catch (_) {
+            state.history = []
+        }
+    }
+
+    function historySave() {
+        try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify((state.history || []).slice(0, 10)))
+        } catch (_) {}
+    }
+
+    function historyAddOrUpdate(entry) {
+        try {
+            if (!entry || !entry.fileName) return;
+            const w = entry.w || state.iw || 0;
+            const h = entry.h || state.ih || 0;
+            if (!w || !h) return;
+            const id = historyIdOf(entry.fileName, w, h);
+            const list = Array.isArray(state.history) ? state.history.slice() : [];
+            const idx = list.findIndex(e => e && e.id === id);
+            const rec = {
+                id,
+                fileName: entry.fileName,
+                w,
+                h,
+
+                x: entry.x != null ? entry.x : state.x,
+                y: entry.y != null ? entry.y : state.y,
+
+                tx: Number.isFinite(entry.tx) ? entry.tx : (state.anchorSet && Number.isFinite(state.anchorTx) ? state.anchorTx : undefined),
+                ty: Number.isFinite(entry.ty) ? entry.ty : (state.anchorSet && Number.isFinite(state.anchorTy) ? state.anchorTy : undefined),
+                px: Number.isFinite(entry.px) ? entry.px : (state.anchorSet && Number.isFinite(state.anchorPx) ? state.anchorPx : undefined),
+                py: Number.isFinite(entry.py) ? entry.py : (state.anchorSet && Number.isFinite(state.anchorPy) ? state.anchorPy : undefined),
+                ts: Date.now()
+            };
+            if (idx >= 0) list.splice(idx, 1);
+            list.unshift(rec);
+            state.history = list.slice(0, 10);
+            historySave();
+        } catch (_) {}
+    }
+
+    function confirmModal(title, body, okLabel, cancelLabel) {
+        return new Promise((resolve) => {
+            try {
+                const back = el('div', 'confirm-back');
+                const pop = el('div', 'confirm-pop');
+                const head = el('div', 'confirm-head');
+                const ttl = el('div', 'confirm-title', String(title || ''));
+                const btnX = el('button', 'btn icon', '✕');
+                btnX.title = t('close') || 'Close';
+                btnX.addEventListener('click', () => cleanup(false));
+                head.append(ttl, btnX);
+                const b = el('div', 'confirm-body', String(body || ''));
+                const foot = el('div', 'confirm-foot');
+                const spacer = el('div', 'spacer');
+                const btnCancel = el('button', 'btn', cancelLabel || t('cancel'));
+                const btnOk = el('button', 'btn primary', okLabel || t('ok'));
+                btnCancel.addEventListener('click', () => cleanup(false));
+                btnOk.addEventListener('click', () => cleanup(true));
+                foot.append(spacer, btnCancel, btnOk);
+                pop.append(head, b, foot);
+                back.append(pop);
+                shadow.append(back);
+
+                function onKey(e) {
+                    if (e.key === 'Escape') cleanup(false);
+                }
+
+                function onDown(e) {
+                    try {
+                        const path = e.composedPath ? e.composedPath() : [];
+                        if (path.includes(pop)) return;
+                    } catch (_) {
+                        if (e.target && pop.contains(e.target)) return;
+                    }
+                    cleanup(false);
+                }
+                window.addEventListener('keydown', onKey, true);
+                window.addEventListener('pointerdown', onDown, true);
+
+                try {
+                    btnOk.focus();
+                } catch (_) {}
+
+                function cleanup(v) {
+                    window.removeEventListener('keydown', onKey, true);
+                    window.removeEventListener('pointerdown', onDown, true);
+                    try {
+                        back.remove();
+                    } catch (_) {}
+                    resolve(!!v);
+                }
+            } catch (_) {
+                resolve(false);
+            }
+        });
+    }
+
+
+    function choiceModal(title, body, buttons) {
+        return new Promise((resolve) => {
+            try {
+                const back = el('div', 'confirm-back');
+                const pop = el('div', 'confirm-pop');
+                const head = el('div', 'confirm-head');
+                const ttl = el('div', 'confirm-title', String(title || ''));
+                const btnX = el('button', 'btn icon', '✕');
+                btnX.title = (t('close') || 'Close');
+                btnX.addEventListener('click', () => cleanup(null));
+                head.append(ttl, btnX);
+                const b = el('div', 'confirm-body', String(body || ''));
+                const foot = el('div', 'confirm-foot');
+                const spacer = el('div', 'spacer');
+                foot.append(spacer);
+                const btns = Array.isArray(buttons) ? buttons : [];
+                btns.forEach((def) => {
+                    const cls = (def && def.className) ? ('btn ' + def.className) : 'btn';
+                    const label = (def && def.label) || 'OK';
+                    const val = def && (def.value !== undefined ? def.value : label);
+                    const bEl = el('button', cls, label);
+                    bEl.addEventListener('click', () => cleanup(val));
+                    foot.append(bEl);
+                });
+                pop.append(head, b, foot);
+                back.append(pop);
+                shadow.append(back);
+
+                function onKey(e) {
+                    if (e.key === 'Escape') cleanup(null);
+                }
+
+                function onDown(e) {
+                    try {
+                        const path = e.composedPath ? e.composedPath() : [];
+                        if (path.includes(pop)) return;
+                    } catch (_) {
+                        if (e.target && pop.contains(e.target)) return;
+                    }
+                    cleanup(null);
+                }
+                window.addEventListener('keydown', onKey, true);
+                window.addEventListener('pointerdown', onDown, true);
+
+                function cleanup(v) {
+                    window.removeEventListener('keydown', onKey, true);
+                    window.removeEventListener('pointerdown', onDown, true);
+                    try {
+                        back.remove();
+                    } catch (_) {}
+                    resolve(v);
+                }
+            } catch (_) {
+                resolve(null);
+            }
+        });
+    }
+
+
+    function applyHistoryPlacement(it) {
+        const hasT = Number.isFinite(it.tx) && Number.isFinite(it.ty) && Number.isFinite(it.px) && Number.isFinite(it.py);
+        if (hasT) {
+
+            state.anchorTx = it.tx;
+            state.anchorTy = it.ty;
+            state.anchorPx = it.px;
+            state.anchorPy = it.py;
+            state.anchorSet = true;
+
+            const g = computeSnapGrid();
+            if (g) {
+                const globalX = it.tx * TILE_SIZE + it.px;
+                const globalY = it.ty * TILE_SIZE + it.py;
+                state.x = Math.round(g.baseX + globalX * g.stepX);
+                state.y = Math.round(g.baseY + globalY * g.stepY);
+                computeGridOffsetsFromXY();
+            }
+        } else {
+
+            state.x = it.x;
+            state.y = it.y;
+            computeGridOffsetsFromXY();
+        }
+        try {
+            syncUI();
+        } catch (_) {}
+        try {
+            persistSave();
+        } catch (_) {}
+
+        try {
+            if (typeof hint !== 'undefined' && hint) hint.style.display = 'none';
+            if (typeof placeState !== 'undefined' && placeState && placeState.active) {
+                placeState.active = false;
+                if (placeState.onDocClick) {
+                    document.removeEventListener('mousedown', placeState.onDocClick, true);
+                    placeState.onDocClick = null;
+                }
+                if (placeState.onImageClick) {
+                    try {
+                        img.removeEventListener('click', placeState.onImageClick);
+                    } catch (_) {}
+                    placeState.onImageClick = null;
+                }
+            }
+            try {
+                content.style.pointerEvents = 'auto';
+            } catch (_) {}
+
+            try {
+                setMoveMode(false);
+            } catch (_) {}
+        } catch (_) {}
+        try {
+            if (state.currentFileName && state.iw && state.ih) {
+                historyAddOrUpdate({
+                    fileName: state.currentFileName,
+                    w: state.iw,
+                    h: state.ih,
+                    x: state.x,
+                    y: state.y,
+                    tx: state.anchorTx,
+                    ty: state.anchorTy,
+                    px: state.anchorPx,
+                    py: state.anchorPy
+                });
+            }
+        } catch (_) {}
+    }
+
+
+    function selectFileAndLoad(expectedName) {
+        return new Promise((resolve) => {
+            try {
+                const inp = document.createElement('input');
+                inp.type = 'file';
+                inp.accept = 'image/*';
+                inp.style.display = 'none';
+                shadow.append(inp);
+                inp.addEventListener('change', async (e) => {
+                    const f = e.target.files && e.target.files[0];
+                    try {
+                        inp.remove();
+                    } catch (_) {}
+                    if (!f) {
+                        resolve(false);
+                        return;
+                    }
+
+                    if (expectedName && f.name && f.name !== expectedName) {
+                        const cont = await confirmModal((t('history') || 'History'), `Selected file “${f.name}” differs from “${expectedName}”.`, (t('continue') || 'Continue'), (t('cancel') || 'Cancel'));
+                        if (!cont) {
+                            resolve(false);
+                            return;
+                        }
+                    }
+                    try {
+                        state.suppressAutoMoveOnce = true;
+                        const res = await openPixelArtDialog(f);
+                        const ok = !!(res && res.action && res.action !== 'cancel');
+                        if (!ok) {
+                            state.suppressAutoMoveOnce = false;
+                        }
+                        resolve(ok);
+                    } catch (_) {
+                        state.suppressAutoMoveOnce = false;
+                        resolve(false);
+                    }
+                }, {
+                    once: true
+                });
+                inp.click();
+            } catch (_) {
+                resolve(false);
+            }
+        });
+    }
+
+    function openHistoryModal() {
+        try {
+            if (state.historyPopupEl) {
+                closeHistoryModal();
+                return;
+            }
+            const pop = el('div', 'history-pop');
+            const ttl = el('div', 'history-title', t('history'));
+            const controls = el('div', 'history-controls');
+            const btnClear = el('button', 'btn icon danger');
+            btnClear.title = (t('clear') || 'Clear') + ' history';
+            btnClear.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+            btnClear.addEventListener('click', async () => {
+                const ok = await confirmModal(t('history'), 'Clear saved history?', t('clear'), t('cancel'));
+                if (!ok) return;
+                try {
+                    state.history = [];
+                    historySave();
+                } catch (_) {}
+                try {
+                    closeHistoryModal();
+                } catch (_) {}
+                try {
+                    openHistoryModal();
+                } catch (_) {}
+            });
+            controls.append(btnClear);
+            const list = el('div', 'history-list');
+            const items = Array.isArray(state.history) ? state.history : [];
+            if (!items.length) {
+                list.append(el('div', 'history-empty', t('historyEmpty')));
+            } else {
+                items.forEach((it) => {
+                    const row = el('div', 'history-row');
+                    const hasT = Number.isFinite(it.tx) && Number.isFinite(it.ty) && Number.isFinite(it.px) && Number.isFinite(it.py);
+                    const coordStr = hasT ? `t${it.tx}/${it.ty} @ (${it.px}, ${it.py})` : `(${it.x}, ${it.y})`;
+                    row.title = `${it.fileName} — ${it.w}×${it.h} • ${coordStr}`;
+                    const left = el('div', 'history-left');
+                    const titleLine = el('div', 'h-title', it.fileName);
+                    const subLine = el('div', 'h-sub', `${it.w}×${it.h} • ${coordStr}`);
+                    left.append(titleLine, subLine);
+                    row.append(left);
+                    row.addEventListener('click', async () => {
+                        const hasImg = !!state.currentFileName;
+                        if (!hasImg) {
+
+                            const ok = await selectFileAndLoad(it.fileName);
+                            if (ok) {
+                                try {
+                                    applyHistoryPlacement(it);
+                                } catch (_) {}
+                                closeHistoryModal();
+                            }
+                            return;
+                        }
+                        const sameFile = (state.currentFileName === it.fileName && state.iw === it.w && state.ih === it.h);
+                        if (sameFile) {
+                            try {
+                                applyHistoryPlacement(it);
+                            } catch (_) {}
+                            closeHistoryModal();
+                            return;
+                        }
+
+                        const choice = await choiceModal(
+                            (t('mismatchTitle') || 'Different image detected'),
+                            (t('mismatchBody') || 'The currently loaded image is different from this history entry.'),
+                            [{
+                                    label: (t('useCurrentFile') || 'Use Current File'),
+                                    className: '',
+                                    value: 'use'
+                                },
+                                {
+                                    label: (t('loadOriginalFile') || 'Load Original File'),
+                                    className: 'primary',
+                                    value: 'load'
+                                },
+                                {
+                                    label: (t('cancel') || 'Cancel'),
+                                    className: 'danger',
+                                    value: 'cancel'
+                                }
+                            ]
+                        );
+                        if (choice === 'use') {
+                            try {
+                                applyHistoryPlacement(it);
+                            } catch (_) {}
+                            closeHistoryModal();
+                        } else if (choice === 'load') {
+                            const ok = await selectFileAndLoad(it.fileName);
+                            if (ok) {
+                                try {
+                                    applyHistoryPlacement(it);
+                                } catch (_) {}
+                                closeHistoryModal();
+                            }
+                        } else {
+
+                            return;
+                        }
+                    });
+                    list.append(row);
+                });
+            }
+            const head = el('div', 'history-head');
+            head.append(ttl, controls);
+            pop.append(head, list);
+            shadow.append(pop);
+
+
+            try {
+                const r = btnHistory.getBoundingClientRect();
+                const vw = window.innerWidth || document.documentElement.clientWidth || 1920;
+                const vh = window.innerHeight || document.documentElement.clientHeight || 1080;
+                const pb = pop.getBoundingClientRect();
+                const margin = 8;
+                let left = Math.max(margin, Math.min(vw - pb.width - margin, r.left));
+                let top = Math.min(vh - pb.height - margin, r.bottom + 10);
+                pop.style.left = left + 'px';
+                pop.style.top = top + 'px';
+                const hx = Math.max(24, Math.min(pb.width - 24, r.left + r.width / 2 - left));
+                pop.style.setProperty('--hx', hx + 'px');
+            } catch (_) {}
+
+            state.historyPopupEl = pop;
+
+            function onDocDown(e) {
+                try {
+                    const path = e.composedPath ? e.composedPath() : [];
+                    if (path.includes(pop) || path.includes(btnHistory)) return;
+                } catch (_) {
+                    if (e.target && (pop.contains(e.target) || btnHistory.contains(e.target))) return;
+                }
+                closeHistoryModal();
+            }
+
+            function onKey(e) {
+                if (e.key === 'Escape') closeHistoryModal();
+            }
+
+            function onRelayout() {
+                try {
+                    if (state.historyPopupEl) {
+                        closeHistoryModal();
+                    }
+                } catch (_) {}
+            }
+            window.addEventListener('pointerdown', onDocDown, true);
+            window.addEventListener('keydown', onKey, true);
+            window.addEventListener('resize', onRelayout);
+            window.addEventListener('scroll', onRelayout, true);
+            pop.__cleanup = () => {
+                window.removeEventListener('pointerdown', onDocDown, true);
+                window.removeEventListener('keydown', onKey, true);
+                window.removeEventListener('resize', onRelayout);
+                window.removeEventListener('scroll', onRelayout, true);
+            };
+        } catch (_) {}
+    }
+
+    function closeHistoryModal() {
+        try {
+            const elp = state.historyPopupEl;
+            state.historyPopupEl = null;
+            if (!elp) return;
+            try {
+                elp.__cleanup && elp.__cleanup();
+            } catch (_) {}
+            elp.remove();
+        } catch (_) {}
+    }
+
+    historyLoad();
 
     function persistSave() {
         try {
@@ -1667,6 +2184,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         state.x = g.baseX + state.gridOffsetXSteps * g.stepX;
         state.y = g.baseY + state.gridOffsetYSteps * g.stepY;
         syncUI();
+        try {
+            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({
+                fileName: state.currentFileName,
+                w: state.iw,
+                h: state.ih,
+                x: state.x,
+                y: state.y
+            });
+        } catch (_) {}
     }
 
 
@@ -1936,6 +2462,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         try {
             computeGridOffsetsFromXY();
             persistSave();
+        } catch (_) {}
+        try {
+            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({
+                fileName: state.currentFileName,
+                w: state.iw,
+                h: state.ih,
+                x: state.x,
+                y: state.y
+            });
         } catch (_) {}
     }
 
@@ -2477,7 +3012,9 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const c = document.createElement('canvas');
             c.width = w;
             c.height = h;
-            const ctx = c.getContext('2d');
+            const ctx = c.getContext('2d', {
+                willReadFrequently: true
+            });
             if (!ctx) return null;
             ctx.imageSmoothingEnabled = false;
             ctx.clearRect(0, 0, w, h);
@@ -2944,11 +3481,25 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             } catch {}
 
             try {
-                setMoveMode(true);
+                if (state.suppressAutoMoveOnce) {
+                    state.suppressAutoMoveOnce = false;
+                } else {
+                    setMoveMode(true);
+                }
             } catch {}
 
             try {
                 btnClear.style.display = '';
+            } catch (_) {}
+
+            try {
+                if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({
+                    fileName: state.currentFileName,
+                    w: state.iw,
+                    h: state.ih,
+                    x: state.x,
+                    y: state.y
+                });
             } catch (_) {}
         };
         im.onerror = () => {
@@ -3615,6 +4166,75 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         }
     }
 
+
+    function pixelRequestRegex(url) {
+        const u = String(url || "");
+        return /\/pixel\//i.test(u) && /[?&]x=\d+/i.test(u) && /[?&]y=\d+/i.test(u);
+    }
+
+    function parseXYFromURL(url) {
+        try {
+            const u = new URL(url);
+            const x = parseInt(u.searchParams.get('x'), 10);
+            const y = parseInt(u.searchParams.get('y'), 10);
+            if (Number.isFinite(x) && Number.isFinite(y)) return {
+                x,
+                y
+            };
+        } catch (_) {}
+        return null;
+    }
+
+
+    function parsePixelRequest(url) {
+        try {
+            const u = new URL(url);
+            const m = u.pathname.match(/\/pixel\/(\d+)\/(\d+)/i);
+            if (!m) return null;
+            const tx = parseInt(m[1], 10);
+            const ty = parseInt(m[2], 10);
+            const px = parseInt(u.searchParams.get('x'), 10);
+            const py = parseInt(u.searchParams.get('y'), 10);
+            if ([tx, ty, px, py].every(Number.isFinite)) return {
+                tx,
+                ty,
+                px,
+                py
+            };
+        } catch (_) {}
+        return null;
+    }
+
+    function onPixelRequest(url) {
+        try {
+            if (!(state && (state.moveMode || (typeof placeState !== 'undefined' && placeState.active)))) return;
+            if (!state.currentFileName || !state.iw || !state.ih) return;
+            const p = parsePixelRequest(url);
+            if (!p) return;
+
+            let sx = undefined,
+                sy = undefined;
+            const g = computeSnapGrid();
+            if (g) {
+                const globalX = p.tx * TILE_SIZE + p.px;
+                const globalY = p.ty * TILE_SIZE + p.py;
+                sx = Math.round(g.baseX + globalX * g.stepX);
+                sy = Math.round(g.baseY + globalY * g.stepY);
+            }
+            historyAddOrUpdate({
+                fileName: state.currentFileName,
+                w: state.iw,
+                h: state.ih,
+                x: sx,
+                y: sy,
+                tx: p.tx,
+                ty: p.ty,
+                px: p.px,
+                py: p.py
+            });
+        } catch (_) {}
+    }
+
     function performanceLastTile() {
         try {
             const entries = performance.getEntriesByType("resource") || [];
@@ -3635,7 +4255,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     const u = typeof input === "string" ? input : (input && input.url) || "";
                     return ofetch(input, init).then(res => {
                         try {
-                            if (res && res.ok && tileRegex(u)) state.lastTileURL = u
+                            if (res && res.ok) {
+                                if (tileRegex(u)) state.lastTileURL = u;
+                                if (pixelRequestRegex(u)) onPixelRequest(u);
+                            }
                         } catch (_) {}
                         return res
                     })
@@ -3656,7 +4279,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 XHR.prototype.send = function(...args) {
                     this.addEventListener("load", () => {
                         try {
-                            if (this.status >= 200 && this.status < 300 && tileRegex(this.__turl)) state.lastTileURL = this.__turl
+                            if (this.status >= 200 && this.status < 300) {
+                                if (tileRegex(this.__turl)) state.lastTileURL = this.__turl;
+                                if (pixelRequestRegex(this.__turl)) onPixelRequest(this.__turl);
+                            }
                         } catch (_) {}
                     })
                     return send.apply(this, args)
@@ -4075,7 +4701,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 out.width = selBox.w;
                 out.height = selBox.h;
                 const octx = out.getContext("2d", {
-                    alpha: !0
+                    alpha: !0,
+                    willReadFrequently: !0
                 });
                 octx.imageSmoothingEnabled = !1;
                 octx.clearRect(0, 0, out.width, out.height);
@@ -4726,6 +5353,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     });
 
     btnOpen.addEventListener("click", () => fileInput.click());
+    btnHistory.addEventListener("click", () => {
+        try {
+            if (!state.history || !state.history.length) {
+                showHint(t('historyEmpty'));
+            }
+        } catch (_) {}
+        openHistoryModal();
+    });
     btnAcid.addEventListener('click', () => {
         state.acidModeEnabled = !state.acidModeEnabled;
         updateAcidBtn();
@@ -5012,23 +5647,34 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
 
-    function maskAlreadyPlacedPixels(baseCtx, overlayCanvas) {
+    function maskAlreadyPlacedPixels(baseCtx, overlayCanvas, rect /* optional: {x,y,w,h} in overlay canvas coords */ ) {
         try {
             const w = overlayCanvas.width | 0;
             const h = overlayCanvas.height | 0;
             if (w <= 0 || h <= 0) return;
-            const octx = overlayCanvas.getContext('2d');
+            const octx = overlayCanvas.getContext('2d', {
+                willReadFrequently: true
+            });
             if (!octx) return;
             const base = baseCtx.getImageData(0, 0, w, h);
             const over = octx.getImageData(0, 0, w, h);
             const bd = base.data,
                 od = over.data;
             const tol = 8;
-            let i = 0;
-            for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++, i += 4) {
+            const alphaMin = 16;
+            const x0 = Math.max(0, rect?.x | 0);
+            const y0 = Math.max(0, rect?.y | 0);
+            const rw = Math.max(0, rect?.w != null ? rect.w | 0 : w);
+            const rh = Math.max(0, rect?.h != null ? rect.h | 0 : h);
+            const x1 = Math.min(w, x0 + rw);
+            const y1 = Math.min(h, y0 + rh);
+            for (let y = y0; y < y1; y++) {
+                let i = (y * w + x0) * 4;
+                for (let x = x0; x < x1; x++, i += 4) {
                     const a = od[i + 3];
                     if (a === 0) continue;
+                    const ba = bd[i + 3];
+                    if (ba < alphaMin) continue;
                     const dr = Math.abs(od[i] - bd[i]);
                     const dg = Math.abs(od[i + 1] - bd[i + 1]);
                     const db = Math.abs(od[i + 2] - bd[i + 2]);
@@ -5044,7 +5690,9 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
     function applySubtleColorPerturbation(canvas, seedX, seedY) {
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', {
+            willReadFrequently: true
+        });
         if (!ctx) return;
         const {
             width,
@@ -5070,7 +5718,9 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
     function applyAcidSurrogateToCanvas(canvas) {
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', {
+            willReadFrequently: true
+        });
         if (!ctx) return;
         const {
             width,
@@ -5124,6 +5774,33 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             srcX, srcY, iW, iH,
             dstX, dstY, iW * DRAW_MULT, iH * DRAW_MULT
         );
+    }
+
+    function getIntersectionRectForTile(tileX, tileY) {
+        if (!state.selectedImageBitmap || !state.anchorSet) return null;
+        const gLeft = state.anchorTx * TILE_SIZE + state.anchorPx;
+        const gTop = state.anchorTy * TILE_SIZE + state.anchorPy;
+        const gRight = gLeft + state.selectedImageSize.w;
+        const gBottom = gTop + state.selectedImageSize.h;
+        const tLeft = tileX * TILE_SIZE;
+        const tTop = tileY * TILE_SIZE;
+        const tRight = tLeft + TILE_SIZE;
+        const tBottom = tTop + TILE_SIZE;
+        const iLeft = Math.max(gLeft, tLeft);
+        const iTop = Math.max(gTop, tTop);
+        const iRight = Math.min(gRight, tRight);
+        const iBottom = Math.min(gBottom, tBottom);
+        const iW = iRight - iLeft;
+        const iH = iBottom - iTop;
+        if (iW <= 0 || iH <= 0) return null;
+        const dstX = (iLeft - tLeft) * DRAW_MULT;
+        const dstY = (iTop - tTop) * DRAW_MULT;
+        return {
+            x: dstX | 0,
+            y: dstY | 0,
+            w: (iW * DRAW_MULT) | 0,
+            h: (iH * DRAW_MULT) | 0
+        };
     }
 
     function prepareForMapClick() {
@@ -5194,6 +5871,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         }
                         (async () => {
                             try {
+                                const isPanning = !!(state.mapPan && state.mapPan.active);
+
+                                const fastRect = getIntersectionRectForTile(tileX, tileY);
+                                if (!fastRect) {
+                                    resolve(response);
+                                    return;
+                                }
+
                                 const drawSize = TILE_SIZE * DRAW_MULT;
                                 const tileBitmap = await createImageBitmap(tileBlob);
                                 const makeCanvas = () => {
@@ -5208,7 +5893,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 };
                                 const canvas = makeCanvas();
                                 const ctxCandidate = canvas.getContext('2d', {
-                                    alpha: true
+                                    alpha: true,
+                                    willReadFrequently: true
                                 });
                                 if (!ctxCandidate || !('drawImage' in ctxCandidate)) {
                                     resolve(response);
@@ -5221,7 +5907,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
                                 const overlayCanvas = makeCanvas();
                                 const octxCandidate = overlayCanvas.getContext('2d', {
-                                    alpha: true
+                                    alpha: true,
+                                    willReadFrequently: true
                                 });
                                 if (octxCandidate && ('drawImage' in octxCandidate)) {
                                     const octx = /** @type {any} */ (octxCandidate);
@@ -5238,21 +5925,28 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                     }
                                 }
 
-                                maskAlreadyPlacedPixels(ctx, overlayCanvas);
+                                if (!isPanning) {
 
-                                if (state.acidModeEnabled) {
+                                    maskAlreadyPlacedPixels(ctx, overlayCanvas, fastRect);
+                                }
+
+                                if (state.acidModeEnabled && !isPanning) {
                                     applySubtleColorPerturbation(overlayCanvas, tileX, tileY);
                                     applyAcidSurrogateToCanvas(overlayCanvas);
                                 }
 
-                                try {
-                                    binarizeAlphaOnCanvas(overlayCanvas, 8);
-                                } catch {}
+                                if (!isPanning) {
+                                    try {
+                                        binarizeAlphaOnCanvas(overlayCanvas, 8);
+                                    } catch {}
+                                }
                                 ctx.drawImage(overlayCanvas, 0, 0);
 
-                                try {
-                                    binarizeAlphaOnCanvas(canvas, 8);
-                                } catch {}
+                                if (!isPanning) {
+                                    try {
+                                        binarizeAlphaOnCanvas(canvas, 8);
+                                    } catch {}
+                                }
 
                                 let outBlob;
                                 const anyCanvas = /** @type {any} */ (canvas);
