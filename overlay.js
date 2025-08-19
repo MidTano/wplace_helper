@@ -5,27 +5,27 @@
     const DRAW_MULT = 3;
     const LANGS = [{
         code: "RU",
-        flag: "🇷🇺",
+        flag: `<svg width="18" height="12" viewBox="0 -4 28 28" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0)"><rect x="0.25" y="0.25" width="27.5" height="19.5" rx="1.75" fill="white" stroke="#F5F5F5" stroke-width="0.5"/><mask id="mask0" maskUnits="userSpaceOnUse" x="0" y="0" width="28" height="20"><rect x="0.25" y="0.25" width="27.5" height="19.5" rx="1.75" fill="white" stroke="white" stroke-width="0.5"/></mask><g mask="url(#mask0)"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 13.3333H28V6.66667H0V13.3333Z" fill="#0C47B7"/><path fill-rule="evenodd" clip-rule="evenodd" d="M0 20H28V13.3333H0V20Z" fill="#E53B35"/></g></g><defs><clipPath id="clip0"><rect width="28" height="20" rx="2" fill="white"/></clipPath></defs></svg>`,
         name: "Русский"
     }, {
         code: "EN",
-        flag: "🇬🇧",
+        flag: `<svg width="18" height="12" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><path fill="#41479B" d="M473.655,88.276H38.345C17.167,88.276,0,105.443,0,126.621V385.38 c0,21.177,17.167,38.345,38.345,38.345h435.31c21.177,0,38.345-17.167,38.345-38.345V126.621 C512,105.443,494.833,88.276,473.655,88.276z"/><path fill="#F5F5F5" d="M511.469,120.282c-3.022-18.159-18.797-32.007-37.814-32.007h-9.977l-163.54,107.147V88.276h-88.276 v107.147L48.322,88.276h-9.977c-19.017,0-34.792,13.847-37.814,32.007l139.778,91.58H0v88.276h140.309L0.531,391.717 c3.022,18.159,18.797,32.007,37.814,32.007h9.977l163.54-107.147v107.147h88.276V316.577l163.54,107.147h9.977 c19.017,0,34.792-13.847,37.814-32.007l-139.778-91.58H512v-88.276H371.691L511.469,120.282z"/><g fill="#FF4B55"><polygon points="282.483,88.276 229.517,88.276 229.517,229.517 0,229.517 0,282.483 229.517,282.483 229.517,423.724 282.483,423.724 282.483,282.483 512,282.483 512,229.517 282.483,229.517"/><path d="M24.793,421.252l186.583-121.114h-32.428L9.224,410.31 C13.377,415.157,18.714,418.955,24.793,421.252z"/><path d="M346.388,300.138H313.96l180.716,117.305c5.057-3.321,9.277-7.807,12.287-13.075L346.388,300.138z"/><path d="M4.049,109.475l157.73,102.387h32.428L15.475,95.842 C10.676,99.414,6.749,104.084,4.049,109.475z"/><path d="M332.566,211.862l170.035-110.375c-4.199-4.831-9.578-8.607-15.699-10.86L300.138,211.862H332.566z"/></g></svg>`,
         name: "English"
     }, {
         code: "DE",
-        flag: "🇩🇪",
+        flag: `<svg width="18" height="12" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"><path fill="#FFCD05" d="M0 27a4 4 0 0 0 4 4h28a4 4 0 0 0 4-4v-4H0v4z"/><path fill="#ED1F24" d="M0 14h36v9H0z"/><path fill="#141414" d="M32 5H4a4 4 0 0 0-4 4v5h36V9a4 4 0 0 0-4-4z"/></svg>`,
         name: "Deutsch"
     }, {
         code: "FR",
-        flag: "🇫🇷",
+        flag: `<svg width="18" height="12" viewBox="0 0 130 120" xmlns="http://www.w3.org/2000/svg"><rect x="87" fill="#DB3A49" width="43" height="120"/><rect x="43" fill="#FFFFFF" width="44" height="120"/><rect fill="#2A66B7" width="43" height="120"/></svg>`,
         name: "Français"
     }, {
         code: "ES",
-        flag: "🇪🇸",
+        flag: `<svg width="18" height="12" viewBox="0 0 130 120" xmlns="http://www.w3.org/2000/svg"><rect y="0" fill="#DC4437" width="130" height="23"/><rect y="97" fill="#DC4437" width="130" height="23"/><rect y="23" fill="#FCBE1F" width="130" height="74"/><path fill="#DC4437" d="M45.3,45.8v-3h5.5v-8.2h-5.5v-6.3h-8.7v6.3h-5.5v8.2h5.5v3c-18,1-15.6,1.9-15.6,1.9v11.5V74 c0,0-1.2,16,20,16s20-16,20-16V59.2V47.6C61,47.6,63.3,46.8,45.3,45.8z"/></svg>`,
         name: "Español"
     }, {
         code: "CN",
-        flag: "🇨🇳",
+        flag: `<svg width="18" height="12" viewBox="0 0 130 120" xmlns="http://www.w3.org/2000/svg"><rect fill="#DC4437" width="130" height="120"/><polygon fill="#FCBE1F" points="31,14.5 36.9,27 50,29 40.5,38.8 42.7,52.5 31,46 19.3,52.5 21.5,38.8 12,29 25.1,27"/><polygon fill="#FCBE1F" points="60.5,8 62.8,12.9 68,13.7 64.2,17.6 65.1,23 60.5,20.4 55.9,23 56.8,17.6 53,13.7 58.2,12.9"/><polygon fill="#FCBE1F" points="64.5,25.8 66.8,30.8 72,31.6 68.2,35.4 69.1,40.8 64.5,38.3 59.9,40.8 60.8,35.4 57,31.6 62.2,30.8"/><polygon fill="#FCBE1F" points="60.5,44 62.8,48.9 68,49.7 64.2,53.6 65.1,59 60.5,56.4 55.9,59 56.8,53.6 53,49.7 58.2,48.9"/></svg>`,
         name: "中文"
     }];
     const I18N = {
@@ -130,7 +130,24 @@
             historyEmpty: "История пуста",
             mismatchTitle: "Несоответствие",
             mismatchBody: "Текущее изображение отличается от записи истории. Разместить по сохранённым координатам?",
-            continue: "Продолжить"
+            selectedFileDiffers: "Выбранный файл «{file}» отличается от «{expected}».",
+            continue: "Продолжить",
+            undoTitle: "Отменить (Ctrl+Z)",
+            redoTitle: "Повторить (Ctrl+Y / Ctrl+Shift+Z)",
+            brushTitle: "Кисть (B)",
+            eraserTitle: "Ластик (E)",
+            eyedropperTitle: "Пипетка (Alt)",
+            editPixelsTitle: "Редактировать пиксели (кисть/ластик)",
+            done: "Готово",
+            accountStatsTitle: "Статистика аккаунта",
+            accountStatsSendPixelPrompt: "Отправьте пиксель для получения статистики",
+            accName: "Имя",
+            accChargesMax: "Заряды (макс)",
+            accDroplets: "Капли",
+            accPixels: "Пикселей",
+            accLevel: "Уровень",
+            accPixelsToNext: "Пикселей до нового уровня",
+            accPixelsToNextUnknown: "Пикселей до нового уровня: — (нет данных от API)",
         },
         EN: {
             open: "Open",
@@ -239,7 +256,24 @@
             historyEmpty: "History is empty",
             mismatchTitle: "Mismatch",
             mismatchBody: "The current image differs from the history entry. Place at saved coordinates anyway?",
-            continue: "Continue"
+            selectedFileDiffers: "Selected file “{file}” differs from “{expected}”.",
+            continue: "Continue",
+            undoTitle: "Undo (Ctrl+Z)",
+            redoTitle: "Redo (Ctrl+Y / Ctrl+Shift+Z)",
+            brushTitle: "Brush (B)",
+            eraserTitle: "Eraser (E)",
+            eyedropperTitle: "Eyedropper (Alt)",
+            editPixelsTitle: "Edit pixels (brush/eraser)",
+            done: "Done",
+            accountStatsTitle: "Account stats",
+            accountStatsSendPixelPrompt: "Place a pixel to fetch stats",
+            accName: "Name",
+            accChargesMax: "Charges (max)",
+            accDroplets: "Droplets",
+            accPixels: "Pixels",
+            accLevel: "Level",
+            accPixelsToNext: "Pixels to next level",
+            accPixelsToNextUnknown: "Pixels to next level: — (no data from API)",
         },
         DE: {
             open: "Öffnen",
@@ -343,7 +377,26 @@
             dayShort: "T",
             hourShort: "Std",
             minuteShort: "Min",
-            secondShort: "s"
+            secondShort: "s",
+            undoTitle: "Rückgängig (Ctrl+Z)",
+            redoTitle: "Wiederholen (Ctrl+Y / Ctrl+Shift+Z)",
+            continue: "Weiter",
+            history: "Verlauf",
+            selectedFileDiffers: "Ausgewählte Datei „{file}“ unterscheidet sich von „{expected}“.",
+            brushTitle: "Pinsel (B)",
+            eraserTitle: "Radierer (E)",
+            eyedropperTitle: "Pipette (Alt)",
+            editPixelsTitle: "Pixel bearbeiten (Pinsel/Radierer)",
+            done: "Fertig",
+            accountStatsTitle: "Account-Statistik",
+            accountStatsSendPixelPrompt: "Setze einen Pixel, um Statistiken abzurufen",
+            accName: "Name",
+            accChargesMax: "Ladungen (max)",
+            accDroplets: "Tropfen",
+            accPixels: "Pixel",
+            accLevel: "Stufe",
+            accPixelsToNext: "Pixel bis zur nächsten Stufe",
+            accPixelsToNextUnknown: "Pixel bis zur nächsten Stufe: — (keine API-Daten)",
         },
         FR: {
             open: "Ouvrir",
@@ -447,7 +500,26 @@
             dayShort: "j",
             hourShort: "h",
             minuteShort: "min",
-            secondShort: "s"
+            secondShort: "s",
+            undoTitle: "Annuler (Ctrl+Z)",
+            redoTitle: "Rétablir (Ctrl+Y / Ctrl+Shift+Z)",
+            continue: "Continuer",
+            history: "Historique",
+            selectedFileDiffers: "Le fichier sélectionné « {file} » est différent de « {expected} ».",
+            brushTitle: "Pinceau (B)",
+            eraserTitle: "Gomme (E)",
+            eyedropperTitle: "Pipette (Alt)",
+            editPixelsTitle: "Éditer les pixels (pinceau/gomme)",
+            done: "Terminé",
+            accountStatsTitle: "Statistiques du compte",
+            accountStatsSendPixelPrompt: "Placez un pixel pour récupérer les statistiques",
+            accName: "Nom",
+            accChargesMax: "Charges (max)",
+            accDroplets: "Gouttes",
+            accPixels: "Pixels",
+            accLevel: "Niveau",
+            accPixelsToNext: "Pixels jusqu'au prochain niveau",
+            accPixelsToNextUnknown: "Pixels jusqu'au prochain niveau : — (pas de données API)",
         },
         ES: {
             open: "Abrir",
@@ -551,7 +623,26 @@
             dayShort: "d",
             hourShort: "h",
             minuteShort: "min",
-            secondShort: "s"
+            secondShort: "s",
+            undoTitle: "Deshacer (Ctrl+Z)",
+            redoTitle: "Rehacer (Ctrl+Y / Ctrl+Shift+Z)",
+            continue: "Continuar",
+            history: "Historial",
+            selectedFileDiffers: "El archivo seleccionado «{file}» difiere de «{expected}».",
+            brushTitle: "Pincel (B)",
+            eraserTitle: "Borrador (E)",
+            eyedropperTitle: "Cuentagotas (Alt)",
+            editPixelsTitle: "Editar píxeles (pincel/borrador)",
+            done: "Hecho",
+            accountStatsTitle: "Estadísticas de la cuenta",
+            accountStatsSendPixelPrompt: "Coloca un píxel para obtener estadísticas",
+            accName: "Nombre",
+            accChargesMax: "Cargas (máx.)",
+            accDroplets: "Gotas",
+            accPixels: "Píxeles",
+            accLevel: "Nivel",
+            accPixelsToNext: "Píxeles hasta el siguiente nivel",
+            accPixelsToNextUnknown: "Píxeles hasta el siguiente nivel: — (sin datos de la API)",
         },
         CN: {
             open: "打开",
@@ -655,7 +746,26 @@
             dayShort: "天",
             hourShort: "小时",
             minuteShort: "分钟",
-            secondShort: "秒"
+            secondShort: "秒",
+            undoTitle: "撤销 (Ctrl+Z)",
+            redoTitle: "重做 (Ctrl+Y / Ctrl+Shift+Z)",
+            continue: "继续",
+            history: "历史",
+            selectedFileDiffers: "所选文件“{file}”与“{expected}”不同。",
+            brushTitle: "画笔 (B)",
+            eraserTitle: "橡皮 (E)",
+            eyedropperTitle: "滴管 (Alt)",
+            editPixelsTitle: "编辑像素（画笔/橡皮）",
+            done: "完成",
+            accountStatsTitle: "账户统计",
+            accountStatsSendPixelPrompt: "放置一个像素以获取统计信息",
+            accName: "名称",
+            accChargesMax: "充能（上限）",
+            accDroplets: "水滴",
+            accPixels: "像素数",
+            accLevel: "等级",
+            accPixelsToNext: "距离下一级所需像素",
+            accPixelsToNextUnknown: "距离下一级所需像素：—（无 API 数据）",
         }
     };
 
@@ -669,42 +779,53 @@
         return new Promise(resolve => {
             const back = document.createElement("div");
             back.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.6);
-      display:flex; align-items:center; justify-content:center; z-index:2147483660;`;
+      position:fixed; inset:0; z-index:2147483652; background:rgba(12,14,18,.45);
+      backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
+      display:grid; place-items:center;`;
             const modal = document.createElement("div");
             modal.style.cssText = `
-      background:#1a1f27; color:#fff; border-radius:12px; padding:20px 30px;
-      display:flex; flex-direction:column; align-items:center; gap:14px;
-      font-family:sans-serif; min-width:300px;`;
+      width:auto; max-width:min(480px,96vw); background:rgba(26,28,34,.75);
+      border:1px solid rgba(255,255,255,.08); border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.45);
+      color:#e9eef3; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Arial,sans-serif;
+      display:flex; flex-direction:column; overflow:hidden;`;
+            const head = document.createElement("div");
+            head.style.cssText = `display:flex; align-items:center; gap:10px; padding:10px 14px;
+      border-bottom:1px solid rgba(255,255,255,.08);`;
             const emoji = document.createElement("div");
-            emoji.style.fontSize = "42px";
-            emoji.textContent = "🌍";
-            modal.appendChild(emoji);
+            emoji.style.cssText = "width:18px; height:18px; line-height:0; display:inline-flex; align-items:center; justify-content:center;";
+            emoji.innerHTML = '<svg width="18" height="18" viewBox="796 796 200 200" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M973.166,818.5H818.833c-12.591,0-22.833,10.243-22.833,22.833v109.333c0,12.59,10.243,22.833,22.833,22.833h154.333c12.59,0,22.834-10.243,22.834-22.833V841.333C996,828.743,985.756,818.5,973.166,818.5z M896,961.5h-77.167c-5.973,0-10.833-4.859-10.833-10.833V841.333c0-5.974,4.86-10.833,10.833-10.833H896V961.5z M978.58,872.129c-0.547,9.145-5.668,27.261-20.869,39.845c4.615,1.022,9.629,1.573,14.92,1.573v12c-10.551,0-20.238-1.919-28.469-5.325c-7.689,3.301-16.969,5.325-28.125,5.325v-12c5.132,0,9.924-0.501,14.366-1.498c-8.412-7.016-13.382-16.311-13.382-26.78h11.999c0,8.857,5.66,16.517,14.884,21.623c4.641-2.66,8.702-6.112,12.164-10.351c5.628-6.886,8.502-14.521,9.754-20.042h-49.785v-12h22.297v-11.986h12V864.5h21.055c1.986,0,3.902,0.831,5.258,2.28C977.986,868.199,978.697,870.155,978.58,872.129z"/><path d="M839.035,914.262l-4.45,11.258h-15.971l26.355-61.09h15.971l25.746,61.09h-16.583l-4.363-11.258H839.035z M852.475,879.876l-8.902,22.604h17.629L852.475,879.876z"/></svg>';
             const title = document.createElement("div");
-            title.style.fontSize = "18px";
+            title.style.cssText = "font-weight:700; letter-spacing:.2px;";
             title.textContent = t("selectLanguageTitle");
-            modal.appendChild(title);
+            head.appendChild(emoji);
+            head.appendChild(title);
+            const body = document.createElement("div");
+            body.style.cssText = `display:flex; flex-direction:column; gap:12px; padding:12px;`;
             const list = document.createElement("div");
-            list.style.display = "flex";
-            list.style.flexWrap = "wrap";
-            list.style.gap = "8px";
-            list.style.justifyContent = "center";
+            list.style.cssText = `display:flex; flex-wrap:wrap; gap:8px; justify-content:center;`;
             LANGS.forEach(lang => {
                 const btn = document.createElement("button");
                 btn.style.cssText = `
-        flex:0 0 auto; padding:8px 12px; border-radius:8px; border:1px solid #444;
-        display:flex; align-items:center; gap:6px; background:#262a30; color:#fff;
-        cursor:pointer; font-size:14px;`;
+        flex:0 0 auto; height:32px; padding:0 12px; border-radius:8px;
+        border:1px solid #3a3f47; background:#262a30; color:#e8edf3;
+        display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:12px;`;
                 btn.innerHTML = `${lang.flag} ${lang.name}`;
                 btn.addEventListener("click", () => {
                     localStorage.setItem("overlay_tool_lang", lang.code);
                     currentLang = lang.code;
-                    document.body.removeChild(back);
-                    resolve(lang.code)
+                    try {
+                        document.body.removeChild(back);
+                    } catch {}
+                    resolve(lang.code);
+                    try {
+                        applyLanguage();
+                    } catch (_) {}
                 });
                 list.appendChild(btn)
             });
-            modal.appendChild(list);
+            body.appendChild(list);
+            modal.appendChild(head);
+            modal.appendChild(body);
             back.appendChild(modal);
             document.body.appendChild(back)
         })
@@ -1260,9 +1381,19 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     const spacer = el('div');
     spacer.style.flex = '1';
     const btnAcc = el("button", "btn icon");
-    btnAcc.title = "Статистика аккаунта";
+    btnAcc.title = t("accountStatsTitle");
     btnAcc.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-    toolbarRow.append(btnAcc, btnOpen, btnHistory, btnAcid, fileChip, spacer, btnClear, btnClose);
+
+    const btnLang = el("button", "btn icon");
+    btnLang.title = t("selectLanguageTitle");
+    btnLang.innerHTML = '<svg width="18" height="18" viewBox="796 796 200 200" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M973.166,818.5H818.833c-12.591,0-22.833,10.243-22.833,22.833v109.333c0,12.59,10.243,22.833,22.833,22.833h154.333c12.59,0,22.834-10.243,22.834-22.833V841.333C996,828.743,985.756,818.5,973.166,818.5z M896,961.5h-77.167c-5.973,0-10.833-4.859-10.833-10.833V841.333c0-5.974,4.86-10.833,10.833-10.833H896V961.5z M978.58,872.129c-0.547,9.145-5.668,27.261-20.869,39.845c4.615,1.022,9.629,1.573,14.92,1.573v12c-10.551,0-20.238-1.919-28.469-5.325c-7.689,3.301-16.969,5.325-28.125,5.325v-12c5.132,0,9.924-0.501,14.366-1.498c-8.412-7.016-13.382-16.311-13.382-26.78h11.999c0,8.857,5.66,16.517,14.884,21.623c4.641-2.66,8.702-6.112,12.164-10.351c5.628-6.886,8.502-14.521,9.754-20.042h-49.785v-12h22.297v-11.986h12V864.5h21.055c1.986,0,3.902,0.831,5.258,2.28C977.986,868.199,978.697,870.155,978.58,872.129z"/><path d="M839.035,914.262l-4.45,11.258h-15.971l26.355-61.09h15.971l25.746,61.09h-16.583l-4.363-11.258H839.035z M852.475,879.876l-8.902,22.604h17.629L852.475,879.876z"/></svg>';
+    btnLang.addEventListener('click', () => {
+        try {
+            showLanguageSelector();
+        } catch (_) {}
+    });
+
+    toolbarRow.append(btnAcc, btnLang, btnOpen, btnHistory, btnAcid, fileChip, spacer, btnClear, btnClose);
     toolbarScroll.append(toolbarRow);
     const fadeL = el("div", "fade-edge fade-left");
     const fadeR = el("div", "fade-edge fade-right");
@@ -1489,10 +1620,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
     function renderAccTip() {
         accTip.innerHTML = '';
-        const title = el('div', 'title', 'Статистика аккаунта');
+        const title = el('div', 'title', t('accountStatsTitle'));
         accTip.appendChild(title);
         if (!__accStats) {
-            const msg = el('div', 'muted', 'Отправьте пиксель для получения статистики');
+            const msg = el('div', 'muted', t('accountStatsSendPixelPrompt'));
             accTip.appendChild(msg);
             return;
         }
@@ -1506,11 +1637,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         const levelInt = (levelRaw != null) ? Math.floor(Number(levelRaw)) : null;
         const levelPct = (levelRaw != null) ? levelValueToPercent(levelRaw) : null;
         const rows = [
-            ['Имя', String(nameVal ?? '—')],
-            ['Заряды (макс)', (chargesMax != null) ? String(chargesMax) : '—'],
-            ['Капли', (dropletsVal != null) ? String(dropletsVal) : '—'],
-            ['Пикселей', (pixelsPaintedVal != null) ? String(pixelsPaintedVal) : '—'],
-            ['Уровень', (levelInt != null && levelPct != null) ? (`${levelInt} (${levelPct.toFixed(1)}%)`) : (levelInt != null ? String(levelInt) : '—')]
+            [t('accName'), String(nameVal ?? '—')],
+            [t('accChargesMax'), (chargesMax != null) ? String(chargesMax) : '—'],
+            [t('accDroplets'), (dropletsVal != null) ? String(dropletsVal) : '—'],
+            [t('accPixels'), (pixelsPaintedVal != null) ? String(pixelsPaintedVal) : '—'],
+            [t('accLevel'), (levelInt != null && levelPct != null) ? (`${levelInt} (${levelPct.toFixed(1)}%)`) : (levelInt != null ? String(levelInt) : '—')]
         ];
         for (const [k, v] of rows) {
             const row = el('div', 'row');
@@ -1519,8 +1650,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         }
         const needed = computePixelsToNextLevel(s);
         const msg = (needed != null) ?
-            `Пикселей до нового уровня: ${needed}` :
-            'Пикселей до нового уровня: — (нет данных от API)';
+            `${t('accPixelsToNext')}: ${needed}` :
+            t('accPixelsToNextUnknown');
         accTip.appendChild(el('div', 'muted', msg));
     }
 
@@ -1557,6 +1688,78 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         hideAccTip();
     });
     hookNetworkForAccountStats();
+
+    function applyLanguage() {
+        try {
+            btnOpen.title = t("open");
+        } catch {}
+        try {
+            btnCopyArt.title = t("copyArt");
+        } catch {}
+        try {
+            btnMove.title = t("moveModeTitle");
+        } catch {}
+        try {
+            btnAcid.title = t("acidToggleTitle");
+        } catch {}
+        try {
+            snapLabel.textContent = t("snap");
+        } catch {}
+        try {
+            btnClose.title = t("close");
+        } catch {}
+        try {
+            btnHistory.title = t("history");
+        } catch {}
+        try {
+            btnAcc.title = t("accountStatsTitle");
+        } catch {}
+        try {
+            btnLang.title = t("selectLanguageTitle");
+        } catch {}
+        try {
+            delayLbl.textContent = t("delay") + ":";
+        } catch {}
+        try {
+            btnStop.title = t("stop");
+        } catch {}
+        try {
+            sizeLbl.textContent = t("sizeLabel");
+        } catch {}
+        try {
+            activeChip.textContent = t("brushPrefix") + "—";
+        } catch {}
+        try {
+            palStat.textContent = "— " + t("colorsSuffix");
+        } catch {}
+        try {
+            rClock.title = t("delay");
+        } catch {}
+        try {
+            rMove.title = t("moveModeTitle");
+        } catch {}
+        try {
+            rBrush.title = t("brush");
+        } catch {}
+        try {
+            rAuto.title = t("autoSelectTitle");
+        } catch {}
+        try {
+            rAccess.title = t("giveAccess");
+        } catch {}
+        try {
+            rStop.title = t("stop");
+        } catch {}
+        try {
+            rCopy.title = t("copyArt");
+        } catch {}
+        try {
+            palTitle.textContent = t("palette");
+        } catch {}
+        try {
+            if (accTip && accTip.style.display !== 'none') renderAccTip();
+        } catch {}
+    }
 
     function showStartupModal() {
         try {
@@ -1941,7 +2144,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     }
 
                     if (expectedName && f.name && f.name !== expectedName) {
-                        const cont = await confirmModal((t('history') || 'History'), `Selected file “${f.name}” differs from “${expectedName}”.`, (t('continue') || 'Continue'), (t('cancel') || 'Cancel'));
+                        const msg = (t('selectedFileDiffers') || 'Selected file “{file}” differs from “{expected}”.')
+                            .replace('{file}', String(f.name || ''))
+                            .replace('{expected}', String(expectedName || ''));
+                        const cont = await confirmModal((t('history') || 'History'), msg, (t('continue') || 'Continue'), (t('cancel') || 'Cancel'));
                         if (!cont) {
                             resolve(false);
                             return;
@@ -4582,6 +4788,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }, {
                 passive: !1
             });
+
+            preview.addEventListener("pointerleave", () => {
+                if (editMode) {
+                    hoverPos = null;
+                    render();
+                }
+            });
             btnCenter.addEventListener("click", () => {
                 if (!mosaic) return;
                 zoom = 1;
@@ -4784,10 +4997,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             slider.type = "range";
             slider.min = "1";
             slider.max = String(Math.min(128, Math.ceil(Math.min(ow, oh) / 2)));
-            slider.value = "14";
+            slider.value = "1";
             slider.className = "pixel-slider";
             const pxWrap = el("span", "range-wrap");
-            const pxVal = el("span", "value", "14");
+            const pxVal = el("span", "value", "1");
             pxWrap.append(slider);
             rowPx.append(lblPx, pxWrap, pxVal);
             const rowQuant = el("div", "pixel-row");
@@ -4939,7 +5152,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const btnCV = el("button", "btn icon");
             btnCV.title = t("pcPreviewTitle");
             btnCV.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>';
-            foot.append(zoomLbl, btnCV, spacer, btnSave, btnApply, btnSkip, btnCancel);
+            const btnEdit = el("button", "btn");
+            btnEdit.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> ' + t("brush");
+            btnEdit.title = t("editPixelsTitle");
+            foot.append(zoomLbl, btnCV, spacer, btnEdit, btnSave, btnApply, btnSkip, btnCancel);
             modal.append(head, body, foot);
             back.append(modal);
             shadow.append(back);
@@ -4948,7 +5164,28 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 willReadFrequently: !0,
                 alpha: !0
             });
-            let pixelSize = Math.max(1, Math.min(parseInt(slider.max, 10) || 14, 14));
+
+            let editMode = false;
+            let lockedForEdit = false;
+            let eraser = false;
+            let eyedropper = false;
+            let brushSizeEdit = 1;
+            let editImageData = null;
+            let editPalette = [];
+            let editColor = [0, 0, 0];
+            let activeColorIdx = 0;
+            let hoverPos = null;
+
+            const UNDO_LIMIT = 100;
+            let undoStack = [];
+            let redoStack = [];
+            let strokeRec = null;
+
+            let useEditedSource = false;
+            let editedSource = null;
+            let editedSourceW = 0,
+                editedSourceH = 0;
+            let pixelSize = 1;
             slider.value = String(pixelSize);
             pxVal.textContent = String(pixelSize);
             let dwnW = 0,
@@ -4964,6 +5201,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             let cvPreview = false;
 
             let baseSmallData = null;
+            let currentPalette = [];
 
             function updateSelInfo() {
                 selInfo.textContent = t("selectedCount") + selectedCustom.size
@@ -5091,7 +5329,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 sctx.imageSmoothingEnabled = smooth;
                 sctx.imageSmoothingQuality = quality;
                 sctx.clearRect(0, 0, dwnW, dwnH);
-                if (bitmap) {
+                if (useEditedSource && editedSource) {
+
+                    sctx.drawImage(editedSource, 0, 0, editedSourceW, editedSourceH, 0, 0, dwnW, dwnH);
+                } else if (bitmap) {
                     sctx.drawImage(bitmap, 0, 0, ow, oh, 0, 0, dwnW, dwnH)
                 } else {
                     sctx.drawImage(imEl, 0, 0, ow, oh, 0, 0, dwnW, dwnH)
@@ -5131,6 +5372,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
             function processQuantAndDither() {
                 const pal = getPaletteForMode();
+                currentPalette = pal.slice();
                 if (!pal || pal.length === 0) {
                     stC.textContent = t("colorsUsed") + ": 0/0";
                     return
@@ -5186,10 +5428,46 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 ctx.clearRect(0, 0, vw, vh);
                 const drawW = dwnW * zoom2,
                     drawH = dwnH * zoom2;
+
+                {
+                    const halfSpanX = (vw - drawW) / 2;
+                    const halfSpanY = (vh - drawH) / 2;
+                    const minX = Math.min(halfSpanX, -halfSpanX);
+                    const maxX = Math.max(halfSpanX, -halfSpanX);
+                    const minY = Math.min(halfSpanY, -halfSpanY);
+                    const maxY = Math.max(halfSpanY, -halfSpanY);
+
+                    const panMargin = Math.max(24, Math.round(0.25 * Math.min(vw, vh)));
+                    offX2 = clamp(offX2, minX - panMargin, maxX + panMargin);
+                    offY2 = clamp(offY2, minY - panMargin, maxY + panMargin);
+                }
                 const cx = (vw - drawW) / 2 + offX2,
                     cy = (vh - drawH) / 2 + offY2;
                 ctx.imageSmoothingEnabled = !1;
                 ctx.drawImage(small, 0, 0, dwnW, dwnH, Math.round(cx), Math.round(cy), Math.round(drawW), Math.round(drawH));
+
+                if (editMode && hoverPos) {
+                    const [ix, iy] = hoverPos;
+                    const size = Math.max(1, Math.round(brushSizeEdit));
+                    const half = Math.floor((size - 1) / 2);
+                    let x0 = clamp(ix - half, 0, dwnW - 1);
+                    let y0 = clamp(iy - half, 0, dwnH - 1);
+                    let x1 = clamp(ix + size - half - 1, 0, dwnW - 1);
+                    let y1 = clamp(iy + size - half - 1, 0, dwnH - 1);
+                    const rx = Math.round(cx + x0 * zoom2);
+                    const ry = Math.round(cy + y0 * zoom2);
+                    const rw = Math.round((x1 - x0 + 1) * zoom2);
+                    const rh = Math.round((y1 - y0 + 1) * zoom2);
+                    ctx.save();
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = 'rgba(0,0,0,.85)';
+                    ctx.strokeRect(rx, ry, rw, rh);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(255,255,255,.95)';
+                    ctx.strokeRect(rx, ry, rw, rh);
+                    ctx.restore();
+                }
                 zoomLbl.textContent = `Zoom: ${zoom2}×`
             }
             const roPrev = new ResizeObserver(() => fitAndRender());
@@ -5199,7 +5477,270 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 sy2 = 0,
                 sox2 = 0,
                 soy2 = 0;
+
+            let painting = false;
+            let panningWhileEdit = false;
+
+            function beginStroke() {
+                strokeRec = {
+                    indices: [],
+                    old: [],
+                    seen: new Set()
+                };
+            }
+
+            function recordBeforeChange(idx4, data) {
+                if (!strokeRec) return;
+                if (strokeRec.seen.has(idx4)) return;
+                strokeRec.seen.add(idx4);
+                strokeRec.indices.push(idx4);
+                strokeRec.old.push(data[idx4], data[idx4 + 1], data[idx4 + 2], data[idx4 + 3]);
+            }
+
+            function finishStroke() {
+                if (!strokeRec || strokeRec.indices.length === 0) {
+                    strokeRec = null;
+                    return;
+                }
+
+                const data = editImageData?.data;
+                if (!data) {
+                    strokeRec = null;
+                    return;
+                }
+                const newArr = new Uint8ClampedArray(strokeRec.indices.length * 4);
+                for (let i = 0; i < strokeRec.indices.length; i++) {
+                    const base = strokeRec.indices[i];
+                    const di = i * 4;
+                    newArr[di] = data[base];
+                    newArr[di + 1] = data[base + 1];
+                    newArr[di + 2] = data[base + 2];
+                    newArr[di + 3] = data[base + 3];
+                }
+                const act = {
+                    indices: new Uint32Array(strokeRec.indices),
+                    old: new Uint8ClampedArray(strokeRec.old),
+                    neu: newArr
+                };
+                undoStack.push(act);
+                if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+                redoStack = [];
+                strokeRec = null;
+                updateUndoRedoButtons();
+            }
+
+            function applyAction(act, useOld) {
+                if (!act || !editImageData) return;
+                const data = editImageData.data;
+                const src = useOld ? act.old : act.neu;
+                for (let i = 0; i < act.indices.length; i++) {
+                    const base = act.indices[i];
+                    const di = i * 4;
+                    data[base] = src[di];
+                    data[base + 1] = src[di + 1];
+                    data[base + 2] = src[di + 2];
+                    data[base + 3] = src[di + 3];
+                }
+                try {
+                    sctx.putImageData(editImageData, 0, 0);
+                } catch {}
+                render();
+            }
+
+            function doUndo() {
+                if (!undoStack.length) return;
+                const act = undoStack.pop();
+                applyAction(act, true);
+                redoStack.push(act);
+                if (redoStack.length > UNDO_LIMIT) redoStack.shift();
+                updateUndoRedoButtons();
+            }
+
+            function doRedo() {
+                if (!redoStack.length) return;
+                const act = redoStack.pop();
+                applyAction(act, false);
+                undoStack.push(act);
+                if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+                updateUndoRedoButtons();
+            }
+
+            function updateUndoRedoButtons() {
+                try {
+                    btnUndo.disabled = !undoStack.length;
+                    btnRedo.disabled = !redoStack.length;
+                } catch (_) {}
+            }
+
+            function onKeyDownEdit(e) {
+                if (!editMode) return;
+                const tag = (e.target && (e.target.tagName || '')).toLowerCase();
+                const key = (e.key || '').toLowerCase();
+                if (key === 'alt') {
+                    try {
+                        btnToolEyedropper.classList.add('primary');
+                    } catch {}
+                    return;
+                }
+                if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
+                const mod = e.ctrlKey || e.metaKey;
+                if (!e.altKey && !mod) {
+                    if (key === 'b') {
+                        e.preventDefault();
+                        eraser = false;
+                        eyedropper = false;
+                        try {
+                            btnToolBrush.classList.add('primary');
+                        } catch {}
+                        try {
+                            btnToolEraser.classList.remove('primary');
+                        } catch {}
+                        try {
+                            btnToolEyedropper.classList.remove('primary');
+                        } catch {}
+                        return;
+                    }
+                    if (key === 'e') {
+                        e.preventDefault();
+                        eraser = true;
+                        eyedropper = false;
+                        try {
+                            btnToolEraser.classList.add('primary');
+                        } catch {}
+                        try {
+                            btnToolBrush.classList.remove('primary');
+                        } catch {}
+                        try {
+                            btnToolEyedropper.classList.remove('primary');
+                        } catch {}
+                        return;
+                    }
+                }
+                if (mod && !e.shiftKey && key === 'z') {
+                    e.preventDefault();
+                    doUndo();
+                } else if (mod && (key === 'y' || (e.shiftKey && key === 'z'))) {
+                    e.preventDefault();
+                    doRedo();
+                }
+            }
+
+            function onKeyUpEdit(e) {
+                if (!editMode) return;
+                const key = (e.key || '').toLowerCase();
+                if (key === 'alt') {
+                    try {
+                        if (!eyedropper) btnToolEyedropper.classList.remove('primary');
+                    } catch {}
+                }
+            }
+
+            function mapClientToPixel(clientX, clientY) {
+                const rect = canvas.getBoundingClientRect();
+                const vw = canvas.width,
+                    vh = canvas.height;
+                const drawW = dwnW * zoom2,
+                    drawH = dwnH * zoom2;
+                const cx = (vw - drawW) / 2 + offX2;
+                const cy = (vh - drawH) / 2 + offY2;
+                const x = Math.floor((clientX - rect.left - cx) / Math.max(1e-6, zoom2));
+                const y = Math.floor((clientY - rect.top - cy) / Math.max(1e-6, zoom2));
+                if (x < 0 || y < 0 || x >= dwnW || y >= dwnH) return null;
+                return [x, y];
+            }
+
+            function pickColorAt(clientX, clientY) {
+                if (!editImageData) return;
+                const pos = mapClientToPixel(clientX, clientY);
+                if (!pos) return;
+                const [ix, iy] = pos;
+                const idx = (iy * dwnW + ix) * 4;
+                const data = editImageData.data;
+                const r = data[idx + 0] | 0;
+                const g = data[idx + 1] | 0;
+                const b = data[idx + 2] | 0;
+                editColor = [r, g, b];
+                const pi = findPaletteIndex(editColor);
+                if (pi >= 0) {
+                    activeColorIdx = pi;
+                } else {
+                    activeColorIdx = -1;
+                }
+                updateActivePaletteUI();
+                render();
+            }
+
+            function paintAt(clientX, clientY) {
+                if (!editMode || !editImageData) return;
+                const pos = mapClientToPixel(clientX, clientY);
+                if (!pos) return;
+                const [ix, iy] = pos;
+                const size = Math.max(1, Math.round(brushSizeEdit));
+                const half = Math.floor((size - 1) / 2);
+                let x0 = clamp(ix - half, 0, dwnW - 1);
+                let y0 = clamp(iy - half, 0, dwnH - 1);
+                let x1 = clamp(ix + size - half - 1, 0, dwnW - 1);
+                let y1 = clamp(iy + size - half - 1, 0, dwnH - 1);
+                const data = editImageData.data;
+                for (let y = y0; y <= y1; y++) {
+                    const row = y * dwnW;
+                    for (let x = x0; x <= x1; x++) {
+                        const idx = (row + x) * 4;
+                        recordBeforeChange(idx, data);
+                        if (eraser) {
+                            data[idx + 3] = 0;
+                        } else {
+                            data[idx + 0] = editColor[0] | 0;
+                            data[idx + 1] = editColor[1] | 0;
+                            data[idx + 2] = editColor[2] | 0;
+                            data[idx + 3] = 255;
+                        }
+                    }
+                }
+                try {
+                    sctx.putImageData(editImageData, 0, 0);
+                } catch {}
+                render();
+            }
             preview.addEventListener("pointerdown", (e) => {
+                if (editMode) {
+
+                    if (e.button === 0) {
+                        const tempPick = !!e.altKey;
+                        if (eyedropper || tempPick) {
+                            pickColorAt(e.clientX, e.clientY);
+
+                            if (eyedropper) {
+                                eyedropper = false;
+                                try {
+                                    btnToolEyedropper.classList.remove("primary");
+                                } catch {}
+                                eraser = false;
+                                try {
+                                    btnToolBrush.classList.add("primary");
+                                } catch {}
+                                try {
+                                    btnToolEraser.classList.remove("primary");
+                                } catch {}
+                            }
+                            return;
+                        }
+                        painting = true;
+                        preview.setPointerCapture?.(e.pointerId);
+                        beginStroke();
+                        paintAt(e.clientX, e.clientY);
+                    } else if (e.button === 1 || e.button === 2) {
+
+                        e.preventDefault();
+                        panningWhileEdit = true;
+                        preview.setPointerCapture?.(e.pointerId);
+                        sx2 = e.clientX;
+                        sy2 = e.clientY;
+                        sox2 = offX2;
+                        soy2 = offY2;
+                    }
+                    return;
+                }
                 dragging2 = !0;
                 preview.setPointerCapture?.(e.pointerId);
                 sx2 = e.clientX;
@@ -5208,36 +5749,318 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 soy2 = offY2
             });
             preview.addEventListener("pointermove", (e) => {
+                if (editMode) {
+                    hoverPos = mapClientToPixel(e.clientX, e.clientY);
+                    if (panningWhileEdit) {
+                        offX2 = sox2 + (e.clientX - sx2);
+                        offY2 = soy2 + (e.clientY - sy2);
+                        render();
+                        return;
+                    }
+                    if (painting) {
+                        paintAt(e.clientX, e.clientY);
+                        return;
+                    }
+
+                    render();
+                    return;
+                }
                 if (!dragging2) return;
                 offX2 = sox2 + (e.clientX - sx2);
                 offY2 = soy2 + (e.clientY - sy2);
                 render()
             });
             preview.addEventListener("pointerup", () => {
+                if (editMode) {
+                    painting = false;
+                    panningWhileEdit = false;
+                    finishStroke();
+                    return;
+                }
                 dragging2 = !1
             });
             preview.addEventListener("wheel", (e) => {
                 e.preventDefault();
+
+                if (editMode && (e.ctrlKey || e.metaKey)) {
+                    const dir = e.deltaY > 0 ? -1 : 1;
+                    brushSizeEdit = clamp(brushSizeEdit + dir, 1, 64);
+                    try {
+                        sizeInp.value = String(brushSizeEdit);
+                    } catch {}
+                    render();
+                    return;
+                }
                 const dir = e.deltaY > 0 ? -1 : 1;
                 const nz = clamp(zoom2 + dir, minZoom2, maxZoom2);
                 if (nz !== zoom2) {
                     const rect = preview.getBoundingClientRect();
                     const mx = e.clientX - rect.left,
                         my = e.clientY - rect.top;
-                    const k = nz / zoom2;
-                    offX2 = (offX2 - mx) * k + mx;
-                    offY2 = (offY2 - my) * k + my;
+                    const vx = (mx - (preview.clientWidth - canvas.width) / 2 - offX2) / zoom2;
+                    const vy = (my - (preview.clientHeight - canvas.height) / 2 - offY2) / zoom2;
                     zoom2 = nz;
+                    const nx = vx * zoom2 + (preview.clientWidth - canvas.width) / 2 + offX2;
+                    const ny = vy * zoom2 + (preview.clientHeight - canvas.height) / 2 + offY2;
+                    offX2 += mx - nx;
+                    offY2 += my - ny;
                     render()
                 }
             }, {
                 passive: !1
             });
-            preview.addEventListener("dblclick", () => {
-                offX2 = 0;
-                offY2 = 0;
-                zoom2 = minZoom2;
-                render()
+
+            preview.addEventListener("contextmenu", (e) => {
+                if (editMode) e.preventDefault();
+            });
+
+            const editToolbar = el("div", null);
+            editToolbar.style.position = "absolute";
+            editToolbar.style.top = "8px";
+            editToolbar.style.left = "8px";
+            editToolbar.style.background = "rgba(0,0,0,.35)";
+            editToolbar.style.backdropFilter = "blur(6px) saturate(1.05)";
+            editToolbar.style.webkitBackdropFilter = "blur(6px) saturate(1.05)";
+            editToolbar.style.border = "1px solid rgba(255,255,255,.12)";
+            editToolbar.style.borderRadius = "8px";
+            editToolbar.style.padding = "8px";
+            editToolbar.style.display = "none";
+            editToolbar.style.color = "#dbe3ea";
+            editToolbar.style.zIndex = "10";
+            const toolRow = el("div", null);
+            toolRow.style.display = "flex";
+            toolRow.style.gap = "8px";
+            const btnUndo = el("button", "btn icon");
+            btnUndo.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 5L3 11l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 19a8 8 0 0 0-8-8H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+            btnUndo.title = t("undoTitle");
+            btnUndo.disabled = true;
+            const btnRedo = el("button", "btn icon");
+            btnRedo.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 5l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 19a8 8 0 0 1 8-8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+            btnRedo.title = t("redoTitle");
+            btnRedo.disabled = true;
+            btnUndo.addEventListener('click', () => {
+                if (editMode) doUndo();
+            });
+            btnRedo.addEventListener('click', () => {
+                if (editMode) doRedo();
+            });
+            const btnToolBrush = el("button", "btn icon primary");
+            btnToolBrush.title = t("brushTitle");
+            btnToolBrush.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 17C4 15.3431 5.34315 14 7 14V14C8.65685 14 10 15.3431 10 17V17C10 18.6569 8.65685 20 7 20H4.54545C4.24421 20 4 19.7558 4 19.4545V18.5V17V17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 13.7542L15.5898 5.32104C16.3563 4.46932 17.6804 4.4345 18.4906 5.24475L18.6229 5.37708L18.7552 5.5094C19.5655 6.31965 19.5307 7.64365 18.679 8.4102L10.2458 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            const btnToolEraser = el("button", "btn icon");
+            btnToolEraser.title = t("eraserTitle");
+            btnToolEraser.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.9995 13L10.9995 6.00004M20.9995 21H7.99955M10.9368 20.0628L19.6054 11.3941C20.7935 10.2061 21.3875 9.61207 21.6101 8.92709C21.8058 8.32456 21.8058 7.67551 21.6101 7.07298C21.3875 6.388 20.7935 5.79397 19.6054 4.60592L19.3937 4.39415C18.2056 3.2061 17.6116 2.61207 16.9266 2.38951C16.3241 2.19373 15.675 2.19373 15.0725 2.38951C14.3875 2.61207 13.7935 3.2061 12.6054 4.39415L4.39366 12.6059C3.20561 13.794 2.61158 14.388 2.38902 15.073C2.19324 15.6755 2.19324 16.3246 2.38902 16.9271C2.61158 17.6121 3.20561 18.2061 4.39366 19.3941L5.06229 20.0628C5.40819 20.4087 5.58114 20.5816 5.78298 20.7053C5.96192 20.815 6.15701 20.8958 6.36108 20.9448C6.59126 21 6.83585 21 7.32503 21H8.67406C9.16324 21 9.40784 21 9.63801 20.9448C9.84208 20.8958 10.0372 20.815 10.2161 20.7053C10.418 20.5816 10.5909 20.4087 10.9368 20.0628Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            const sizeInp = document.createElement("input");
+            sizeInp.type = "number";
+            sizeInp.min = "1";
+            sizeInp.max = "64";
+            sizeInp.value = String(brushSizeEdit);
+            sizeInp.style.width = "64px";
+            const paletteWrap = el("div", null);
+            paletteWrap.style.marginTop = "8px";
+            paletteWrap.style.display = "flex";
+            paletteWrap.style.flexWrap = "wrap";
+            paletteWrap.style.gap = "6px";
+
+            function getColorNameForRgb(rgb) {
+                try {
+                    const m = MASTER_COLORS.find(c => c.rgb && c.rgb[0] === rgb[0] && c.rgb[1] === rgb[1] && c.rgb[2] === rgb[2]);
+                    if (m && m.name) return m.name;
+                } catch {}
+                const toHex = (n) => n.toString(16).padStart(2, '0');
+                return `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
+            }
+
+            function findPaletteIndex(rgb) {
+                try {
+                    for (let i = 0; i < editPalette.length; i++) {
+                        const c = editPalette[i].rgb;
+                        if (c[0] === rgb[0] && c[1] === rgb[1] && c[2] === rgb[2]) return i;
+                    }
+                } catch {}
+                return -1;
+            }
+
+            function updateActivePaletteUI() {
+                const children = Array.from(paletteWrap.children);
+                children.forEach((node, idx) => {
+                    if (!(node instanceof HTMLElement)) return;
+                    if (idx === activeColorIdx) {
+                        node.style.outline = "2px solid #fff";
+                        node.style.outlineOffset = "1px";
+                    } else {
+                        node.style.outline = "none";
+                    }
+                });
+            }
+
+            function rebuildPaletteUI() {
+                paletteWrap.innerHTML = "";
+                editPalette.forEach((item, idx) => {
+                    const rgb = item.rgb;
+                    const b = document.createElement("button");
+                    b.className = "btn";
+                    b.style.width = "22px";
+                    b.style.height = "22px";
+                    b.style.padding = "0";
+                    b.style.border = "1px solid rgba(255,255,255,.4)";
+                    b.style.borderRadius = "4px";
+                    b.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                    b.title = item.name || getColorNameForRgb(rgb);
+                    b.setAttribute("aria-label", b.title);
+
+                    b.addEventListener("pointerdown", (e) => {
+                        e.stopPropagation();
+                    });
+                    b.addEventListener("click", () => {
+                        eraser = false;
+                        btnToolBrush.classList.add("primary");
+                        btnToolEraser.classList.remove("primary");
+                        try {
+                            btnToolEyedropper.classList.remove("primary");
+                        } catch {}
+                        eyedropper = false;
+                        editColor = rgb.slice();
+                        activeColorIdx = idx;
+                        updateActivePaletteUI();
+                    });
+                    paletteWrap.append(b);
+                });
+                updateActivePaletteUI();
+            }
+            btnUndo.addEventListener("pointerdown", (e) => e.stopPropagation());
+            btnRedo.addEventListener("pointerdown", (e) => e.stopPropagation());
+            btnToolBrush.addEventListener("click", () => {
+                eraser = false;
+                btnToolBrush.classList.add("primary");
+                btnToolEraser.classList.remove("primary");
+                try {
+                    btnToolEyedropper.classList.remove("primary");
+                } catch {}
+                eyedropper = false;
+            });
+            btnToolEraser.addEventListener("click", () => {
+                eraser = true;
+                btnToolEraser.classList.add("primary");
+                btnToolBrush.classList.remove("primary");
+                try {
+                    btnToolEyedropper.classList.remove("primary");
+                } catch {}
+                eyedropper = false;
+            });
+
+            btnToolBrush.addEventListener("pointerdown", (e) => e.stopPropagation());
+            btnToolEraser.addEventListener("pointerdown", (e) => e.stopPropagation());
+            sizeInp.addEventListener("change", () => {
+                const v = Math.max(1, Math.round(Number(sizeInp.value) || 1));
+                brushSizeEdit = v;
+                sizeInp.value = String(v);
+                if (editMode) render();
+            });
+            sizeInp.addEventListener("pointerdown", (e) => e.stopPropagation());
+            const btnToolEyedropper = el("button", "btn icon");
+            btnToolEyedropper.title = t("eyedropperTitle");
+            btnToolEyedropper.innerHTML = '<svg width="18" height="18" viewBox="0 0 512 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><g><g><path d="M42.765,423.593c-10.944-0.006-21.894,4.166-30.245,12.516c-16.693,16.693-16.693,43.757-0.001,60.448 c16.691,16.69,43.754,16.692,60.447,0c8.344-8.347,12.516-19.284,12.516-30.225l0.002-42.742L42.765,423.593z"/></g></g><g><g><path d="M419.151,192.658L512,99.809L415.115,2.924l-92.849,92.847l-12.11-12.109c-16.175-16.175-37.68-25.083-60.553-25.083 s-44.38,8.908-60.553,25.083l-28.26,28.256l72.664,72.664L112.348,305.688c-12.94,12.94-20.066,30.144-20.066,48.445 c0,18.3,7.127,35.504,20.067,48.442c12.939,12.94,30.144,20.066,48.443,20.066c0.001,0,0,0,0.001,0 c18.297,0,35.502-7.127,48.44-20.066L330.34,281.469l72.663,72.663l28.258-28.259c16.174-16.174,25.082-37.678,25.082-60.552 c0-22.873-8.907-44.378-25.082-60.552L419.151,192.658z M185.012,378.354c-6.469,6.471-15.071,10.033-24.22,10.033 c-9.15,0-17.753-3.564-24.223-10.034c-6.469-6.468-10.033-15.071-10.033-24.221c0-9.15,3.564-17.753,10.033-24.221 l121.107-121.107l48.443,48.443L185.012,378.354z M407.04,301.653l-4.036,4.035l-193.771-193.77l4.037-4.036 c9.704-9.704,22.607-15.049,36.331-15.049c13.724,0,26.628,5.345,36.332,15.049l36.331,36.331l92.849-92.847l48.443,48.443 l-92.848,92.848l36.331,36.331c9.704,9.705,15.049,22.608,15.049,36.331C422.089,279.044,416.744,291.948,407.04,301.653z"/></g></g></svg>';
+            btnToolEyedropper.addEventListener("click", () => {
+                eyedropper = !eyedropper;
+                if (eyedropper) {
+                    eraser = false;
+                    btnToolEyedropper.classList.add("primary");
+                    btnToolBrush.classList.remove("primary");
+                    btnToolEraser.classList.remove("primary");
+                } else {
+                    btnToolEyedropper.classList.remove("primary");
+                }
+            });
+            btnToolEyedropper.addEventListener("pointerdown", (e) => e.stopPropagation());
+            toolRow.append(btnUndo, btnRedo, btnToolBrush, btnToolEraser, btnToolEyedropper, sizeInp);
+            editToolbar.append(toolRow, paletteWrap);
+            preview.style.position = "relative";
+            preview.append(editToolbar);
+
+            ["pointerdown", "pointermove", "pointerup"].forEach(ev => {
+                editToolbar.addEventListener(ev, (e) => {
+                    e.stopPropagation();
+                });
+            });
+
+            document.addEventListener('keydown', onKeyDownEdit, true);
+            document.addEventListener('keyup', onKeyUpEdit, true);
+
+            function setControlsDisabled(dis) {
+                [method, slider, quant, space, dith, dithStr, sliderGrow, sliderShrink, btnClearRef, btnAddFreeRef, btnSelectAllRef, btnImportOwnedRef].forEach(elm => {
+                    try {
+                        elm.disabled = !!dis;
+                    } catch {}
+                });
+
+            }
+
+            btnEdit.addEventListener("click", () => {
+                if (!editMode) {
+                    if (!lockedForEdit) {
+                        lockedForEdit = true;
+                    }
+                    setControlsDisabled(true);
+
+                    try {
+                        editImageData = sctx.getImageData(0, 0, dwnW, dwnH);
+                    } catch {
+                        editImageData = null;
+                    }
+                    if (currentPalette && currentPalette.length) {
+                        editPalette = currentPalette.map(rgb => ({
+                            rgb,
+                            name: getColorNameForRgb(rgb)
+                        }));
+                    } else {
+                        editPalette = MASTER_COLORS.filter(c => !c.paid).map(c => ({
+                            rgb: c.rgb,
+                            name: c.name
+                        }));
+                    }
+                    activeColorIdx = 0;
+                    editColor = editPalette[0] ? editPalette[0].rgb.slice() : [0, 0, 0];
+                    rebuildPaletteUI();
+                    editMode = true;
+                    btnEdit.textContent = t("done");
+                    editToolbar.style.display = '';
+
+                    undoStack = [];
+                    redoStack = [];
+                    updateUndoRedoButtons();
+                } else {
+
+                    try {
+                        sctx.putImageData(editImageData, 0, 0);
+                    } catch {}
+
+                    try {
+                        const off = document.createElement('canvas');
+                        off.width = dwnW;
+                        off.height = dwnH;
+                        off.getContext('2d').drawImage(small, 0, 0);
+                        editedSource = off;
+                        editedSourceW = dwnW;
+                        editedSourceH = dwnH;
+                        useEditedSource = true;
+
+                        const post = sctx.getImageData(0, 0, dwnW, dwnH);
+                        baseSmallData = new Uint8ClampedArray(post.data);
+                        processQuantAndDither();
+                    } catch {}
+                    render();
+                    editMode = false;
+                    btnEdit.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> ' + t("brush");
+                    editToolbar.style.display = 'none';
+
+                    lockedForEdit = false;
+                    setControlsDisabled(false);
+
+                    try {
+                        applyUIState();
+                    } catch {}
+                }
             });
 
             function fullRecalc() {
@@ -5251,7 +6074,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 pixelSize = Math.max(1, Math.round(Number(slider.value) || 1));
                 slider.value = String(pixelSize);
                 pxVal.textContent = String(pixelSize);
-                fullRecalc()
+                fullRecalc();
+
+                offX2 = 0;
+                offY2 = 0;
+                zoom2 = minZoom2;
+                render();
             });
             method.addEventListener("change", () => fullRecalc());
             quant.addEventListener("change", () => {
@@ -5314,6 +6142,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             function cleanup(revoke = !0) {
                 try {
                     roPrev.disconnect()
+                } catch (e) {}
+                try {
+                    document.removeEventListener('keydown', onKeyDownEdit, true);
+                } catch (e) {}
+                try {
+                    document.removeEventListener('keyup', onKeyUpEdit, true);
                 } catch (e) {}
                 try {
                     back.remove()
