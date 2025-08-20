@@ -2,7 +2,10 @@
     "use strict";
 
     const TILE_SIZE = 1000;
-    const DRAW_MULT = 3;
+    function getDrawMult() {
+ 
+        return (typeof state !== 'undefined' && state && state.acidModeEnabled) ? 1 : 3;
+    }
     const LANGS = [{
         code: "RU",
         flag: `<svg width="18" height="12" viewBox="0 -4 28 28" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0)"><rect x="0.25" y="0.25" width="27.5" height="19.5" rx="1.75" fill="white" stroke="#F5F5F5" stroke-width="0.5"/><mask id="mask0" maskUnits="userSpaceOnUse" x="0" y="0" width="28" height="20"><rect x="0.25" y="0.25" width="27.5" height="19.5" rx="1.75" fill="white" stroke="white" stroke-width="0.5"/></mask><g mask="url(#mask0)"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 13.3333H28V6.66667H0V13.3333Z" fill="#0C47B7"/><path fill-rule="evenodd" clip-rule="evenodd" d="M0 20H28V13.3333H0V20Z" fill="#E53B35"/></g></g><defs><clipPath id="clip0"><rect width="28" height="20" rx="2" fill="white"/></clipPath></defs></svg>`,
@@ -813,13 +816,9 @@
                 btn.addEventListener("click", () => {
                     localStorage.setItem("overlay_tool_lang", lang.code);
                     currentLang = lang.code;
-                    try {
-                        document.body.removeChild(back);
-                    } catch {}
+                    try { document.body.removeChild(back); } catch {}
                     resolve(lang.code);
-                    try {
-                        applyLanguage();
-                    } catch (_) {}
+                    try { applyLanguage(); } catch (_) {}
                 });
                 list.appendChild(btn)
             });
@@ -1147,19 +1146,105 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))]
     }
 
+    const CV_FIXED_COLORS = [
+        [179, 45, 45],
+        [179, 85, 45],
+        [179, 125, 45],
+        [179, 165, 45],
+        [155, 179, 45],
+        [115, 179, 45],
+        [75, 179, 45],
+        [45, 179, 55],
+        [45, 179, 95],
+        [45, 179, 135],
+        [45, 179, 175],
+        [45, 165, 179],
+        [45, 125, 179],
+        [45, 85, 179],
+        [55, 45, 179],
+        [95, 45, 179],
+        [255, 0, 0],
+        [255, 64, 0],
+        [255, 128, 0],
+        [255, 191, 0],
+        [223, 255, 0],
+        [160, 255, 0],
+        [96, 255, 0],
+        [32, 255, 0],
+        [0, 255, 32],
+        [0, 255, 96],
+        [0, 255, 160],
+        [0, 255, 223],
+        [0, 191, 255],
+        [0, 128, 255],
+        [0, 64, 255],
+        [32, 0, 255],
+        [222, 59, 59],
+        [222, 106, 59],
+        [222, 153, 59],
+        [222, 200, 59],
+        [193, 222, 59],
+        [146, 222, 59],
+        [99, 222, 59],
+        [59, 222, 73],
+        [59, 222, 120],
+        [59, 222, 166],
+        [59, 222, 213],
+        [59, 200, 222],
+        [59, 153, 222],
+        [59, 106, 222],
+        [73, 59, 222],
+        [120, 59, 222],
+        [255, 82, 82],
+        [255, 133, 82],
+        [255, 184, 82],
+        [255, 235, 82],
+        [215, 255, 82],
+        [165, 255, 82],
+        [115, 255, 82],
+        [82, 255, 98],
+        [82, 255, 149],
+        [82, 255, 200],
+        [82, 255, 251],
+        [82, 235, 255],
+        [82, 184, 255],
+        [82, 133, 255],
+        [98, 82, 255]
+    ];
 
     function cvColorFor(index) {
-        const golden = 137.508;
-        const hue = (index * golden) % 360;
-
-        const sat = 100;
-        const light = 55;
-        const [r, g, b] = hslToRgb(hue, sat, light);
-        return [r, g, b]
+        const list = CV_FIXED_COLORS;
+        if (Number.isInteger(index) && index >= 0 && index < list.length) {
+            return list[index];
+        }
+      
+        let x = (index | 0) >>> 0;
+    
+        x ^= x >>> 16; x = Math.imul(x, 0x7feb352d);
+        x ^= x >>> 15; x = Math.imul(x, 0x846ca68b);
+        x ^= x >>> 16;
+        const r = (x & 0xFF);
+        const g = (x >>> 8) & 0xFF;
+        const b = (x >>> 16) & 0xFF;
+        const adj = v => 40 + Math.floor((v / 255) * 175);
+        let c = [adj(r), adj(g), adj(b)];
+       
+        for (let i = 0; i < list.length; i++) {
+            const l = list[i];
+            if (l && l[0] === c[0] && l[1] === c[1] && l[2] === c[2]) {
+                c = [Math.min(215, c[0] + 1), c[1], c[2]];
+                break;
+            }
+        }
+        return c;
     }
 
     function sleep(ms) {
         return new Promise(r => setTimeout(r, ms))
+    }
+   
+    function rgb24Index(r, g, b) {
+        return ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
     }
     const overlay = el("div", "overlay");
     const content = el("div", "content");
@@ -1387,11 +1472,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     const btnLang = el("button", "btn icon");
     btnLang.title = t("selectLanguageTitle");
     btnLang.innerHTML = '<svg width="18" height="18" viewBox="796 796 200 200" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M973.166,818.5H818.833c-12.591,0-22.833,10.243-22.833,22.833v109.333c0,12.59,10.243,22.833,22.833,22.833h154.333c12.59,0,22.834-10.243,22.834-22.833V841.333C996,828.743,985.756,818.5,973.166,818.5z M896,961.5h-77.167c-5.973,0-10.833-4.859-10.833-10.833V841.333c0-5.974,4.86-10.833,10.833-10.833H896V961.5z M978.58,872.129c-0.547,9.145-5.668,27.261-20.869,39.845c4.615,1.022,9.629,1.573,14.92,1.573v12c-10.551,0-20.238-1.919-28.469-5.325c-7.689,3.301-16.969,5.325-28.125,5.325v-12c5.132,0,9.924-0.501,14.366-1.498c-8.412-7.016-13.382-16.311-13.382-26.78h11.999c0,8.857,5.66,16.517,14.884,21.623c4.641-2.66,8.702-6.112,12.164-10.351c5.628-6.886,8.502-14.521,9.754-20.042h-49.785v-12h22.297v-11.986h12V864.5h21.055c1.986,0,3.902,0.831,5.258,2.28C977.986,868.199,978.697,870.155,978.58,872.129z"/><path d="M839.035,914.262l-4.45,11.258h-15.971l26.355-61.09h15.971l25.746,61.09h-16.583l-4.363-11.258H839.035z M852.475,879.876l-8.902,22.604h17.629L852.475,879.876z"/></svg>';
-    btnLang.addEventListener('click', () => {
-        try {
-            showLanguageSelector();
-        } catch (_) {}
-    });
+    btnLang.addEventListener('click', () => { try { showLanguageSelector(); } catch (_) {} });
 
     toolbarRow.append(btnAcc, btnLang, btnOpen, btnHistory, btnAcid, fileChip, spacer, btnClear, btnClose);
     toolbarScroll.append(toolbarRow);
@@ -1690,72 +1771,28 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     hookNetworkForAccountStats();
 
     function applyLanguage() {
-        try {
-            btnOpen.title = t("open");
-        } catch {}
-        try {
-            btnCopyArt.title = t("copyArt");
-        } catch {}
-        try {
-            btnMove.title = t("moveModeTitle");
-        } catch {}
-        try {
-            btnAcid.title = t("acidToggleTitle");
-        } catch {}
-        try {
-            snapLabel.textContent = t("snap");
-        } catch {}
-        try {
-            btnClose.title = t("close");
-        } catch {}
-        try {
-            btnHistory.title = t("history");
-        } catch {}
-        try {
-            btnAcc.title = t("accountStatsTitle");
-        } catch {}
-        try {
-            btnLang.title = t("selectLanguageTitle");
-        } catch {}
-        try {
-            delayLbl.textContent = t("delay") + ":";
-        } catch {}
-        try {
-            btnStop.title = t("stop");
-        } catch {}
-        try {
-            sizeLbl.textContent = t("sizeLabel");
-        } catch {}
-        try {
-            activeChip.textContent = t("brushPrefix") + "—";
-        } catch {}
-        try {
-            palStat.textContent = "— " + t("colorsSuffix");
-        } catch {}
-        try {
-            rClock.title = t("delay");
-        } catch {}
-        try {
-            rMove.title = t("moveModeTitle");
-        } catch {}
-        try {
-            rBrush.title = t("brush");
-        } catch {}
-        try {
-            rAuto.title = t("autoSelectTitle");
-        } catch {}
-        try {
-            rAccess.title = t("giveAccess");
-        } catch {}
-        try {
-            rStop.title = t("stop");
-        } catch {}
-        try {
-            rCopy.title = t("copyArt");
-        } catch {}
-        try {
-            palTitle.textContent = t("palette");
-        } catch {}
+        try { btnOpen.title = t("open"); } catch {}
+        try { btnCopyArt.title = t("copyArt"); } catch {}
+        try { btnMove.title = t("moveModeTitle"); } catch {}
+        try { btnAcid.title = t("acidToggleTitle"); } catch {}
+        try { snapLabel.textContent = t("snap"); } catch {}
+        try { btnClose.title = t("close"); } catch {}
+        try { btnHistory.title = t("history"); } catch {}
+        try { btnAcc.title = t("accountStatsTitle"); } catch {}
+        try { btnLang.title = t("selectLanguageTitle"); } catch {}
+        try { delayLbl.textContent = t("delay") + ":"; } catch {}
+        try { btnStop.title = t("stop"); } catch {}
+        try { sizeLbl.textContent = t("sizeLabel"); } catch {}
+        try { activeChip.textContent = t("brushPrefix") + "—"; } catch {}
+        try { palStat.textContent = "— " + t("colorsSuffix"); } catch {}
+        try { rClock.title = t("delay"); } catch {}
+        try { rMove.title = t("moveModeTitle"); } catch {}
+        try { rBrush.title = t("brush"); } catch {}
+        try { rAuto.title = t("autoSelectTitle"); } catch {}
+        try { rAccess.title = t("giveAccess"); } catch {}
+        try { rStop.title = t("stop"); } catch {}
+        try { rCopy.title = t("copyArt"); } catch {}
+        try { palTitle.textContent = t("palette"); } catch {}
         try {
             if (accTip && accTip.style.display !== 'none') renderAccTip();
         } catch {}
@@ -1919,10 +1956,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 fileName: entry.fileName,
                 w,
                 h,
-
+           
                 x: entry.x != null ? entry.x : state.x,
                 y: entry.y != null ? entry.y : state.y,
-
+ 
                 tx: Number.isFinite(entry.tx) ? entry.tx : (state.anchorSet && Number.isFinite(state.anchorTx) ? state.anchorTx : undefined),
                 ty: Number.isFinite(entry.ty) ? entry.ty : (state.anchorSet && Number.isFinite(state.anchorTy) ? state.anchorTy : undefined),
                 px: Number.isFinite(entry.px) ? entry.px : (state.anchorSet && Number.isFinite(state.anchorPx) ? state.anchorPx : undefined),
@@ -1959,10 +1996,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 back.append(pop);
                 shadow.append(back);
 
-                function onKey(e) {
-                    if (e.key === 'Escape') cleanup(false);
-                }
-
+                function onKey(e) { if (e.key === 'Escape') cleanup(false); }
                 function onDown(e) {
                     try {
                         const path = e.composedPath ? e.composedPath() : [];
@@ -1975,16 +2009,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 window.addEventListener('keydown', onKey, true);
                 window.addEventListener('pointerdown', onDown, true);
 
-                try {
-                    btnOk.focus();
-                } catch (_) {}
+                try { btnOk.focus(); } catch (_) {}
 
                 function cleanup(v) {
                     window.removeEventListener('keydown', onKey, true);
                     window.removeEventListener('pointerdown', onDown, true);
-                    try {
-                        back.remove();
-                    } catch (_) {}
+                    try { back.remove(); } catch (_) {}
                     resolve(!!v);
                 }
             } catch (_) {
@@ -2022,10 +2052,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 back.append(pop);
                 shadow.append(back);
 
-                function onKey(e) {
-                    if (e.key === 'Escape') cleanup(null);
-                }
-
+                function onKey(e) { if (e.key === 'Escape') cleanup(null); }
                 function onDown(e) {
                     try {
                         const path = e.composedPath ? e.composedPath() : [];
@@ -2041,9 +2068,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 function cleanup(v) {
                     window.removeEventListener('keydown', onKey, true);
                     window.removeEventListener('pointerdown', onDown, true);
-                    try {
-                        back.remove();
-                    } catch (_) {}
+                    try { back.remove(); } catch (_) {}
                     resolve(v);
                 }
             } catch (_) {
@@ -2056,13 +2081,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     function applyHistoryPlacement(it) {
         const hasT = Number.isFinite(it.tx) && Number.isFinite(it.ty) && Number.isFinite(it.px) && Number.isFinite(it.py);
         if (hasT) {
-
+     
             state.anchorTx = it.tx;
             state.anchorTy = it.ty;
             state.anchorPx = it.px;
             state.anchorPy = it.py;
             state.anchorSet = true;
-
+      
             const g = computeSnapGrid();
             if (g) {
                 const globalX = it.tx * TILE_SIZE + it.px;
@@ -2072,18 +2097,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 computeGridOffsetsFromXY();
             }
         } else {
-
+          
             state.x = it.x;
             state.y = it.y;
             computeGridOffsetsFromXY();
         }
-        try {
-            syncUI();
-        } catch (_) {}
-        try {
-            persistSave();
-        } catch (_) {}
-
+        try { syncUI(); } catch (_) {}
+        try { persistSave(); } catch (_) {}
+ 
         try {
             if (typeof hint !== 'undefined' && hint) hint.style.display = 'none';
             if (typeof placeState !== 'undefined' && placeState && placeState.active) {
@@ -2093,33 +2114,17 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     placeState.onDocClick = null;
                 }
                 if (placeState.onImageClick) {
-                    try {
-                        img.removeEventListener('click', placeState.onImageClick);
-                    } catch (_) {}
+                    try { img.removeEventListener('click', placeState.onImageClick); } catch (_) {}
                     placeState.onImageClick = null;
                 }
             }
-            try {
-                content.style.pointerEvents = 'auto';
-            } catch (_) {}
-
-            try {
-                setMoveMode(false);
-            } catch (_) {}
+            try { content.style.pointerEvents = 'auto'; } catch (_) {}
+ 
+            try { setMoveMode(false); } catch (_) {}
         } catch (_) {}
         try {
             if (state.currentFileName && state.iw && state.ih) {
-                historyAddOrUpdate({
-                    fileName: state.currentFileName,
-                    w: state.iw,
-                    h: state.ih,
-                    x: state.x,
-                    y: state.y,
-                    tx: state.anchorTx,
-                    ty: state.anchorTy,
-                    px: state.anchorPx,
-                    py: state.anchorPy
-                });
+                historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: state.x, y: state.y, tx: state.anchorTx, ty: state.anchorTy, px: state.anchorPx, py: state.anchorPy });
             }
         } catch (_) {}
     }
@@ -2135,23 +2140,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 shadow.append(inp);
                 inp.addEventListener('change', async (e) => {
                     const f = e.target.files && e.target.files[0];
-                    try {
-                        inp.remove();
-                    } catch (_) {}
-                    if (!f) {
-                        resolve(false);
-                        return;
-                    }
+                    try { inp.remove(); } catch (_) {}
+                    if (!f) { resolve(false); return; }
 
                     if (expectedName && f.name && f.name !== expectedName) {
                         const msg = (t('selectedFileDiffers') || 'Selected file “{file}” differs from “{expected}”.')
                             .replace('{file}', String(f.name || ''))
                             .replace('{expected}', String(expectedName || ''));
                         const cont = await confirmModal((t('history') || 'History'), msg, (t('continue') || 'Continue'), (t('cancel') || 'Cancel'));
-                        if (!cont) {
-                            resolve(false);
-                            return;
-                        }
+                        if (!cont) { resolve(false); return; }
                     }
                     try {
                         state.suppressAutoMoveOnce = true;
@@ -2161,26 +2158,16 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                             state.suppressAutoMoveOnce = false;
                         }
                         resolve(ok);
-                    } catch (_) {
-                        state.suppressAutoMoveOnce = false;
-                        resolve(false);
-                    }
-                }, {
-                    once: true
-                });
+                    } catch (_) { state.suppressAutoMoveOnce = false; resolve(false); }
+                }, { once: true });
                 inp.click();
-            } catch (_) {
-                resolve(false);
-            }
+            } catch (_) { resolve(false); }
         });
     }
 
     function openHistoryModal() {
         try {
-            if (state.historyPopupEl) {
-                closeHistoryModal();
-                return;
-            }
+            if (state.historyPopupEl) { closeHistoryModal(); return; }
             const pop = el('div', 'history-pop');
             const ttl = el('div', 'history-title', t('history'));
             const controls = el('div', 'history-controls');
@@ -2194,12 +2181,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     state.history = [];
                     historySave();
                 } catch (_) {}
-                try {
-                    closeHistoryModal();
-                } catch (_) {}
-                try {
-                    openHistoryModal();
-                } catch (_) {}
+                try { closeHistoryModal(); } catch (_) {}
+                try { openHistoryModal(); } catch (_) {}
             });
             controls.append(btnClear);
             const list = el('div', 'history-list');
@@ -2220,60 +2203,41 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     row.addEventListener('click', async () => {
                         const hasImg = !!state.currentFileName;
                         if (!hasImg) {
-
+                  
                             const ok = await selectFileAndLoad(it.fileName);
                             if (ok) {
-                                try {
-                                    applyHistoryPlacement(it);
-                                } catch (_) {}
+                                try { applyHistoryPlacement(it); } catch (_) {}
                                 closeHistoryModal();
                             }
                             return;
                         }
                         const sameFile = (state.currentFileName === it.fileName && state.iw === it.w && state.ih === it.h);
                         if (sameFile) {
-                            try {
-                                applyHistoryPlacement(it);
-                            } catch (_) {}
+                            try { applyHistoryPlacement(it); } catch (_) {}
                             closeHistoryModal();
                             return;
                         }
-
+              
                         const choice = await choiceModal(
                             (t('mismatchTitle') || 'Different image detected'),
                             (t('mismatchBody') || 'The currently loaded image is different from this history entry.'),
-                            [{
-                                    label: (t('useCurrentFile') || 'Use Current File'),
-                                    className: '',
-                                    value: 'use'
-                                },
-                                {
-                                    label: (t('loadOriginalFile') || 'Load Original File'),
-                                    className: 'primary',
-                                    value: 'load'
-                                },
-                                {
-                                    label: (t('cancel') || 'Cancel'),
-                                    className: 'danger',
-                                    value: 'cancel'
-                                }
+                            [
+                                { label: (t('useCurrentFile') || 'Use Current File'), className: '', value: 'use' },
+                                { label: (t('loadOriginalFile') || 'Load Original File'), className: 'primary', value: 'load' },
+                                { label: (t('cancel') || 'Cancel'), className: 'danger', value: 'cancel' }
                             ]
                         );
                         if (choice === 'use') {
-                            try {
-                                applyHistoryPlacement(it);
-                            } catch (_) {}
+                            try { applyHistoryPlacement(it); } catch (_) {}
                             closeHistoryModal();
                         } else if (choice === 'load') {
                             const ok = await selectFileAndLoad(it.fileName);
                             if (ok) {
-                                try {
-                                    applyHistoryPlacement(it);
-                                } catch (_) {}
+                                try { applyHistoryPlacement(it); } catch (_) {}
                                 closeHistoryModal();
                             }
                         } else {
-
+                  
                             return;
                         }
                     });
@@ -2311,18 +2275,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 }
                 closeHistoryModal();
             }
-
-            function onKey(e) {
-                if (e.key === 'Escape') closeHistoryModal();
-            }
-
-            function onRelayout() {
-                try {
-                    if (state.historyPopupEl) {
-                        closeHistoryModal();
-                    }
-                } catch (_) {}
-            }
+            function onKey(e) { if (e.key === 'Escape') closeHistoryModal(); }
+            function onRelayout() { try { if (state.historyPopupEl) { closeHistoryModal(); } } catch (_) {} }
             window.addEventListener('pointerdown', onDocDown, true);
             window.addEventListener('keydown', onKey, true);
             window.addEventListener('resize', onRelayout);
@@ -2341,9 +2295,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const elp = state.historyPopupEl;
             state.historyPopupEl = null;
             if (!elp) return;
-            try {
-                elp.__cleanup && elp.__cleanup();
-            } catch (_) {}
+            try { elp.__cleanup && elp.__cleanup(); } catch (_) {}
             elp.remove();
         } catch (_) {}
     }
@@ -2391,13 +2343,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         state.y = g.baseY + state.gridOffsetYSteps * g.stepY;
         syncUI();
         try {
-            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({
-                fileName: state.currentFileName,
-                w: state.iw,
-                h: state.ih,
-                x: state.x,
-                y: state.y
-            });
+            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: state.x, y: state.y });
         } catch (_) {}
     }
 
@@ -2670,13 +2616,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             persistSave();
         } catch (_) {}
         try {
-            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({
-                fileName: state.currentFileName,
-                w: state.iw,
-                h: state.ih,
-                x: state.x,
-                y: state.y
-            });
+            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: state.x, y: state.y });
         } catch (_) {}
     }
 
@@ -2968,12 +2908,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
         (function buildPointsFromSnapshot() {
             const [tr, tg, tb] = String(color.key || '').split(',').map(n => Number(n) || 0);
-            const tolBase = 5;
+            const tolBase = 3;
             const SHIFT = 20;
             const rr = Math.min(255, tr + SHIFT);
             const gg = Math.min(255, tg + SHIFT);
             const bb = Math.min(255, tb + SHIFT);
-            const tolShift = 10;
+            const tolShift = 6;
             const isClose = (r, g, b, R, G, B, tol) => (Math.abs(r - R) <= tol && Math.abs(g - G) <= tol && Math.abs(b - B) <= tol);
             const baseMatch = (r, g, b) => isClose(r, g, b, tr, tg, tb, tolBase);
             const looksMarked = (r, g, b) => isClose(r, g, b, rr, gg, bb, tolShift) && !baseMatch(r, g, b);
@@ -2985,18 +2925,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             let acidTol = tolBase;
             if (state.acidModeEnabled) {
                 try {
-
                     const pr = Math.min(255, tr + SHIFT);
                     const pg = Math.min(255, tg + SHIFT);
                     const pb = Math.min(255, tb + SHIFT);
-                    const pal = MASTER_COLORS.map(c => c.rgb);
-                    const palLab = pal.map(p => rgb8ToOKLab(p[0], p[1], p[2]));
-                    const qi = nearestColorIndex(pr, pg, pb, pal, palLab, true);
-                    const acid = cvColorFor(qi);
+                    const idx = rgb24Index(pr, pg, pb);
+                    const acid = cvColorFor(idx);
                     acidR = acid[0];
                     acidG = acid[1];
                     acidB = acid[2];
-                    acidTol = 10;
+                    acidTol = 3;
                 } catch (_) {}
             }
             const isAcidTarget = (r, g, b) => isClose(r, g, b, acidR, acidG, acidB, acidTol);
@@ -3007,6 +2944,36 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const mapRect = mapCanvas ? mapCanvas.getBoundingClientRect() : null;
             const taken = new Set();
             const batch = [];
+
+           
+            const matchesPixel = state.acidModeEnabled ? isAcidTarget : looksMarked;
+            const getRGBat = (x, y) => {
+                const idx = (y * w + x) * 4;
+                return [data[idx], data[idx + 1], data[idx + 2]];
+            };
+            const block2x2Matches = (cx, cy) => {
+              
+                if (cx + 1 >= w || cy + 1 >= h) return false;
+                const p00 = getRGBat(cx, cy);
+                const p10 = getRGBat(cx + 1, cy);
+                const p01 = getRGBat(cx, cy + 1);
+                const p11 = getRGBat(cx + 1, cy + 1);
+                return matchesPixel(p00[0], p00[1], p00[2]) &&
+                    matchesPixel(p10[0], p10[1], p10[2]) &&
+                    matchesPixel(p01[0], p01[1], p01[2]) &&
+                    matchesPixel(p11[0], p11[1], p11[2]);
+            };
+            const block3x3Matches = (cx, cy) => {
+              
+                if (cx - 1 < 0 || cy - 1 < 0 || cx + 1 >= w || cy + 1 >= h) return false;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const p = getRGBat(cx + dx, cy + dy);
+                        if (!matchesPixel(p[0], p[1], p[2])) return false;
+                    }
+                }
+                return true;
+            };
             let rowsPerChunk = 60;
             let sy = 0;
             const scheduleBuildStep = () => {
@@ -3032,8 +2999,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                             b = data[i + 2];
                         if (state.acidModeEnabled) {
                             if (!isAcidTarget(r, g, b)) continue;
+                            if (!block2x2Matches(sx, sy)) continue;
                         } else {
                             if (!looksMarked(r, g, b)) continue;
+                            if (!block2x2Matches(sx, sy)) continue;
                         }
                         const mapped = snapshotToClient(snap, sx, sy);
                         if (!mapped) continue;
@@ -3218,9 +3187,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const c = document.createElement('canvas');
             c.width = w;
             c.height = h;
-            const ctx = c.getContext('2d', {
-                willReadFrequently: true
-            });
+            const ctx = c.getContext('2d', { willReadFrequently: true });
             if (!ctx) return null;
             ctx.imageSmoothingEnabled = false;
             ctx.clearRect(0, 0, w, h);
@@ -3699,13 +3666,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             } catch (_) {}
 
             try {
-                if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({
-                    fileName: state.currentFileName,
-                    w: state.iw,
-                    h: state.ih,
-                    x: state.x,
-                    y: state.y
-                });
+                if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: state.x, y: state.y });
             } catch (_) {}
         };
         im.onerror = () => {
@@ -4383,10 +4344,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const u = new URL(url);
             const x = parseInt(u.searchParams.get('x'), 10);
             const y = parseInt(u.searchParams.get('y'), 10);
-            if (Number.isFinite(x) && Number.isFinite(y)) return {
-                x,
-                y
-            };
+            if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
         } catch (_) {}
         return null;
     }
@@ -4401,12 +4359,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const ty = parseInt(m[2], 10);
             const px = parseInt(u.searchParams.get('x'), 10);
             const py = parseInt(u.searchParams.get('y'), 10);
-            if ([tx, ty, px, py].every(Number.isFinite)) return {
-                tx,
-                ty,
-                px,
-                py
-            };
+            if ([tx, ty, px, py].every(Number.isFinite)) return { tx, ty, px, py };
         } catch (_) {}
         return null;
     }
@@ -4417,9 +4370,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             if (!state.currentFileName || !state.iw || !state.ih) return;
             const p = parsePixelRequest(url);
             if (!p) return;
-
-            let sx = undefined,
-                sy = undefined;
+       
+            let sx = undefined, sy = undefined;
             const g = computeSnapGrid();
             if (g) {
                 const globalX = p.tx * TILE_SIZE + p.px;
@@ -4427,17 +4379,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 sx = Math.round(g.baseX + globalX * g.stepX);
                 sy = Math.round(g.baseY + globalY * g.stepY);
             }
-            historyAddOrUpdate({
-                fileName: state.currentFileName,
-                w: state.iw,
-                h: state.ih,
-                x: sx,
-                y: sy,
-                tx: p.tx,
-                ty: p.ty,
-                px: p.px,
-                py: p.py
-            });
+            historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: sx, y: sy, tx: p.tx, ty: p.ty, px: p.px, py: p.py });
         } catch (_) {}
     }
 
@@ -4788,7 +4730,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }, {
                 passive: !1
             });
-
+            
             preview.addEventListener("pointerleave", () => {
                 if (editMode) {
                     hoverPos = null;
@@ -5164,27 +5106,57 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 willReadFrequently: !0,
                 alpha: !0
             });
-
+        
             let editMode = false;
-            let lockedForEdit = false;
+            let lockedForEdit = false; 
             let eraser = false;
             let eyedropper = false;
             let brushSizeEdit = 1;
             let editImageData = null;
+         
+            let selectMode = false;
+            let selectionMask = null; 
+            let selectionCount = 0;
+            let selCanvas = null, selCtx = null;
+            let magicSelectMode = false; 
+            let magicTolerance = 32;
+           
+            let antsCanvas = null, antsCtx = null;
+            let antsMaskCanvas = null, antsMaskCtx = null;
+            let antsPatternCanvas = null; 
+            let antsOffset = 0; 
+            let antsAnimating = false, antsAnimRAF = 0;
+    
+            let antsSpeed = 1;            
+            let antsTileSize = 4;           
+            let antsBandWidth = 2;            
+            let antsOutlineThicknessPx = 1;  
+           
+            let antsPatternSizeCache = 0;
+            let antsPatternBandCache = 0;
+          
+            let antsScreenSpace = true;   
+            let antsSegH = [];            
+            let antsSegV = [];              
             let editPalette = [];
             let editColor = [0, 0, 0];
             let activeColorIdx = 0;
-            let hoverPos = null;
-
+            let hoverPos = null; 
+           
             const UNDO_LIMIT = 100;
             let undoStack = [];
             let redoStack = [];
-            let strokeRec = null;
-
+            let strokeRec = null; 
+          
+            let selStrokeRec = null; 
+            let selOp = 'add'; 
+  
+            let deferAntsWhileStroke = false;
+            let renderScheduled = false;
+  
             let useEditedSource = false;
             let editedSource = null;
-            let editedSourceW = 0,
-                editedSourceH = 0;
+            let editedSourceW = 0, editedSourceH = 0;
             let pixelSize = 1;
             slider.value = String(pixelSize);
             pxVal.textContent = String(pixelSize);
@@ -5299,6 +5271,97 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 processQuantAndDither();
                 render();
             }
+            function doQuickSelectAt(clientX, clientY, opts) {
+                if (!editImageData) return;
+                opts = opts || {};
+                const mode = opts.mode || 'replace'; 
+                const tol = clamp(typeof opts.tolerance === 'number' ? opts.tolerance : magicTolerance, 0, 255) | 0;
+                ensureSelectionBuffer();
+                ensureSelCanvas();
+                const pos = mapClientToPixel(clientX, clientY);
+                if (!pos) return;
+                const [sx, sy] = pos;
+                const data = editImageData.data;
+                const seedIdx = (sy * dwnW + sx) * 4;
+                const tr = data[seedIdx], tg = data[seedIdx + 1], tb = data[seedIdx + 2];
+             
+                const total = dwnW * dwnH;
+                const visited = new Uint8Array(total);
+                const q = new Uint32Array(total);
+                let h = 0, t = 0;
+                const seed = sy * dwnW + sx;
+                visited[seed] = 1; q[t++] = seed;
+                while (h < t) {
+                    const i = q[h++];
+                    const y = (i / dwnW) | 0;
+                    const x = i - y * dwnW;
+    
+                    if (x > 0) {
+                        const ni = i - 1; if (!visited[ni]) {
+                            const di = ni * 4; const r=data[di], g=data[di+1], b=data[di+2];
+                            if (Math.abs(r-tr)<=tol && Math.abs(g-tg)<=tol && Math.abs(b-tb)<=tol) { visited[ni]=1; q[t++]=ni; }
+                        }
+                    }
+                   
+                    if (x + 1 < dwnW) {
+                        const ni = i + 1; if (!visited[ni]) {
+                            const di = ni * 4; const r=data[di], g=data[di+1], b=data[di+2];
+                            if (Math.abs(r-tr)<=tol && Math.abs(g-tg)<=tol && Math.abs(b-tb)<=tol) { visited[ni]=1; q[t++]=ni; }
+                        }
+                    }
+              
+                    if (y > 0) {
+                        const ni = i - dwnW; if (!visited[ni]) {
+                            const di = ni * 4; const r=data[di], g=data[di+1], b=data[di+2];
+                            if (Math.abs(r-tr)<=tol && Math.abs(g-tg)<=tol && Math.abs(b-tb)<=tol) { visited[ni]=1; q[t++]=ni; }
+                        }
+                    }
+                  
+                    if (y + 1 < dwnH) {
+                        const ni = i + dwnW; if (!visited[ni]) {
+                            const di = ni * 4; const r=data[di], g=data[di+1], b=data[di+2];
+                            if (Math.abs(r-tr)<=tol && Math.abs(g-tg)<=tol && Math.abs(b-tb)<=tol) { visited[ni]=1; q[t++]=ni; }
+                        }
+                    }
+                }
+           
+                const newMask = new Uint8Array(total);
+                let newSelCount = 0;
+                if (mode === 'replace') {
+                    for (let i = 0; i < total; i++) { const v = visited[i] | 0; newMask[i] = v; newSelCount += v; }
+                } else if (mode === 'add') {
+                    for (let i = 0; i < total; i++) { const v = ((selectionMask[i] | 0) | (visited[i] | 0)) | 0; newMask[i] = v; newSelCount += v; }
+                } else if (mode === 'subtract') {
+                    for (let i = 0; i < total; i++) { const v = ((selectionMask[i] | 0) & ((visited[i] ^ 1) | 0)) | 0; newMask[i] = v; newSelCount += v; }
+                } else {
+                    
+                    for (let i = 0; i < total; i++) { const v = visited[i] | 0; newMask[i] = v; newSelCount += v; }
+                }
+           
+                let changedCount = 0;
+                for (let i = 0; i < total; i++) { if ((selectionMask[i] | 0) !== (newMask[i] | 0)) changedCount++; }
+                if (!changedCount) { render(); return; }
+                const idxs = new Uint32Array(changedCount);
+                const oldArr = new Uint8Array(changedCount);
+                const neuArr = new Uint8Array(changedCount);
+                let w = 0;
+                for (let i = 0; i < total; i++) {
+                    const o = selectionMask[i] | 0;
+                    const n = newMask[i] | 0;
+                    if (o !== n) { idxs[w] = i; oldArr[w] = o; neuArr[w] = n; w++; }
+                }
+             
+                selectionMask = newMask;
+                selectionCount = newSelCount;
+                rebuildSelOverlayFromMask();
+            
+                const act = { kind: 'selection', indices: idxs, old: oldArr, neu: neuArr };
+                undoStack.push(act);
+                if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+                redoStack = [];
+                updateUndoRedoButtons();
+                render();
+            }
 
             btnCV.addEventListener("pointerenter", () => setCvPreview(true));
             btnCV.addEventListener("pointerleave", () => setCvPreview(false));
@@ -5330,7 +5393,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 sctx.imageSmoothingQuality = quality;
                 sctx.clearRect(0, 0, dwnW, dwnH);
                 if (useEditedSource && editedSource) {
-
+                  
                     sctx.drawImage(editedSource, 0, 0, editedSourceW, editedSourceH, 0, 0, dwnW, dwnH);
                 } else if (bitmap) {
                     sctx.drawImage(bitmap, 0, 0, ow, oh, 0, 0, dwnW, dwnH)
@@ -5428,7 +5491,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 ctx.clearRect(0, 0, vw, vh);
                 const drawW = dwnW * zoom2,
                     drawH = dwnH * zoom2;
-
+          
                 {
                     const halfSpanX = (vw - drawW) / 2;
                     const halfSpanY = (vh - drawH) / 2;
@@ -5436,7 +5499,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     const maxX = Math.max(halfSpanX, -halfSpanX);
                     const minY = Math.min(halfSpanY, -halfSpanY);
                     const maxY = Math.max(halfSpanY, -halfSpanY);
-
+              
                     const panMargin = Math.max(24, Math.round(0.25 * Math.min(vw, vh)));
                     offX2 = clamp(offX2, minX - panMargin, maxX + panMargin);
                     offY2 = clamp(offY2, minY - panMargin, maxY + panMargin);
@@ -5445,7 +5508,82 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     cy = (vh - drawH) / 2 + offY2;
                 ctx.imageSmoothingEnabled = !1;
                 ctx.drawImage(small, 0, 0, dwnW, dwnH, Math.round(cx), Math.round(cy), Math.round(drawW), Math.round(drawH));
-
+        
+                try {
+                    if (selectionCount > 0 && selectionMask && selectionMask.length === dwnW * dwnH) {
+                        if (!selCanvas || selCanvas.width !== dwnW || selCanvas.height !== dwnH) {
+                            selCanvas = document.createElement('canvas');
+                            selCanvas.width = dwnW; selCanvas.height = dwnH;
+                            selCtx = selCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+                    
+                            const img = selCtx.createImageData(dwnW, dwnH);
+                            const dd = img.data;
+                            for (let i = 0; i < selectionMask.length; i++) {
+                                if (selectionMask[i]) { dd[i*4+0]=0; dd[i*4+1]=200; dd[i*4+2]=255; dd[i*4+3]=255; }
+                            }
+                            selCtx.putImageData(img, 0, 0);
+                        }
+                        ctx.save();
+                        ctx.globalAlpha = 0.18;
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.drawImage(selCanvas, 0, 0, dwnW, dwnH, Math.round(cx), Math.round(cy), Math.round(drawW), Math.round(drawH));
+                        ctx.restore();
+                    }
+                } catch (_) {}
+             
+                try {
+                    if (selectionCount > 0 && antsScreenSpace && (antsSegH.length || antsSegV.length)) {
+                        const on = Math.max(0.5, Number(antsBandWidth) || 2); 
+                        const period = Math.max(on * 2, Number(antsTileSize) || on * 2);
+                        const off = Math.max(0, period - on);
+                        const thick = Math.max(0, Number(antsOutlineThicknessPx) || 0);
+                        const lw = thick >= 1 ? Math.floor(thick) : 1;
+                        const alpha = thick >= 1 ? 1 : Math.max(0, thick);
+                        ctx.save();
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.lineCap = 'butt';
+                        ctx.lineJoin = 'miter';
+                        ctx.setLineDash([on, off]);
+                     
+                        const strokeAll = (color, dashOffset) => {
+                            ctx.strokeStyle = color;
+                            ctx.lineDashOffset = -dashOffset;
+                            ctx.lineWidth = lw;
+                            ctx.globalAlpha = alpha;
+                            ctx.beginPath();
+                     
+                            for (let k = 0; k < antsSegH.length; k++) {
+                                const seg = antsSegH[k];
+                                const yS = Math.round(cy + seg.y * zoom2) + 0.5;
+                                const x0S = Math.round(cx + seg.x0 * zoom2);
+                                const x1S = Math.round(cx + (seg.x1 + 1) * zoom2);
+                                ctx.moveTo(x0S, yS);
+                                ctx.lineTo(x1S, yS);
+                            }
+                    
+                            for (let k = 0; k < antsSegV.length; k++) {
+                                const seg = antsSegV[k];
+                                const xS = Math.round(cx + seg.x * zoom2) + 0.5;
+                                const y0S = Math.round(cy + seg.y0 * zoom2);
+                                const y1S = Math.round(cy + (seg.y1 + 1) * zoom2);
+                                ctx.moveTo(xS, y0S);
+                                ctx.lineTo(xS, y1S);
+                            }
+                            ctx.stroke();
+                        };
+                      
+                        strokeAll('#000', antsOffset % period);
+                        strokeAll('#fff', (antsOffset + on) % period);
+                        ctx.restore();
+                    } else if (selectionCount > 0 && antsCanvas && antsCanvas.width === dwnW && antsCanvas.height === dwnH) {
+                
+                        ctx.save();
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.drawImage(antsCanvas, 0, 0, dwnW, dwnH, Math.round(cx), Math.round(cy), Math.round(drawW), Math.round(drawH));
+                        ctx.restore();
+                    }
+                } catch (_) {}
+          
                 if (editMode && hoverPos) {
                     const [ix, iy] = hoverPos;
                     const size = Math.max(1, Math.round(brushSizeEdit));
@@ -5477,18 +5615,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 sy2 = 0,
                 sox2 = 0,
                 soy2 = 0;
-
+          
             let painting = false;
             let panningWhileEdit = false;
-
             function beginStroke() {
-                strokeRec = {
-                    indices: [],
-                    old: [],
-                    seen: new Set()
-                };
+                strokeRec = { indices: [], old: [], seen: new Set() };
             }
-
             function recordBeforeChange(idx4, data) {
                 if (!strokeRec) return;
                 if (strokeRec.seen.has(idx4)) return;
@@ -5496,18 +5628,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 strokeRec.indices.push(idx4);
                 strokeRec.old.push(data[idx4], data[idx4 + 1], data[idx4 + 2], data[idx4 + 3]);
             }
-
             function finishStroke() {
-                if (!strokeRec || strokeRec.indices.length === 0) {
-                    strokeRec = null;
-                    return;
-                }
-
+                if (!strokeRec || strokeRec.indices.length === 0) { strokeRec = null; return; }
+           
                 const data = editImageData?.data;
-                if (!data) {
-                    strokeRec = null;
-                    return;
-                }
+                if (!data) { strokeRec = null; return; }
                 const newArr = new Uint8ClampedArray(strokeRec.indices.length * 4);
                 for (let i = 0; i < strokeRec.indices.length; i++) {
                     const base = strokeRec.indices[i];
@@ -5528,25 +5653,44 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 strokeRec = null;
                 updateUndoRedoButtons();
             }
-
             function applyAction(act, useOld) {
-                if (!act || !editImageData) return;
-                const data = editImageData.data;
-                const src = useOld ? act.old : act.neu;
-                for (let i = 0; i < act.indices.length; i++) {
-                    const base = act.indices[i];
-                    const di = i * 4;
-                    data[base] = src[di];
-                    data[base + 1] = src[di + 1];
-                    data[base + 2] = src[di + 2];
-                    data[base + 3] = src[di + 3];
+                if (!act) return;
+                if (act.kind === 'selection') {
+                    ensureSelectionBuffer(); ensureSelCanvas();
+                    const src = useOld ? act.old : act.neu;
+                    for (let i = 0; i < act.indices.length; i++) {
+                        const si = act.indices[i];
+                        const prev = selectionMask[si] | 0;
+                        const next = src[i] | 0;
+                        if (prev === next) continue;
+                        selectionMask[si] = next;
+                        selectionCount += (next - prev);
+                        const x = si % dwnW, y = (si / dwnW) | 0;
+                        if (next) {
+                            selCtx.fillStyle = '#00c8ff';
+                            selCtx.fillRect(x, y, 1, 1);
+                        } else {
+                            selCtx.clearRect(x, y, 1, 1);
+                        }
+                    }
+                    rebuildAntsMaskFromSelection();
+                    render();
+                } else {
+                    if (!editImageData) return;
+                    const data = editImageData.data;
+                    const src = useOld ? act.old : act.neu;
+                    for (let i = 0; i < act.indices.length; i++) {
+                        const base = act.indices[i];
+                        const di = i * 4;
+                        data[base] = src[di];
+                        data[base + 1] = src[di + 1];
+                        data[base + 2] = src[di + 2];
+                        data[base + 3] = src[di + 3];
+                    }
+                    try { sctx.putImageData(editImageData, 0, 0); } catch {}
+                    render();
                 }
-                try {
-                    sctx.putImageData(editImageData, 0, 0);
-                } catch {}
-                render();
             }
-
             function doUndo() {
                 if (!undoStack.length) return;
                 const act = undoStack.pop();
@@ -5555,7 +5699,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 if (redoStack.length > UNDO_LIMIT) redoStack.shift();
                 updateUndoRedoButtons();
             }
-
             function doRedo() {
                 if (!redoStack.length) return;
                 const act = redoStack.pop();
@@ -5564,22 +5707,18 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 if (undoStack.length > UNDO_LIMIT) undoStack.shift();
                 updateUndoRedoButtons();
             }
-
             function updateUndoRedoButtons() {
                 try {
                     btnUndo.disabled = !undoStack.length;
                     btnRedo.disabled = !redoStack.length;
                 } catch (_) {}
             }
-
             function onKeyDownEdit(e) {
                 if (!editMode) return;
                 const tag = (e.target && (e.target.tagName || '')).toLowerCase();
                 const key = (e.key || '').toLowerCase();
                 if (key === 'alt') {
-                    try {
-                        btnToolEyedropper.classList.add('primary');
-                    } catch {}
+                    try { btnToolEyedropper.classList.add('primary'); } catch {}
                     return;
                 }
                 if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
@@ -5589,30 +5728,28 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         e.preventDefault();
                         eraser = false;
                         eyedropper = false;
-                        try {
-                            btnToolBrush.classList.add('primary');
-                        } catch {}
-                        try {
-                            btnToolEraser.classList.remove('primary');
-                        } catch {}
-                        try {
-                            btnToolEyedropper.classList.remove('primary');
-                        } catch {}
+                        try { btnToolBrush.classList.add('primary'); } catch {}
+                        try { btnToolEraser.classList.remove('primary'); } catch {}
+                        try { btnToolEyedropper.classList.remove('primary'); } catch {}
                         return;
                     }
                     if (key === 'e') {
                         e.preventDefault();
                         eraser = true;
                         eyedropper = false;
-                        try {
-                            btnToolEraser.classList.add('primary');
-                        } catch {}
-                        try {
-                            btnToolBrush.classList.remove('primary');
-                        } catch {}
-                        try {
-                            btnToolEyedropper.classList.remove('primary');
-                        } catch {}
+                        try { btnToolEraser.classList.add('primary'); } catch {}
+                        try { btnToolBrush.classList.remove('primary'); } catch {}
+                        try { btnToolEyedropper.classList.remove('primary'); } catch {}
+                        return;
+                    }
+                    if (key === 's') {
+                        e.preventDefault();
+                        selectMode = !selectMode;
+                        try { btnToolSelect.classList.toggle('primary', selectMode); } catch {}
+                       
+                        eyedropper = false;
+                        try { btnToolEyedropper.classList.remove('primary'); } catch {}
+                        render();
                         return;
                     }
                 }
@@ -5624,7 +5761,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     doRedo();
                 }
             }
-
             function onKeyUpEdit(e) {
                 if (!editMode) return;
                 const key = (e.key || '').toLowerCase();
@@ -5634,13 +5770,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     } catch {}
                 }
             }
-
             function mapClientToPixel(clientX, clientY) {
                 const rect = canvas.getBoundingClientRect();
-                const vw = canvas.width,
-                    vh = canvas.height;
-                const drawW = dwnW * zoom2,
-                    drawH = dwnH * zoom2;
+                const vw = canvas.width, vh = canvas.height;
+                const drawW = dwnW * zoom2, drawH = dwnH * zoom2;
                 const cx = (vw - drawW) / 2 + offX2;
                 const cy = (vh - drawH) / 2 + offY2;
                 const x = Math.floor((clientX - rect.left - cx) / Math.max(1e-6, zoom2));
@@ -5648,7 +5781,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 if (x < 0 || y < 0 || x >= dwnW || y >= dwnH) return null;
                 return [x, y];
             }
-
             function pickColorAt(clientX, clientY) {
                 if (!editImageData) return;
                 const pos = mapClientToPixel(clientX, clientY);
@@ -5669,7 +5801,329 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 updateActivePaletteUI();
                 render();
             }
-
+            function ensureSelectionBuffer() {
+                if (!selectionMask || selectionMask.length !== dwnW * dwnH) {
+                    selectionMask = new Uint8Array(dwnW * dwnH);
+                    selectionCount = 0;
+                }
+            }
+            function ensureSelCanvas() {
+                if (!selCanvas || selCanvas.width !== dwnW || selCanvas.height !== dwnH) {
+                    selCanvas = document.createElement('canvas');
+                    selCanvas.width = dwnW; selCanvas.height = dwnH;
+                    selCtx = selCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+                }
+            }
+            function rebuildSelOverlayFromMask() {
+                ensureSelCanvas();
+                const img = selCtx.createImageData(dwnW, dwnH);
+                const dd = img.data;
+                for (let i = 0; i < selectionMask.length; i++) {
+                    if (selectionMask[i]) { dd[i*4+0]=0; dd[i*4+1]=200; dd[i*4+2]=255; dd[i*4+3]=255; }
+                }
+                selCtx.putImageData(img, 0, 0);
+                rebuildAntsMaskFromSelection();
+            }
+          
+            function ensureAntsCanvases() {
+                if (!antsCanvas || antsCanvas.width !== dwnW || antsCanvas.height !== dwnH) {
+                    antsCanvas = document.createElement('canvas');
+                    antsCanvas.width = dwnW; antsCanvas.height = dwnH;
+                    antsCtx = antsCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+                }
+                if (!antsMaskCanvas || antsMaskCanvas.width !== dwnW || antsMaskCanvas.height !== dwnH) {
+                    antsMaskCanvas = document.createElement('canvas');
+                    antsMaskCanvas.width = dwnW; antsMaskCanvas.height = dwnH;
+                    antsMaskCtx = antsMaskCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+                }
+              
+                const ts = Math.max(2, Math.floor(antsTileSize) || 8);
+                const bw = Math.max(0, Math.min(ts, Math.floor(antsBandWidth) || 0));
+                if (!antsPatternCanvas || antsPatternSizeCache !== ts || antsPatternBandCache !== bw) {
+                    antsPatternSizeCache = ts;
+                    antsPatternBandCache = bw;
+                    const tile = document.createElement('canvas');
+                    tile.width = ts; tile.height = ts;
+                    const tctx = tile.getContext('2d', { alpha: true });
+                    const img = tctx.createImageData(ts, ts);
+                    const d = img.data;
+                    for (let y = 0; y < ts; y++) {
+                        for (let x = 0; x < ts; x++) {
+                            const band = (((x + y) % ts) < bw);
+                            const c = band ? 0 : 255;
+                            const i = (y * ts + x) * 4;
+                            d[i] = c; d[i+1] = c; d[i+2] = c; d[i+3] = 255;
+                        }
+                    }
+                    tctx.putImageData(img, 0, 0);
+                    antsPatternCanvas = tile;
+                 
+                    antsOffset = ((antsOffset % ts) + ts) % ts;
+                }
+            }
+            function rebuildAntsMaskFromSelection() {
+                ensureAntsCanvases();
+                antsMaskCtx.clearRect(0, 0, dwnW, dwnH);
+                if (!selectionMask || selectionCount <= 0) {
+                    stopAntsAnimation();
+                    if (antsCtx) antsCtx.clearRect(0, 0, dwnW, dwnH);
+                    antsSegH = [];
+                    antsSegV = [];
+                    return;
+                }
+                const img = antsMaskCtx.createImageData(dwnW, dwnH);
+                const dd = img.data;
+              
+                const thick = Math.max(0, Number(antsOutlineThicknessPx) || 0);
+                const full = Math.floor(thick);         
+                const frac = thick - full;             
+                const innerRad = Math.max(0, full - 1);  
+                for (let y = 0; y < dwnH; y++) {
+                    const row = y * dwnW;
+                    for (let x = 0; x < dwnW; x++) {
+                        const i = row + x;
+                        if (!selectionMask[i]) continue;
+                        let isEdge = false;
+                  
+                        if (x === 0 || !selectionMask[i - 1]) isEdge = true;
+                        else if (x === dwnW - 1 || !selectionMask[i + 1]) isEdge = true;
+                        else if (y === 0 || !selectionMask[i - dwnW]) isEdge = true;
+                        else if (y === dwnH - 1 || !selectionMask[i + dwnW]) isEdge = true;
+                        if (isEdge) {
+                            if (thick < 1) {
+                             
+                                const a = Math.round(255 * thick);
+                                dd[i*4+3] = Math.max(dd[i*4+3], a);
+                            } else {
+                          
+                                if (innerRad === 0) {
+                                    dd[i*4+3] = 255;
+                                } else {
+                                    for (let dy = -innerRad; dy <= innerRad; dy++) {
+                                        const yy = y + dy; if (yy < 0 || yy >= dwnH) continue;
+                                        const mdx = innerRad - Math.abs(dy);
+                                        const base = yy * dwnW;
+                                        for (let dx = -mdx; dx <= mdx; dx++) {
+                                            const xx = x + dx; if (xx < 0 || xx >= dwnW) continue;
+                                            const j = base + xx;
+                                            dd[j*4+3] = 255;
+                                        }
+                                    }
+                                }
+                             
+                                if (frac > 0) {
+                                    const r2 = innerRad + 1;
+                                    const a2 = Math.round(255 * frac);
+                                    for (let dy = -r2; dy <= r2; dy++) {
+                                        const yy = y + dy; if (yy < 0 || yy >= dwnH) continue;
+                                        const mdx = r2 - Math.abs(dy);
+                                        const base = yy * dwnW;
+                                        for (let dx = -mdx; dx <= mdx; dx++) {
+                                            const xx = x + dx; if (xx < 0 || xx >= dwnW) continue;
+                                            const j = base + xx;
+                                         
+                                            dd[j*4+3] = Math.max(dd[j*4+3], a2);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                antsMaskCtx.putImageData(img, 0, 0);
+              
+                antsSegH = [];
+                antsSegV = [];
+             
+                for (let y = 0; y < dwnH; y++) {
+                    const row = y * dwnW;
+                    
+                    let x = 0;
+                    while (x < dwnW) {
+                      
+                        if (selectionMask[row + x] && (y === 0 || !selectionMask[row + x - dwnW])) {
+                            let x0 = x;
+                            x++;
+                            while (x < dwnW && selectionMask[row + x] && (y === 0 || !selectionMask[row + x - dwnW])) x++;
+                            antsSegH.push({ y: y, x0, x1: x - 1 });
+                        } else {
+                            x++;
+                        }
+                    }
+                
+                    x = 0;
+                    while (x < dwnW) {
+                        if (selectionMask[row + x] && (y === dwnH - 1 || !selectionMask[row + x + dwnW])) {
+                            let x0 = x;
+                            x++;
+                            while (x < dwnW && selectionMask[row + x] && (y === dwnH - 1 || !selectionMask[row + x + dwnW])) x++;
+                            antsSegH.push({ y: y + 1, x0, x1: x - 1 });
+                        } else {
+                            x++;
+                        }
+                    }
+                }
+             
+                for (let x = 0; x < dwnW; x++) {
+                 
+                    let y = 0;
+                    while (y < dwnH) {
+                        const i = y * dwnW + x;
+                        if (selectionMask[i] && (x === 0 || !selectionMask[i - 1])) {
+                            let y0 = y;
+                            y++;
+                            while (y < dwnH) {
+                                const j = y * dwnW + x;
+                                if (selectionMask[j] && (x === 0 || !selectionMask[j - 1])) y++; else break;
+                            }
+                            antsSegV.push({ x: x, y0, y1: y - 1 });
+                        } else {
+                            y++;
+                        }
+                    }
+                
+                    y = 0;
+                    while (y < dwnH) {
+                        const i2 = y * dwnW + x;
+                        if (selectionMask[i2] && (x === dwnW - 1 || !selectionMask[i2 + 1])) {
+                            let y0 = y;
+                            y++;
+                            while (y < dwnH) {
+                                const j2 = y * dwnW + x;
+                                if (selectionMask[j2] && (x === dwnW - 1 || !selectionMask[j2 + 1])) y++; else break;
+                            }
+                            antsSegV.push({ x: x + 1, y0, y1: y - 1 });
+                        } else {
+                            y++;
+                        }
+                    }
+                }
+                redrawAnts();
+                startAntsAnimation();
+            }
+            function redrawAnts() {
+                ensureAntsCanvases();
+                antsCtx.setTransform(1,0,0,1,0,0);
+                antsCtx.clearRect(0, 0, dwnW, dwnH);
+                if (!selectionMask || selectionCount <= 0) return;
+                const pat = antsCtx.createPattern(antsPatternCanvas, 'repeat');
+                if (!pat) return;
+                antsCtx.save();
+             
+                antsCtx.setTransform(1, 0, 0, 1, antsOffset, antsOffset);
+                antsCtx.fillStyle = pat;
+             
+                const ts = antsPatternSizeCache || 8;
+                antsCtx.fillRect(-antsOffset - ts, -antsOffset - ts, dwnW + ts*2, dwnH + ts*2);
+                antsCtx.restore();
+                antsCtx.globalCompositeOperation = 'destination-in';
+                antsCtx.drawImage(antsMaskCanvas, 0, 0);
+                antsCtx.globalCompositeOperation = 'source-over';
+            }
+            function startAntsAnimation() {
+                if (antsAnimating) return;
+                if (!selectionMask || selectionCount <= 0) return;
+                antsAnimating = true;
+                let lastT = 0;
+                const step = (t) => {
+                    if (!antsAnimating) return;
+                    if (!lastT) lastT = t;
+            
+                    const dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000));
+                    lastT = t;
+                    const ts = Math.max(2, Math.floor(antsPatternSizeCache || antsTileSize) || 8);
+                    const sp = Math.max(0, Number(antsSpeed) || 0);
+                    antsOffset = ((antsOffset + sp * dt) % ts + ts) % ts;
+                    redrawAnts();
+                    render();
+                    antsAnimRAF = requestAnimationFrame(step);
+                };
+                antsAnimRAF = requestAnimationFrame(step);
+            }
+            function stopAntsAnimation() {
+                antsAnimating = false;
+                cancelAnimationFrame(antsAnimRAF);
+                requestRender();
+            }
+       
+            function requestRender() {
+                if (renderScheduled) return;
+                renderScheduled = true;
+                requestAnimationFrame(() => {
+                    renderScheduled = false;
+                    render();
+                });
+            }
+       
+            function beginSelStroke() { selStrokeRec = { indices: [], old: [], seen: new Set() }; }
+            function recordSelBeforeChange(si) {
+                if (!selStrokeRec) return;
+                if (selStrokeRec.seen.has(si)) return;
+                selStrokeRec.seen.add(si);
+                selStrokeRec.indices.push(si);
+                selStrokeRec.old.push(selectionMask ? (selectionMask[si] | 0) : 0);
+            }
+            function finishSelStroke() {
+                if (!selStrokeRec || selStrokeRec.indices.length === 0) { selStrokeRec = null; return; }
+                ensureSelectionBuffer();
+                const neu = new Uint8Array(selStrokeRec.indices.length);
+                for (let i = 0; i < selStrokeRec.indices.length; i++) {
+                    neu[i] = selectionMask[selStrokeRec.indices[i]] | 0;
+                }
+                const act = { kind: 'selection', indices: new Uint32Array(selStrokeRec.indices), old: new Uint8Array(selStrokeRec.old), neu };
+                undoStack.push(act);
+                if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+                redoStack = [];
+                selStrokeRec = null;
+                updateUndoRedoButtons();
+            }
+      
+            function modifySelectionAt(clientX, clientY) {
+                ensureSelectionBuffer();
+                ensureSelCanvas();
+                const pos = mapClientToPixel(clientX, clientY);
+                if (!pos) return;
+                const [ix, iy] = pos;
+                const size = Math.max(1, Math.round(brushSizeEdit));
+                const half = Math.floor((size - 1) / 2);
+                let x0 = clamp(ix - half, 0, dwnW - 1);
+                let y0 = clamp(iy - half, 0, dwnH - 1);
+                let x1 = clamp(ix + size - half - 1, 0, dwnW - 1);
+                let y1 = clamp(iy + size - half - 1, 0, dwnH - 1);
+                const op = selOp;
+                let toggledAny = false;
+                for (let y = y0; y <= y1; y++) {
+                    const row = y * dwnW;
+                    for (let x = x0; x <= x1; x++) {
+                        const si = row + x;
+                        const prev = selectionMask[si] | 0;
+                        let next = prev;
+                        if (op === 'add') next = 1;
+                        else if (op === 'subtract') next = 0;
+                        else /* toggle */ next = prev ^ 1;
+                        if (prev !== next) {
+                            recordSelBeforeChange(si);
+                            selectionMask[si] = next;
+                            selectionCount += (next ? 1 : -1);
+                            if (op === 'toggle') toggledAny = true;
+                        }
+                    }
+                }
+                if (selectionCount < 0) selectionCount = 0;
+                const ww = x1 - x0 + 1, hh = y1 - y0 + 1;
+                if (op === 'add') {
+                    selCtx.fillStyle = '#00c8ff';
+                    selCtx.fillRect(x0, y0, ww, hh);
+                } else if (op === 'subtract') {
+                    selCtx.clearRect(x0, y0, ww, hh);
+                } else {
+                  
+                    if (toggledAny) rebuildSelOverlayFromMask();
+                }
+                if (!deferAntsWhileStroke) rebuildAntsMaskFromSelection();
+                requestRender();
+            }
+    
             function paintAt(clientX, clientY) {
                 if (!editMode || !editImageData) return;
                 const pos = mapClientToPixel(clientX, clientY);
@@ -5686,9 +6140,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     const row = y * dwnW;
                     for (let x = x0; x <= x1; x++) {
                         const idx = (row + x) * 4;
+                        if (selectionCount > 0 && selectionMask && selectionMask.length === dwnW * dwnH) {
+                            if (!selectionMask[row + x]) continue;
+                        }
                         recordBeforeChange(idx, data);
                         if (eraser) {
-                            data[idx + 3] = 0;
+                            data[idx + 3] = 0; 
                         } else {
                             data[idx + 0] = editColor[0] | 0;
                             data[idx + 1] = editColor[1] | 0;
@@ -5697,32 +6154,48 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         }
                     }
                 }
-                try {
-                    sctx.putImageData(editImageData, 0, 0);
-                } catch {}
+                try { sctx.putImageData(editImageData, 0, 0); } catch {}
                 render();
             }
             preview.addEventListener("pointerdown", (e) => {
                 if (editMode) {
-
+                   
                     if (e.button === 0) {
                         const tempPick = !!e.altKey;
                         if (eyedropper || tempPick) {
                             pickColorAt(e.clientX, e.clientY);
-
+                          
                             if (eyedropper) {
                                 eyedropper = false;
-                                try {
-                                    btnToolEyedropper.classList.remove("primary");
-                                } catch {}
+                                try { btnToolEyedropper.classList.remove("primary"); } catch {}
                                 eraser = false;
-                                try {
-                                    btnToolBrush.classList.add("primary");
-                                } catch {}
-                                try {
-                                    btnToolEraser.classList.remove("primary");
-                                } catch {}
+                                try { btnToolBrush.classList.add("primary"); } catch {}
                             }
+                            return;
+                        }
+                        if (magicSelectMode) {
+           
+                            preview.setPointerCapture?.(e.pointerId);
+                            let mode = 'replace';
+                            if (e.shiftKey) {
+                                let under = 0;
+                                const pos = mapClientToPixel(e.clientX, e.clientY);
+                                if (pos && selectionMask && selectionMask.length === dwnW * dwnH) {
+                                    const [sx, sy] = pos;
+                                    under = selectionMask[sy * dwnW + sx] | 0;
+                                }
+                                mode = under ? 'subtract' : 'add';
+                            }
+                            doQuickSelectAt(e.clientX, e.clientY, { mode, tolerance: magicTolerance });
+                            return;
+                        }
+                        if (selectMode) {
+                            painting = true;
+                            preview.setPointerCapture?.(e.pointerId);
+                            selOp = e.shiftKey ? 'subtract' : 'add';
+                            deferAntsWhileStroke = true;
+                            beginSelStroke();
+                            modifySelectionAt(e.clientX, e.clientY);
                             return;
                         }
                         painting = true;
@@ -5730,7 +6203,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         beginStroke();
                         paintAt(e.clientX, e.clientY);
                     } else if (e.button === 1 || e.button === 2) {
-
+                   
                         e.preventDefault();
                         panningWhileEdit = true;
                         preview.setPointerCapture?.(e.pointerId);
@@ -5758,10 +6231,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         return;
                     }
                     if (painting) {
-                        paintAt(e.clientX, e.clientY);
+                        if (selectMode) modifySelectionAt(e.clientX, e.clientY); else paintAt(e.clientX, e.clientY);
                         return;
                     }
-
+                  
                     render();
                     return;
                 }
@@ -5774,20 +6247,25 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 if (editMode) {
                     painting = false;
                     panningWhileEdit = false;
-                    finishStroke();
+                    if (selectMode) {
+                        finishSelStroke();
+                        deferAntsWhileStroke = false;
+                        rebuildAntsMaskFromSelection();
+                        requestRender();
+                    } else {
+                        finishStroke();
+                    }
                     return;
                 }
                 dragging2 = !1
             });
             preview.addEventListener("wheel", (e) => {
                 e.preventDefault();
-
+              
                 if (editMode && (e.ctrlKey || e.metaKey)) {
                     const dir = e.deltaY > 0 ? -1 : 1;
                     brushSizeEdit = clamp(brushSizeEdit + dir, 1, 64);
-                    try {
-                        sizeInp.value = String(brushSizeEdit);
-                    } catch {}
+                    try { sizeInp.value = String(brushSizeEdit); } catch {}
                     render();
                     return;
                 }
@@ -5809,11 +6287,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }, {
                 passive: !1
             });
-
+         
             preview.addEventListener("contextmenu", (e) => {
                 if (editMode) e.preventDefault();
             });
-
+     
             const editToolbar = el("div", null);
             editToolbar.style.position = "absolute";
             editToolbar.style.top = "8px";
@@ -5838,18 +6316,22 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             btnRedo.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 5l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 19a8 8 0 0 1 8-8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
             btnRedo.title = t("redoTitle");
             btnRedo.disabled = true;
-            btnUndo.addEventListener('click', () => {
-                if (editMode) doUndo();
-            });
-            btnRedo.addEventListener('click', () => {
-                if (editMode) doRedo();
-            });
+            btnUndo.addEventListener('click', () => { if (editMode) doUndo(); });
+            btnRedo.addEventListener('click', () => { if (editMode) doRedo(); });
             const btnToolBrush = el("button", "btn icon primary");
             btnToolBrush.title = t("brushTitle");
             btnToolBrush.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 17C4 15.3431 5.34315 14 7 14V14C8.65685 14 10 15.3431 10 17V17C10 18.6569 8.65685 20 7 20H4.54545C4.24421 20 4 19.7558 4 19.4545V18.5V17V17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 13.7542L15.5898 5.32104C16.3563 4.46932 17.6804 4.4345 18.4906 5.24475L18.6229 5.37708L18.7552 5.5094C19.5655 6.31965 19.5307 7.64365 18.679 8.4102L10.2458 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
             const btnToolEraser = el("button", "btn icon");
             btnToolEraser.title = t("eraserTitle");
             btnToolEraser.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.9995 13L10.9995 6.00004M20.9995 21H7.99955M10.9368 20.0628L19.6054 11.3941C20.7935 10.2061 21.3875 9.61207 21.6101 8.92709C21.8058 8.32456 21.8058 7.67551 21.6101 7.07298C21.3875 6.388 20.7935 5.79397 19.6054 4.60592L19.3937 4.39415C18.2056 3.2061 17.6116 2.61207 16.9266 2.38951C16.3241 2.19373 15.675 2.19373 15.0725 2.38951C14.3875 2.61207 13.7935 3.2061 12.6054 4.39415L4.39366 12.6059C3.20561 13.794 2.61158 14.388 2.38902 15.073C2.19324 15.6755 2.19324 16.3246 2.38902 16.9271C2.61158 17.6121 3.20561 18.2061 4.39366 19.3941L5.06229 20.0628C5.40819 20.4087 5.58114 20.5816 5.78298 20.7053C5.96192 20.815 6.15701 20.8958 6.36108 20.9448C6.59126 21 6.83585 21 7.32503 21H8.67406C9.16324 21 9.40784 21 9.63801 20.9448C9.84208 20.8958 10.0372 20.815 10.2161 20.7053C10.418 20.5816 10.5909 20.4087 10.9368 20.0628Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            const btnToolSelect = el("button", "btn icon");
+            btnToolSelect.title = "Выделение (S)";
+            btnToolSelect.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 6C5.55228 6 6 5.55228 6 5C6 4.44772 5.55228 4 5 4C4.44772 4 4 4.44772 4 5C4 5.55228 4.44772 6 5 6ZM18 13C18 12.4477 17.5523 12 17 12C16.4477 12 16 12.4477 16 13V16H13C12.4477 16 12 16.4477 12 17C12 17.5523 12.4477 18 13 18H16V21C16 21.5523 16.4477 22 17 22C17.5523 22 18 21.5523 18 21V18H21C21.5523 18 22 17.5523 22 17C22 16.4477 21.5523 16 21 16H18V13ZM10 5C10 5.55228 9.55228 6 9 6C8.44771 6 8 5.55228 8 5C8 4.44772 8.44771 4 9 4C9.55228 4 10 4.44772 10 5ZM13 6C13.5523 6 14 5.55228 14 5C14 4.44772 13.5523 4 13 4C12.4477 4 12 4.44772 12 5C12 5.55228 12.4477 6 13 6ZM18 5C18 5.55228 17.5523 6 17 6C16.4477 6 16 5.55228 16 5C16 4.44772 16.4477 4 17 4C17.5523 4 18 4.44772 18 5ZM17 10C17.5523 10 18 9.55228 18 9C18 8.44771 17.5523 8 17 8C16.4477 8 16 8.44771 16 9C16 9.55228 16.4477 10 17 10ZM10 17C10 17.5523 9.55228 18 9 18C8.44771 18 8 17.5523 8 17C8 16.4477 8.44771 16 9 16C9.55228 16 10 16.4477 10 17ZM5 18C5.55228 18 6 17.5523 6 17C6 16.4477 5.55228 16 5 16C4.44772 16 4 16.4477 4 17C4 17.5523 4.44772 18 5 18ZM6 13C6 13.5523 5.55228 14 5 14C4.44772 14 4 13.5523 4 13C4 12.4477 4.44772 12 5 12C5.55228 12 6 12.4477 6 13ZM5 10C5.55228 10 6 9.55228 6 9C6 8.44771 5.55228 8 5 8C4.44772 8 4 8.44771 4 9C4 9.55228 4.44772 10 5 10Z" fill="currentColor"/></svg>';
+            const btnToolMagic = el("button", "btn icon");
+            btnToolMagic.title = "Быстрое выделение (Magic Wand)";
+            btnToolMagic.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.9998 14L9.99985 11M15.0102 3.5V2M18.9495 5.06066L20.0102 4M18.9495 13L20.0102 14.0607M11.0102 5.06066L9.94954 4M20.5102 9H22.0102M6.13122 20.8686L15.3685 11.6314C15.7645 11.2354 15.9625 11.0373 16.0367 10.809C16.1019 10.6082 16.1019 10.3918 16.0367 10.191C15.9625 9.96265 15.7645 9.76465 15.3685 9.36863L14.6312 8.63137C14.2352 8.23535 14.0372 8.03735 13.8089 7.96316C13.608 7.8979 13.3917 7.8979 13.1908 7.96316C12.9625 8.03735 12.7645 8.23535 12.3685 8.63137L3.13122 17.8686C2.7352 18.2646 2.53719 18.4627 2.46301 18.691C2.39775 18.8918 2.39775 19.1082 2.46301 19.309C2.53719 19.5373 2.7352 19.7354 3.13122 20.1314L3.86848 20.8686C4.2645 21.2646 4.4625 21.4627 4.69083 21.5368C4.89168 21.6021 5.10802 21.6021 5.30887 21.5368C5.53719 21.4627 5.7352 21.2646 6.13122 20.8686Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            const btnClearSel = el("button", "btn");
+            btnClearSel.textContent = "Очистить выделение";
             const sizeInp = document.createElement("input");
             sizeInp.type = "number";
             sizeInp.min = "1";
@@ -5861,7 +6343,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             paletteWrap.style.display = "flex";
             paletteWrap.style.flexWrap = "wrap";
             paletteWrap.style.gap = "6px";
-
             function getColorNameForRgb(rgb) {
                 try {
                     const m = MASTER_COLORS.find(c => c.rgb && c.rgb[0] === rgb[0] && c.rgb[1] === rgb[1] && c.rgb[2] === rgb[2]);
@@ -5870,7 +6351,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 const toHex = (n) => n.toString(16).padStart(2, '0');
                 return `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
             }
-
             function findPaletteIndex(rgb) {
                 try {
                     for (let i = 0; i < editPalette.length; i++) {
@@ -5880,7 +6360,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 } catch {}
                 return -1;
             }
-
             function updateActivePaletteUI() {
                 const children = Array.from(paletteWrap.children);
                 children.forEach((node, idx) => {
@@ -5893,7 +6372,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     }
                 });
             }
-
             function rebuildPaletteUI() {
                 paletteWrap.innerHTML = "";
                 editPalette.forEach((item, idx) => {
@@ -5908,17 +6386,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     b.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
                     b.title = item.name || getColorNameForRgb(rgb);
                     b.setAttribute("aria-label", b.title);
-
-                    b.addEventListener("pointerdown", (e) => {
-                        e.stopPropagation();
-                    });
+                
+                    b.addEventListener("pointerdown", (e) => { e.stopPropagation(); });
                     b.addEventListener("click", () => {
                         eraser = false;
                         btnToolBrush.classList.add("primary");
                         btnToolEraser.classList.remove("primary");
-                        try {
-                            btnToolEyedropper.classList.remove("primary");
-                        } catch {}
+                        try { btnToolEyedropper.classList.remove("primary"); } catch {}
                         eyedropper = false;
                         editColor = rgb.slice();
                         activeColorIdx = idx;
@@ -5934,21 +6408,26 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 eraser = false;
                 btnToolBrush.classList.add("primary");
                 btnToolEraser.classList.remove("primary");
-                try {
-                    btnToolEyedropper.classList.remove("primary");
-                } catch {}
+                try { btnToolEyedropper.classList.remove("primary"); } catch {}
                 eyedropper = false;
+
+                selectMode = false;
+                try { btnToolSelect.classList.remove("primary"); } catch {}
+                magicSelectMode = false;
+                try { btnToolMagic.classList.remove("primary"); } catch {}
             });
             btnToolEraser.addEventListener("click", () => {
                 eraser = true;
                 btnToolEraser.classList.add("primary");
                 btnToolBrush.classList.remove("primary");
-                try {
-                    btnToolEyedropper.classList.remove("primary");
-                } catch {}
+                try { btnToolEyedropper.classList.remove("primary"); } catch {}
                 eyedropper = false;
+                selectMode = false;
+                try { btnToolSelect.classList.remove("primary"); } catch {}
+                magicSelectMode = false;
+                try { btnToolMagic.classList.remove("primary"); } catch {}
             });
-
+        
             btnToolBrush.addEventListener("pointerdown", (e) => e.stopPropagation());
             btnToolEraser.addEventListener("pointerdown", (e) => e.stopPropagation());
             sizeInp.addEventListener("change", () => {
@@ -5968,32 +6447,180 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     btnToolEyedropper.classList.add("primary");
                     btnToolBrush.classList.remove("primary");
                     btnToolEraser.classList.remove("primary");
+                    selectMode = false; try { btnToolSelect.classList.remove("primary"); } catch {}
+                    magicSelectMode = false; try { btnToolMagic.classList.remove("primary"); } catch {}
                 } else {
                     btnToolEyedropper.classList.remove("primary");
                 }
             });
             btnToolEyedropper.addEventListener("pointerdown", (e) => e.stopPropagation());
-            toolRow.append(btnUndo, btnRedo, btnToolBrush, btnToolEraser, btnToolEyedropper, sizeInp);
+
+            let tolPopover = null;
+            function closeTolPopover() {
+                if (!tolPopover) return;
+                try { tolPopover.remove(); } catch {}
+                tolPopover = null;
+                document.removeEventListener('pointerdown', onOutsideClick, true);
+                window.removeEventListener('resize', closeTolPopover);
+                window.removeEventListener('scroll', closeTolPopover, true);
+                document.removeEventListener('keydown', onTolKeyDown, true);
+            }
+            function onOutsideClick(ev) {
+                if (!tolPopover) return;
+                const t = ev.target;
+                if (tolPopover.contains(t) || btnToolMagic.contains(t)) return;
+                closeTolPopover();
+            }
+            function openTolPopover(anchorRect) {
+                closeTolPopover();
+                const wrap = document.createElement('div');
+                wrap.style.position = 'fixed';
+                wrap.style.padding = '8px 10px';
+                wrap.style.background = 'rgba(15, 20, 28, 0.98)';
+                wrap.style.border = '1px solid rgba(255,255,255,0.12)';
+                wrap.style.borderRadius = '8px';
+                wrap.style.boxShadow = '0 6px 18px rgba(0,0,0,0.45)';
+                wrap.style.backdropFilter = 'blur(6px)';
+                wrap.style.color = 'inherit';
+                wrap.style.zIndex = '2147483647';
+                wrap.style.lineHeight = '1';
+                wrap.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.gap = '8px';
+
+                const lbl = document.createElement('span');
+                lbl.textContent = 'Порог';
+                lbl.className = 'muted';
+
+                const inp = document.createElement('input');
+                inp.type = 'range';
+                inp.min = '0';
+                inp.max = '255';
+                inp.value = String(magicTolerance);
+                inp.style.width = '160px';
+
+                const val = document.createElement('span');
+                val.className = 'muted';
+                val.style.minWidth = '28px';
+                val.style.textAlign = 'right';
+                val.textContent = String(magicTolerance);
+
+                inp.addEventListener('input', () => {
+                    const v = Math.max(0, Math.min(255, Number(inp.value) || 0)) | 0;
+                    magicTolerance = v;
+                    val.textContent = String(v);
+                });
+
+                row.append(lbl, inp, val);
+                wrap.append(row);
+
+                document.body.append(wrap);
+
+        
+                const rect = anchorRect || btnToolMagic.getBoundingClientRect();
+                const margin = 8;
+                const position = () => {
+                    const vw = window.innerWidth, vh = window.innerHeight;
+                    const pw = wrap.offsetWidth, ph = wrap.offsetHeight;
+      
+                    let left = rect.left + (rect.width / 2) - (pw / 2);
+                    let top = rect.top - ph - margin;
+          
+                    if (top < margin) top = rect.bottom + margin;
+  
+                    const maxLeft = Math.max(vw - pw - margin, margin);
+                    const maxTop = Math.max(vh - ph - margin, margin);
+                    left = Math.min(Math.max(left, margin), maxLeft);
+                    top = Math.min(Math.max(top, margin), maxTop);
+                    wrap.style.left = left + 'px';
+                    wrap.style.top = top + 'px';
+                };
+        
+                requestAnimationFrame(position);
+
+                tolPopover = wrap;
+                document.addEventListener('pointerdown', onOutsideClick, true);
+                window.addEventListener('resize', closeTolPopover);
+                window.addEventListener('scroll', closeTolPopover, true);
+                document.addEventListener('keydown', onTolKeyDown, true);
+            }
+            function onTolKeyDown(e) { if ((e.key || '').toLowerCase() === 'escape') closeTolPopover(); }
+            btnToolMagic.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (tolPopover) { closeTolPopover(); }
+                else {
+                    const x = e.clientX, y = e.clientY;
+                    const r = { left: x, top: y, right: x, bottom: y, width: 0, height: 0 };
+                    openTolPopover(r);
+                }
+            });
+
+            btnToolSelect.addEventListener("click", () => {
+                selectMode = !selectMode;
+                btnToolSelect.classList.toggle("primary", selectMode);
+            
+                if (selectMode) {
+                    eyedropper = false;
+                    try { btnToolEyedropper.classList.remove("primary"); } catch {}
+                    magicSelectMode = false; try { btnToolMagic.classList.remove("primary"); } catch {}
+                }
+                render();
+            });
+            btnToolSelect.addEventListener("pointerdown", (e) => e.stopPropagation());
+            btnToolMagic.addEventListener("click", () => {
+                magicSelectMode = !magicSelectMode;
+                btnToolMagic.classList.toggle("primary", magicSelectMode);
+                if (magicSelectMode) {
+                   
+                    selectMode = false; try { btnToolSelect.classList.remove("primary"); } catch {}
+                    eyedropper = false; try { btnToolEyedropper.classList.remove("primary"); } catch {}
+                }
+            });
+            btnToolMagic.addEventListener("pointerdown", (e) => e.stopPropagation());
+            btnClearSel.addEventListener("click", () => {
+                ensureSelectionBuffer();
+                ensureSelCanvas();
+         
+                const idxs = [];
+                const olds = [];
+                for (let i = 0; i < selectionMask.length; i++) {
+                    if (selectionMask[i]) { idxs.push(i); olds.push(1); }
+                }
+                const act = { kind: 'selection', indices: new Uint32Array(idxs), old: new Uint8Array(olds), neu: new Uint8Array(olds.length) };
+                selectionMask.fill(0);
+                selectionCount = 0;
+                selCtx.clearRect(0, 0, dwnW, dwnH);
+          
+                try { stopAntsAnimation(); } catch {}
+                try { antsCtx && antsCtx.clearRect(0, 0, dwnW, dwnH); } catch {}
+                undoStack.push(act);
+                if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+                redoStack = [];
+                updateUndoRedoButtons();
+                render();
+            });
+            btnClearSel.addEventListener("pointerdown", (e) => e.stopPropagation());
+            toolRow.append(btnUndo, btnRedo, btnToolBrush, btnToolEraser, btnToolSelect, btnToolMagic, btnToolEyedropper, sizeInp, btnClearSel);
             editToolbar.append(toolRow, paletteWrap);
             preview.style.position = "relative";
             preview.append(editToolbar);
-
-            ["pointerdown", "pointermove", "pointerup"].forEach(ev => {
-                editToolbar.addEventListener(ev, (e) => {
-                    e.stopPropagation();
-                });
+         
+            ["pointerdown","pointermove","pointerup"].forEach(ev => {
+                editToolbar.addEventListener(ev, (e) => { e.stopPropagation(); });
             });
-
+           
             document.addEventListener('keydown', onKeyDownEdit, true);
             document.addEventListener('keyup', onKeyUpEdit, true);
 
             function setControlsDisabled(dis) {
                 [method, slider, quant, space, dith, dithStr, sliderGrow, sliderShrink, btnClearRef, btnAddFreeRef, btnSelectAllRef, btnImportOwnedRef].forEach(elm => {
-                    try {
-                        elm.disabled = !!dis;
-                    } catch {}
+                    try { elm.disabled = !!dis; } catch {}
                 });
-
+                
             }
 
             btnEdit.addEventListener("click", () => {
@@ -6002,39 +6629,27 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         lockedForEdit = true;
                     }
                     setControlsDisabled(true);
-
-                    try {
-                        editImageData = sctx.getImageData(0, 0, dwnW, dwnH);
-                    } catch {
-                        editImageData = null;
-                    }
+                
+                    try { editImageData = sctx.getImageData(0, 0, dwnW, dwnH); } catch { editImageData = null; }
                     if (currentPalette && currentPalette.length) {
-                        editPalette = currentPalette.map(rgb => ({
-                            rgb,
-                            name: getColorNameForRgb(rgb)
-                        }));
+                        editPalette = currentPalette.map(rgb => ({ rgb, name: getColorNameForRgb(rgb) }));
                     } else {
-                        editPalette = MASTER_COLORS.filter(c => !c.paid).map(c => ({
-                            rgb: c.rgb,
-                            name: c.name
-                        }));
+                        editPalette = MASTER_COLORS.filter(c => !c.paid).map(c => ({ rgb: c.rgb, name: c.name }));
                     }
                     activeColorIdx = 0;
-                    editColor = editPalette[0] ? editPalette[0].rgb.slice() : [0, 0, 0];
+                    editColor = editPalette[0] ? editPalette[0].rgb.slice() : [0,0,0];
                     rebuildPaletteUI();
                     editMode = true;
                     btnEdit.textContent = t("done");
                     editToolbar.style.display = '';
-
+                   
                     undoStack = [];
                     redoStack = [];
                     updateUndoRedoButtons();
                 } else {
-
-                    try {
-                        sctx.putImageData(editImageData, 0, 0);
-                    } catch {}
-
+                 
+                    try { sctx.putImageData(editImageData, 0, 0); } catch {}
+                
                     try {
                         const off = document.createElement('canvas');
                         off.width = dwnW;
@@ -6044,7 +6659,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         editedSourceW = dwnW;
                         editedSourceH = dwnH;
                         useEditedSource = true;
-
+                       
                         const post = sctx.getImageData(0, 0, dwnW, dwnH);
                         baseSmallData = new Uint8ClampedArray(post.data);
                         processQuantAndDither();
@@ -6053,13 +6668,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     editMode = false;
                     btnEdit.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> ' + t("brush");
                     editToolbar.style.display = 'none';
-
+                  
                     lockedForEdit = false;
                     setControlsDisabled(false);
-
-                    try {
-                        applyUIState();
-                    } catch {}
+                    
+                    try { applyUIState(); } catch {}
                 }
             });
 
@@ -6075,7 +6688,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 slider.value = String(pixelSize);
                 pxVal.textContent = String(pixelSize);
                 fullRecalc();
-
+            
                 offX2 = 0;
                 offY2 = 0;
                 zoom2 = minZoom2;
@@ -6466,7 +7079,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         if (!mctx) return null;
         mctx.clearRect(0, 0, size, size);
         mctx.fillStyle = '#fff';
-        const step = DRAW_MULT;
+        const step = getDrawMult();
         const center = Math.floor(step / 2);
         for (let y = center; y < size; y += step) {
             for (let x = center; x < size; x += step) {
@@ -6481,14 +7094,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
 
-    function maskAlreadyPlacedPixels(baseCtx, overlayCanvas, rect /* optional: {x,y,w,h} in overlay canvas coords */ ) {
+    function maskAlreadyPlacedPixels(baseCtx, overlayCanvas, rect /* optional: {x,y,w,h} in overlay canvas coords */) {
         try {
             const w = overlayCanvas.width | 0;
             const h = overlayCanvas.height | 0;
             if (w <= 0 || h <= 0) return;
-            const octx = overlayCanvas.getContext('2d', {
-                willReadFrequently: true
-            });
+            const octx = overlayCanvas.getContext('2d', { willReadFrequently: true });
             if (!octx) return;
             const base = baseCtx.getImageData(0, 0, w, h);
             const over = octx.getImageData(0, 0, w, h);
@@ -6524,9 +7135,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
     function applySubtleColorPerturbation(canvas, seedX, seedY) {
-        const ctx = canvas.getContext('2d', {
-            willReadFrequently: true
-        });
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
         const {
             width,
@@ -6552,9 +7161,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
     function applyAcidSurrogateToCanvas(canvas) {
-        const ctx = canvas.getContext('2d', {
-            willReadFrequently: true
-        });
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
         const {
             width,
@@ -6564,17 +7171,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         try {
             const img = ctx.getImageData(0, 0, width, height);
             const data = img.data;
-            const pal = MASTER_COLORS.map(c => c.rgb);
-            const palLab = pal.map(p => rgb8ToOKLab(p[0], p[1], p[2]));
             for (let i = 0; i < data.length; i += 4) {
                 const a = data[i + 3];
                 if (a === 0) continue;
-                const qi = nearestColorIndex(data[i], data[i + 1], data[i + 2], pal, palLab, true);
-                const col = cvColorFor(qi);
+                const idx = rgb24Index(data[i], data[i + 1], data[i + 2]);
+                const col = cvColorFor(idx);
                 data[i] = col[0];
                 data[i + 1] = col[1];
                 data[i + 2] = col[2];
-
             }
             ctx.putImageData(img, 0, 0);
         } catch {
@@ -6601,12 +7205,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         if (iW <= 0 || iH <= 0) return;
         const srcX = iLeft - gLeft;
         const srcY = iTop - gTop;
-        const dstX = (iLeft - tLeft) * DRAW_MULT;
-        const dstY = (iTop - tTop) * DRAW_MULT;
+        const dstX = (iLeft - tLeft) * getDrawMult();
+        const dstY = (iTop - tTop) * getDrawMult();
         ctx.drawImage(
             state.selectedImageBitmap,
             srcX, srcY, iW, iH,
-            dstX, dstY, iW * DRAW_MULT, iH * DRAW_MULT
+            dstX, dstY, iW * getDrawMult(), iH * getDrawMult()
         );
     }
 
@@ -6627,14 +7231,9 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         const iW = iRight - iLeft;
         const iH = iBottom - iTop;
         if (iW <= 0 || iH <= 0) return null;
-        const dstX = (iLeft - tLeft) * DRAW_MULT;
-        const dstY = (iTop - tTop) * DRAW_MULT;
-        return {
-            x: dstX | 0,
-            y: dstY | 0,
-            w: (iW * DRAW_MULT) | 0,
-            h: (iH * DRAW_MULT) | 0
-        };
+        const dstX = (iLeft - tLeft) * getDrawMult();
+        const dstY = (iTop - tTop) * getDrawMult();
+        return { x: dstX | 0, y: dstY | 0, w: (iW * getDrawMult()) | 0, h: (iH * getDrawMult()) | 0 };
     }
 
     function prepareForMapClick() {
@@ -6706,14 +7305,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         (async () => {
                             try {
                                 const isPanning = !!(state.mapPan && state.mapPan.active);
-
+                           
                                 const fastRect = getIntersectionRectForTile(tileX, tileY);
-                                if (!fastRect) {
-                                    resolve(response);
-                                    return;
-                                }
+                                if (!fastRect) { resolve(response); return; }
 
-                                const drawSize = TILE_SIZE * DRAW_MULT;
+                                const drawSize = TILE_SIZE * getDrawMult();
                                 const tileBitmap = await createImageBitmap(tileBlob);
                                 const makeCanvas = () => {
                                     try {
@@ -6760,7 +7356,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 }
 
                                 if (!isPanning) {
-
+                      
                                     maskAlreadyPlacedPixels(ctx, overlayCanvas, fastRect);
                                 }
 
@@ -6770,16 +7366,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 }
 
                                 if (!isPanning) {
-                                    try {
-                                        binarizeAlphaOnCanvas(overlayCanvas, 8);
-                                    } catch {}
+                                    try { binarizeAlphaOnCanvas(overlayCanvas, 8); } catch {}
                                 }
                                 ctx.drawImage(overlayCanvas, 0, 0);
 
                                 if (!isPanning) {
-                                    try {
-                                        binarizeAlphaOnCanvas(canvas, 8);
-                                    } catch {}
+                                    try { binarizeAlphaOnCanvas(canvas, 8); } catch {}
                                 }
 
                                 let outBlob;
