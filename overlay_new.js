@@ -1,11 +1,38 @@
 (async () => {
     "use strict";
 
+
+    try {
+        const ALLOWED_ORIGIN = 'https://wplace.live';
+        const curOrigin = (location && location.origin) ? location.origin : '';
+        if (curOrigin !== ALLOWED_ORIGIN) {
+            try {
+                console.warn('[Guard] Script disabled: origin', curOrigin, '!=', ALLOWED_ORIGIN);
+            } catch (_) {}
+            return;
+        }
+    } catch (_) {
+        return;
+    }
+
     const TILE_SIZE = 1000;
+
     function getDrawMult() {
- 
+
         return (typeof state !== 'undefined' && state && state.acidModeEnabled) ? 1 : 3;
     }
+    const __DBG = {
+        on: false
+    };
+
+    function dbg(...a) {
+        try {
+            if (__DBG.on) console.log('[DBG]', ...a);
+        } catch (_) {}
+    }
+    try {
+        window.__DBG = __DBG;
+    } catch (_) {}
     const LANGS = [{
         code: "RU",
         flag: `<svg width="18" height="12" viewBox="0 -4 28 28" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0)"><rect x="0.25" y="0.25" width="27.5" height="19.5" rx="1.75" fill="white" stroke="#F5F5F5" stroke-width="0.5"/><mask id="mask0" maskUnits="userSpaceOnUse" x="0" y="0" width="28" height="20"><rect x="0.25" y="0.25" width="27.5" height="19.5" rx="1.75" fill="white" stroke="white" stroke-width="0.5"/></mask><g mask="url(#mask0)"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 13.3333H28V6.66667H0V13.3333Z" fill="#0C47B7"/><path fill-rule="evenodd" clip-rule="evenodd" d="M0 20H28V13.3333H0V20Z" fill="#E53B35"/></g></g><defs><clipPath id="clip0"><rect width="28" height="20" rx="2" fill="white"/></clipPath></defs></svg>`,
@@ -816,9 +843,13 @@
                 btn.addEventListener("click", () => {
                     localStorage.setItem("overlay_tool_lang", lang.code);
                     currentLang = lang.code;
-                    try { document.body.removeChild(back); } catch {}
+                    try {
+                        document.body.removeChild(back);
+                    } catch {}
                     resolve(lang.code);
-                    try { applyLanguage(); } catch (_) {}
+                    try {
+                        applyLanguage();
+                    } catch (_) {}
                 });
                 list.appendChild(btn)
             });
@@ -1097,6 +1128,527 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         }
     }
 
+
+    let __settingsModalBuilt = false;
+    let __settingsBackdrop = null;
+    let __settingsModal = null;
+    let __settingsInputs = null;
+
+    function buildSettingsModal() {
+        if (__settingsModalBuilt) return;
+        __settingsModalBuilt = true;
+        __settingsInputs = {};
+        try {
+
+            __settingsBackdrop = document.createElement('div');
+            __settingsBackdrop.style.position = 'fixed';
+            __settingsBackdrop.style.inset = '0';
+            __settingsBackdrop.style.background = 'rgba(0,0,0,0.35)';
+            __settingsBackdrop.style.display = 'none';
+            __settingsBackdrop.style.zIndex = '10000';
+
+
+            __settingsModal = document.createElement('div');
+            __settingsModal.style.position = 'fixed';
+            __settingsModal.style.top = '64px';
+            __settingsModal.style.left = '50%';
+            __settingsModal.style.transform = 'translateX(-50%)';
+            __settingsModal.style.minWidth = '380px';
+            __settingsModal.style.maxWidth = '92vw';
+            __settingsModal.style.background = '#1e1e1e';
+            __settingsModal.style.color = '#fff';
+            __settingsModal.style.border = '1px solid rgba(255,255,255,0.12)';
+            __settingsModal.style.borderRadius = '10px';
+            __settingsModal.style.boxShadow = '0 10px 30px rgba(0,0,0,0.4)';
+            __settingsModal.style.display = 'none';
+            __settingsModal.style.zIndex = '10001';
+            __settingsModal.style.padding = '14px 16px';
+
+
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.style.alignItems = 'center';
+            header.style.justifyContent = 'space-between';
+            const titleEl = document.createElement('div');
+            titleEl.textContent = (typeof t === 'function' && t('settings')) ? t('settings') : 'Настройки сканера';
+            titleEl.style.fontWeight = '600';
+            titleEl.style.fontSize = '15px';
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'btn icon';
+            closeBtn.innerHTML = '&#10005;';
+            closeBtn.style.minWidth = '32px';
+            closeBtn.style.height = '32px';
+            closeBtn.addEventListener('click', () => {
+                try {
+                    closeSettingsModal();
+                } catch (_) {}
+            });
+            header.append(titleEl, closeBtn);
+
+
+            const body = document.createElement('div');
+            body.style.marginTop = '8px';
+            body.style.display = 'grid';
+            body.style.gridTemplateColumns = '1fr';
+            body.style.gap = '12px';
+
+
+            function infoIcon(text) {
+                const wrap = document.createElement('span');
+                wrap.style.marginLeft = '6px';
+                wrap.style.opacity = '0.8';
+                wrap.style.cursor = 'help';
+                wrap.title = text || '';
+                wrap.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 17v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>';
+                return wrap;
+            }
+
+            function card(title) {
+                const c = document.createElement('div');
+                c.style.border = '1px solid rgba(255,255,255,0.12)';
+                c.style.borderRadius = '10px';
+                c.style.background = '#222';
+                c.style.padding = '10px 12px';
+                c.style.display = 'flex';
+                c.style.flexDirection = 'column';
+                c.style.gap = '10px';
+                const head = document.createElement('div');
+                head.style.fontWeight = '700';
+                head.style.fontSize = '14px';
+                head.style.opacity = '0.95';
+                head.textContent = title;
+                const content = document.createElement('div');
+                content.style.display = 'flex';
+                content.style.flexDirection = 'column';
+                content.style.gap = '10px';
+                c.append(head, content);
+                return {
+                    wrap: c,
+                    head,
+                    content
+                };
+            }
+
+            function sliderRow(label, min, max, step, getVal, setVal, helpText, onApply) {
+                const wrap = document.createElement('div');
+                wrap.style.display = 'grid';
+                wrap.style.gridTemplateColumns = '1fr auto';
+                wrap.style.alignItems = 'center';
+                wrap.style.gap = '8px';
+
+                const left = document.createElement('div');
+                left.style.display = 'flex';
+                left.style.alignItems = 'center';
+                const lbl = document.createElement('div');
+                lbl.textContent = label;
+                lbl.style.fontSize = '13px';
+                lbl.style.opacity = '0.9';
+                if (helpText) lbl.appendChild(infoIcon(helpText));
+
+                const range = document.createElement('input');
+                range.type = 'range';
+                range.min = String(min);
+                range.max = String(max);
+                range.step = String(step);
+                range.value = String(getVal());
+                range.style.width = '180px';
+
+                const num = document.createElement('input');
+                num.type = 'number';
+                num.min = String(min);
+                num.max = String(max);
+                num.step = String(step);
+                num.value = String(getVal());
+                num.style.width = '90px';
+                num.style.background = '#111';
+                num.style.border = '1px solid rgba(255,255,255,0.15)';
+                num.style.color = '#fff';
+                num.style.padding = '4px 6px';
+                num.style.borderRadius = '6px';
+
+                function apply(v) {
+                    try {
+                        setVal(v);
+                    } catch (_) {}
+                    try {
+                        if (typeof onApply === 'function') onApply(v);
+                    } catch (_) {}
+                }
+
+                range.addEventListener('input', () => {
+                    const v = Math.max(min, Math.min(max, Math.floor(Number(range.value))));
+                    num.value = String(v);
+                    apply(v);
+                });
+                num.addEventListener('input', () => {
+                    const v = Math.max(min, Math.min(max, Math.floor(Number(num.value))));
+                    range.value = String(v);
+                    apply(v);
+                });
+
+                left.append(lbl);
+                wrap.append(left, range);
+                wrap.append(document.createElement('div'), num);
+                return {
+                    wrap,
+                    range,
+                    num
+                };
+            }
+
+            function switchRow(label, getOn, onChange, helpText) {
+                const wrap = document.createElement('div');
+                wrap.style.display = 'flex';
+                wrap.style.alignItems = 'center';
+                wrap.style.justifyContent = 'space-between';
+                const left = document.createElement('div');
+                left.style.display = 'flex';
+                left.style.alignItems = 'center';
+                const lbl = document.createElement('div');
+                lbl.textContent = label;
+                lbl.style.fontSize = '13px';
+                lbl.style.opacity = '0.9';
+                if (helpText) lbl.appendChild(infoIcon(helpText));
+                const chk = document.createElement('input');
+                chk.type = 'checkbox';
+                try {
+                    chk.checked = !!getOn();
+                } catch (_) {
+                    chk.checked = false;
+                }
+                chk.addEventListener('change', () => {
+                    try {
+                        onChange(!!chk.checked);
+                    } catch (_) {}
+                });
+                left.append(lbl);
+                wrap.append(left, chk);
+                return {
+                    wrap,
+                    chk
+                };
+            }
+
+            const cardScan = card('Сканирование цветов');
+            const tol = sliderRow(
+                'Допуск RGB',
+                0, 96, 1,
+                () => (Number.isFinite(Number(state.scanTolerance)) ? Number(state.scanTolerance) : 22),
+                (v) => {
+                    state.scanTolerance = v;
+                },
+                'Определяет чувствительность сравнения каналов R,G,B. Больше — проще находить похожие цвета, но выше риск ложных совпадений. Диапазон 0–96.',
+                () => {
+                    applyScanParamsFromState();
+                    try {
+                        persistSave();
+                    } catch (_) {}
+                }
+            );
+            __settingsInputs.tolRange = tol.range;
+            __settingsInputs.tolNum = tol.num;
+            const smin = sliderRow(
+                'Шаг (мин)',
+                1, 64, 1,
+                () => (Number.isFinite(Number(state.scanStrideMin)) ? Number(state.scanStrideMin) : 3),
+                (v) => {
+                    state.scanStrideMin = v;
+                },
+                'Минимальный шаг выборки пикселей при сканировании. Меньше — плотнее и точнее, но медленнее.',
+                () => {
+                    applyScanParamsFromState();
+                    try {
+                        persistSave();
+                    } catch (_) {}
+                }
+            );
+            __settingsInputs.sminRange = smin.range;
+            __settingsInputs.sminNum = smin.num;
+            const smax = sliderRow(
+                'Шаг (макс)',
+                1, 64, 1,
+                () => (Number.isFinite(Number(state.scanStrideMax)) ? Number(state.scanStrideMax) : 14),
+                (v) => {
+                    state.scanStrideMax = v;
+                },
+                'Максимальный шаг выборки. Ограничивает, насколько разрежённой может быть выборка на больших снимках.',
+                () => {
+                    applyScanParamsFromState();
+                    try {
+                        persistSave();
+                    } catch (_) {}
+                }
+            );
+            __settingsInputs.smaxRange = smax.range;
+            __settingsInputs.smaxNum = smax.num;
+            cardScan.content.append(tol.wrap, smin.wrap, smax.wrap);
+
+
+            const cardAuto = card('АвтоРежим');
+            const ahk = switchRow(
+                'Режим по фокусу окна',
+                () => {
+                    try {
+                        return !!state.ahkEnabled;
+                    } catch (_) {
+                        return false;
+                    }
+                },
+                (on) => {
+                    try {
+                        const prev = !!state.ahkEnabled;
+                        state.ahkEnabled = !!on;
+                        try {
+                            persistSave();
+                        } catch (_) {}
+                        if (state.autoModeEnabled && prev !== state.ahkEnabled) {
+
+                            try {
+                                stopAutoModeTimer();
+                            } catch (_) {}
+                            if (state.ahkEnabled) {
+                                const focused = (typeof document.hasFocus === 'function') ? document.hasFocus() : (document.visibilityState === 'visible');
+                                if (focused) startAutoModeTimer();
+                            } else {
+                                startAutoModePlainTimer();
+                            }
+                        }
+                    } catch (_) {}
+                },
+                'Если включено — запуск по фокусу окна; если выключено — периодический таймер независимо от фокуса.'
+            );
+            __settingsInputs.ahkChk = ahk.chk;
+            const plainInt = sliderRow(
+                'Интервал автозапуска (плоский таймер), мс',
+                3000, 120000, 500,
+                () => {
+                    try {
+                        return Number(AUTO_MODE_INTERVAL_MS) || 31000;
+                    } catch (_) {
+                        return 31000;
+                    }
+                },
+                (v) => {
+                    try {
+                        AUTO_MODE_INTERVAL_MS = Math.max(1000, Math.floor(v));
+                    } catch (_) {}
+                },
+                'Как часто запускать «Все цвета» в режиме без AHK.',
+                () => {
+                    try {
+                        persistSave();
+                        if (autoModePlainTimer) startAutoModePlainTimer();
+                    } catch (_) {}
+                }
+            );
+            __settingsInputs.plainIntRange = plainInt.range;
+            __settingsInputs.plainIntNum = plainInt.num;
+            const focusDelay = sliderRow(
+                'Задержка старта при фокусе, мс',
+                100, 5000, 50,
+                () => {
+                    try {
+                        return Number(AUTO_MODE_FOCUS_DELAY_MS) || 1500;
+                    } catch (_) {
+                        return 1500;
+                    }
+                },
+                (v) => {
+                    try {
+                        AUTO_MODE_FOCUS_DELAY_MS = Math.max(0, Math.floor(v));
+                    } catch (_) {}
+                },
+                'Пауза перед запуском при получении фокуса окна (режим AHK).',
+                () => {
+                    try {
+                        persistSave();
+                    } catch (_) {}
+                }
+            );
+            __settingsInputs.focusDelayRange = focusDelay.range;
+            __settingsInputs.focusDelayNum = focusDelay.num;
+            const onFocusAlways = switchRow(
+                'Всегда запускать при фокусе (без проверки экрана)',
+                () => {
+                    try {
+                        return !!AUTO_MODE_ON_FOCUS_ALWAYS;
+                    } catch (_) {
+                        return false;
+                    }
+                },
+                (on) => {
+                    try {
+                        AUTO_MODE_ON_FOCUS_ALWAYS = !!on;
+                        try {
+                            persistSave();
+                        } catch (_) {}
+                    } catch (_) {}
+                },
+                'Если включено — в фокусе окна запускает сразу без проверки наличия улучшенных цветов.'
+            );
+            __settingsInputs.onFocusAlwaysChk = onFocusAlways.chk;
+            const scanWindow = sliderRow(
+                'Окно сканирования (AHK), мс',
+                1000, 30000, 250,
+                () => {
+                    try {
+                        return Number(AUTO_MODE_SCAN_WINDOW_MS) || 8000;
+                    } catch (_) {
+                        return 8000;
+                    }
+                },
+                (v) => {
+                    try {
+                        AUTO_MODE_SCAN_WINDOW_MS = Math.max(250, Math.floor(v));
+                    } catch (_) {}
+                },
+                'Максимальная длительность окна, в течение которого ведётся сканирование при фокусе.',
+                () => {
+                    try {
+                        persistSave();
+                    } catch (_) {}
+                }
+            );
+            __settingsInputs.scanWindowRange = scanWindow.range;
+            __settingsInputs.scanWindowNum = scanWindow.num;
+            const scanInterval = sliderRow(
+                'Интервал сканирования (AHK), мс',
+                50, 1000, 10,
+                () => {
+                    try {
+                        return Number(AUTO_MODE_SCAN_INTERVAL_MS) || 250;
+                    } catch (_) {
+                        return 250;
+                    }
+                },
+                (v) => {
+                    try {
+                        AUTO_MODE_SCAN_INTERVAL_MS = Math.max(25, Math.floor(v));
+                    } catch (_) {}
+                },
+                'Периодичность проверки экрана при сканировании в режиме фокуса.',
+                () => {
+                    try {
+                        persistSave();
+                    } catch (_) {}
+                }
+            );
+            __settingsInputs.scanIntervalRange = scanInterval.range;
+            __settingsInputs.scanIntervalNum = scanInterval.num;
+            cardAuto.content.append(ahk.wrap, plainInt.wrap, focusDelay.wrap, onFocusAlways.wrap, scanWindow.wrap, scanInterval.wrap);
+
+            body.append(cardScan.wrap, cardAuto.wrap);
+
+            const footer = document.createElement('div');
+            footer.style.display = 'flex';
+            footer.style.justifyContent = 'flex-end';
+            footer.style.gap = '8px';
+            footer.style.marginTop = '6px';
+            const resetBtn = document.createElement('button');
+            resetBtn.className = 'btn';
+            resetBtn.textContent = 'Сбросить';
+            resetBtn.addEventListener('click', () => {
+                try {
+
+                    state.scanTolerance = 22;
+                    state.scanStrideMin = 3;
+                    state.scanStrideMax = 14;
+                    applyScanParamsFromState();
+
+                    state.ahkEnabled = false;
+                    AUTO_MODE_INTERVAL_MS = 31000;
+                    AUTO_MODE_FOCUS_DELAY_MS = 1500;
+                    AUTO_MODE_ON_FOCUS_ALWAYS = true;
+                    AUTO_MODE_SCAN_WINDOW_MS = 8000;
+                    AUTO_MODE_SCAN_INTERVAL_MS = 250;
+
+
+                    try {
+                        persistSave();
+                    } catch (_) {}
+                    syncSettingsUIFromState();
+
+                    if (state.autoModeEnabled) {
+                        try {
+                            stopAutoModeTimer();
+                        } catch (_) {}
+                        startAutoModePlainTimer();
+                    }
+                } catch (_) {}
+            });
+            footer.append(resetBtn);
+
+            __settingsModal.append(header, body, footer);
+            document.body.appendChild(__settingsBackdrop);
+            document.body.appendChild(__settingsModal);
+
+            __settingsBackdrop.addEventListener('click', () => {
+                try {
+                    closeSettingsModal();
+                } catch (_) {}
+            });
+        } catch (_) {}
+    }
+
+    function syncSettingsUIFromState() {
+        try {
+            if (!__settingsInputs) return;
+            const tol = (Number.isFinite(Number(state.scanTolerance)) ? Number(state.scanTolerance) : 22);
+            const smin = (Number.isFinite(Number(state.scanStrideMin)) ? Number(state.scanStrideMin) : 3);
+            const smax = (Number.isFinite(Number(state.scanStrideMax)) ? Number(state.scanStrideMax) : 14);
+            __settingsInputs.tolRange.value = String(tol);
+            __settingsInputs.tolNum.value = String(tol);
+            __settingsInputs.sminRange.value = String(smin);
+            __settingsInputs.sminNum.value = String(smin);
+            __settingsInputs.smaxRange.value = String(smax);
+            __settingsInputs.smaxNum.value = String(smax);
+
+
+            try {
+                if (__settingsInputs.ahkChk) __settingsInputs.ahkChk.checked = !!state.ahkEnabled;
+            } catch (_) {}
+            try {
+                const pInt = (typeof AUTO_MODE_INTERVAL_MS !== 'undefined') ? Number(AUTO_MODE_INTERVAL_MS) : 31000;
+                if (__settingsInputs.plainIntRange) __settingsInputs.plainIntRange.value = String(pInt);
+                if (__settingsInputs.plainIntNum) __settingsInputs.plainIntNum.value = String(pInt);
+            } catch (_) {}
+            try {
+                const fDel = (typeof AUTO_MODE_FOCUS_DELAY_MS !== 'undefined') ? Number(AUTO_MODE_FOCUS_DELAY_MS) : 1500;
+                if (__settingsInputs.focusDelayRange) __settingsInputs.focusDelayRange.value = String(fDel);
+                if (__settingsInputs.focusDelayNum) __settingsInputs.focusDelayNum.value = String(fDel);
+            } catch (_) {}
+            try {
+                if (__settingsInputs.onFocusAlwaysChk) __settingsInputs.onFocusAlwaysChk.checked = !!AUTO_MODE_ON_FOCUS_ALWAYS;
+            } catch (_) {}
+            try {
+                const winMs = (typeof AUTO_MODE_SCAN_WINDOW_MS !== 'undefined') ? Number(AUTO_MODE_SCAN_WINDOW_MS) : 8000;
+                if (__settingsInputs.scanWindowRange) __settingsInputs.scanWindowRange.value = String(winMs);
+                if (__settingsInputs.scanWindowNum) __settingsInputs.scanWindowNum.value = String(winMs);
+            } catch (_) {}
+            try {
+                const intMs = (typeof AUTO_MODE_SCAN_INTERVAL_MS !== 'undefined') ? Number(AUTO_MODE_SCAN_INTERVAL_MS) : 250;
+                if (__settingsInputs.scanIntervalRange) __settingsInputs.scanIntervalRange.value = String(intMs);
+                if (__settingsInputs.scanIntervalNum) __settingsInputs.scanIntervalNum.value = String(intMs);
+            } catch (_) {}
+        } catch (_) {}
+    }
+
+    function openSettingsModal() {
+        try {
+            buildSettingsModal();
+            syncSettingsUIFromState();
+            __settingsBackdrop.style.display = 'block';
+            __settingsModal.style.display = 'block';
+        } catch (_) {}
+    }
+
+    function closeSettingsModal() {
+        try {
+            __settingsBackdrop.style.display = 'none';
+            __settingsModal.style.display = 'none';
+        } catch (_) {}
+    }
+
     function numberInput(v) {
         const i = document.createElement("input");
         i.type = "number";
@@ -1111,13 +1663,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         c.type = "checkbox";
         c.checked = ch;
         return c
-    }
-
-    function controlWrap(lbl) {
-        const w = el("div", "control"),
-            l = el("label", null, lbl);
-        w.append(l);
-        return w
     }
 
     function chip(text) {
@@ -1217,18 +1762,20 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         if (Number.isInteger(index) && index >= 0 && index < list.length) {
             return list[index];
         }
-      
+
         let x = (index | 0) >>> 0;
-    
-        x ^= x >>> 16; x = Math.imul(x, 0x7feb352d);
-        x ^= x >>> 15; x = Math.imul(x, 0x846ca68b);
+
+        x ^= x >>> 16;
+        x = Math.imul(x, 0x7feb352d);
+        x ^= x >>> 15;
+        x = Math.imul(x, 0x846ca68b);
         x ^= x >>> 16;
         const r = (x & 0xFF);
         const g = (x >>> 8) & 0xFF;
         const b = (x >>> 16) & 0xFF;
         const adj = v => 40 + Math.floor((v / 255) * 175);
         let c = [adj(r), adj(g), adj(b)];
-       
+
         for (let i = 0; i < list.length; i++) {
             const l = list[i];
             if (l && l[0] === c[0] && l[1] === c[1] && l[2] === c[2]) {
@@ -1239,10 +1786,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         return c;
     }
 
-    function sleep(ms) {
-        return new Promise(r => setTimeout(r, ms))
-    }
-   
     function rgb24Index(r, g, b) {
         return ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
     }
@@ -1391,6 +1934,77 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         } catch (_) {}
     }
 
+
+
+
+    function updateViewBaseFromPerformance() {
+        try {
+            const entries = (performance && typeof performance.getEntriesByType === 'function') ? performance.getEntriesByType('resource') : [];
+            let minX, minY, baseOrigin;
+            const re = /\/tiles\/(\d+)\/(\d+)\.png(?:$|\b)/;
+            for (const e of entries) {
+                const name = e && e.name ? String(e.name) : '';
+                const m = re.exec(name);
+                if (!m) continue;
+                const x = Number(m[1]);
+                const y = Number(m[2]);
+                if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+                minX = (minX === undefined) ? x : Math.min(minX, x);
+                minY = (minY === undefined) ? y : Math.min(minY, y);
+                try {
+                    baseOrigin = baseOrigin || new URL(name).origin;
+                } catch {}
+            }
+            if (minX !== undefined && minY !== undefined) {
+                const prevBX = Number.isFinite(state.viewTileBaseX) ? state.viewTileBaseX : undefined;
+                const prevBY = Number.isFinite(state.viewTileBaseY) ? state.viewTileBaseY : undefined;
+                state.viewTileBaseX = Number.isFinite(state.viewTileBaseX) ? Math.min(state.viewTileBaseX, minX) : minX;
+                state.viewTileBaseY = Number.isFinite(state.viewTileBaseY) ? Math.min(state.viewTileBaseY, minY) : minY;
+                if (state.viewTileBaseX !== prevBX || state.viewTileBaseY !== prevBY) {
+                    try {
+                        dbg('perf: view base updated', {
+                            baseX: state.viewTileBaseX,
+                            baseY: state.viewTileBaseY
+                        });
+                    } catch (_) {}
+                    tryAdjustAnchorWithViewBase();
+                }
+                if (baseOrigin && !state.tileBaseOrigin) {
+                    state.tileBaseOrigin = baseOrigin;
+                    try {
+                        dbg('perf: tile base origin', {
+                            origin: state.tileBaseOrigin
+                        });
+                    } catch {}
+                }
+            }
+        } catch (_) {}
+    }
+
+
+    function nudgeTileReloadOnce() {
+        try {
+            if (state.__tilesReloadNudged) return;
+            const imgs = Array.from(document.querySelectorAll('img'));
+            const re = /\/tiles\/\d+\/\d+\.png(?:$|\b)/;
+            let count = 0;
+            for (const im of imgs) {
+                const src = im.currentSrc || im.src || '';
+                if (!re.test(src)) continue;
+                const u = new URL(src, location.href);
+                u.searchParams.set('ovr', String(Date.now()));
+                im.src = u.toString();
+                count++;
+            }
+            state.__tilesReloadNudged = true;
+            try {
+                dbg('dom: tiles reload nudged', {
+                    count
+                });
+            } catch (_) {}
+        } catch (_) {}
+    }
+
     let hintTimer = null;
 
     function showHint(message, duration = 6000) {
@@ -1410,6 +2024,120 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         } catch (_) {}
     }
     overlay.append(content);
+    const dragMarker = el('div', null);
+    dragMarker.style.cssText = [
+        'position:fixed',
+        'width:30px',
+        'height:30px',
+        'border-radius:50% 50% 50% 50%',
+        'background:rgba(255,0,0,.5)',
+        'border:2px solid #fff',
+        'box-shadow:0 2px 8px rgba(0,0,0,.35)',
+        'cursor:grab',
+        'display:none',
+        'z-index:2147483647'
+    ].join(';');
+
+    function updateMarkerPos() {
+        try {
+            const x = Math.round(state.markerX);
+            const y = Math.round(state.markerY);
+            const r = Math.round((dragMarker.offsetWidth || 20) / 2);
+            dragMarker.style.left = (x - r) + 'px';
+            dragMarker.style.top = (y - r) + 'px';
+        } catch (_) {}
+    }
+
+    function ensureMarkerInBounds() {
+        try {
+            const r = Math.round((dragMarker.offsetWidth || 20) / 2);
+            const minX = r,
+                maxX = Math.max(r, window.innerWidth - r);
+            const minY = r,
+                maxY = Math.max(r, window.innerHeight - r);
+            const x = state.markerX,
+                y = state.markerY;
+            const outside = !(x >= minX && x <= maxX && y >= minY && y <= maxY);
+            if (outside || !isFinite(x) || !isFinite(y)) {
+                state.markerX = Math.round(window.innerWidth / 2);
+                state.markerY = Math.round(window.innerHeight / 2);
+            } else {
+                state.markerX = Math.min(maxX, Math.max(minX, x));
+                state.markerY = Math.min(maxY, Math.max(minY, y));
+            }
+        } catch (_) {}
+    }
+
+    function clickRandomInsideMarker() {
+        try {
+            const r = Math.max(2, Math.round((dragMarker.offsetWidth || 20) / 2));
+
+            const theta = Math.random() * Math.PI * 2;
+            const rr = Math.sqrt(Math.random()) * (r - 2);
+            const x = Math.round(state.markerX + rr * Math.cos(theta));
+            const y = Math.round(state.markerY + rr * Math.sin(theta));
+            simulateClickAt(x, y);
+        } catch (_) {}
+    }
+    document.body.append(dragMarker);
+
+
+    const markerDrag = {
+        active: false,
+        pointerId: null,
+        dx: 0,
+        dy: 0
+    };
+
+    function onMarkerMove(e) {
+        if (!markerDrag.active) return;
+        try {
+            state.markerX = e.clientX - markerDrag.dx;
+            state.markerY = e.clientY - markerDrag.dy;
+
+            const r = Math.round((dragMarker.offsetWidth || 20) / 2);
+            const maxX = window.innerWidth - r,
+                maxY = window.innerHeight - r;
+            const minX = r,
+                minY = r;
+            state.markerX = Math.min(maxX, Math.max(minX, state.markerX));
+            state.markerY = Math.min(maxY, Math.max(minY, state.markerY));
+            updateMarkerPos();
+        } catch (_) {}
+    }
+
+    function onMarkerUp(e) {
+        if (!markerDrag.active) return;
+        markerDrag.active = false;
+        try {
+            dragMarker.releasePointerCapture(markerDrag.pointerId);
+        } catch (_) {}
+        try {
+            dragMarker.style.cursor = 'grab';
+        } catch (_) {}
+        window.removeEventListener('pointermove', onMarkerMove, true);
+        window.removeEventListener('pointerup', onMarkerUp, true);
+        try {
+            markerPersistSave();
+        } catch (_) {}
+    }
+    dragMarker.addEventListener('pointerdown', (e) => {
+        try {
+            const rect = overlay.getBoundingClientRect();
+            markerDrag.active = true;
+            markerDrag.pointerId = e.pointerId;
+            markerDrag.dx = e.clientX - state.markerX;
+            markerDrag.dy = e.clientY - state.markerY;
+            try {
+                dragMarker.setPointerCapture(e.pointerId);
+            } catch (_) {}
+            dragMarker.style.cursor = 'grabbing';
+            window.addEventListener('pointermove', onMarkerMove, true);
+            window.addEventListener('pointerup', onMarkerUp, true);
+            e.preventDefault();
+        } catch (_) {}
+    });
+
     const brushCursor = el("div", "brush-cursor");
     const toolbar = el("div", "toolbar");
     const toolbarScroll = el("div", "toolbar-scroll");
@@ -1437,6 +2165,30 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     const eyeOffSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19C5 19 1 12 1 12a21.8 21.8 0 0 1 5.06-5.94m3.38-1.57A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.83 21.83 0 0 1-3.06 4.2M1 1l22 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     btnAcid.title = t("acidToggleTitle");
     btnAcid.innerHTML = eyeOpenSvg;
+
+    const btnMarker = el('button', 'btn icon');
+    btnMarker.title = 'Поместите под кнопку paint';
+    btnMarker.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>';
+    btnMarker.style.color = '#ff3b30';
+    btnMarker.addEventListener('click', () => {
+        try {
+            state.markerVisible = !state.markerVisible;
+            if (state.markerVisible) {
+                ensureMarkerInBounds();
+                dragMarker.style.display = 'block';
+            } else {
+                dragMarker.style.display = 'none';
+            }
+            btnMarker.classList.toggle('active', state.markerVisible);
+            updateMarkerPos();
+            try {
+                markerPersistSave();
+            } catch (_) {}
+        } catch (_) {}
+    });
+
+
+
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = "image/*";
@@ -1472,9 +2224,613 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     const btnLang = el("button", "btn icon");
     btnLang.title = t("selectLanguageTitle");
     btnLang.innerHTML = '<svg width="18" height="18" viewBox="796 796 200 200" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M973.166,818.5H818.833c-12.591,0-22.833,10.243-22.833,22.833v109.333c0,12.59,10.243,22.833,22.833,22.833h154.333c12.59,0,22.834-10.243,22.834-22.833V841.333C996,828.743,985.756,818.5,973.166,818.5z M896,961.5h-77.167c-5.973,0-10.833-4.859-10.833-10.833V841.333c0-5.974,4.86-10.833,10.833-10.833H896V961.5z M978.58,872.129c-0.547,9.145-5.668,27.261-20.869,39.845c4.615,1.022,9.629,1.573,14.92,1.573v12c-10.551,0-20.238-1.919-28.469-5.325c-7.689,3.301-16.969,5.325-28.125,5.325v-12c5.132,0,9.924-0.501,14.366-1.498c-8.412-7.016-13.382-16.311-13.382-26.78h11.999c0,8.857,5.66,16.517,14.884,21.623c4.641-2.66,8.702-6.112,12.164-10.351c5.628-6.886,8.502-14.521,9.754-20.042h-49.785v-12h22.297v-11.986h12V864.5h21.055c1.986,0,3.902,0.831,5.258,2.28C977.986,868.199,978.697,870.155,978.58,872.129z"/><path d="M839.035,914.262l-4.45,11.258h-15.971l26.355-61.09h15.971l25.746,61.09h-16.583l-4.363-11.258H839.035z M852.475,879.876l-8.902,22.604h17.629L852.475,879.876z"/></svg>';
-    btnLang.addEventListener('click', () => { try { showLanguageSelector(); } catch (_) {} });
+    btnLang.addEventListener('click', () => {
+        try {
+            showLanguageSelector();
+        } catch (_) {}
+    });
 
-    toolbarRow.append(btnAcc, btnLang, btnOpen, btnHistory, btnAcid, fileChip, spacer, btnClear, btnClose);
+
+    const btnTopToggle = el('button', 'btn icon');
+    btnTopToggle.title = 'АвтоРежим';
+    btnTopToggle.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\
+<path d="M9 15C8.44771 15 8 15.4477 8 16C8 16.5523 8.44771 17 9 17C9.55229 17 10 16.5523 10 16C10 15.4477 9.55229 15 9 15Z" fill="currentColor"/>\
+<path d="M14 16C14 15.4477 14.4477 15 15 15C15.5523 15 16 15.4477 16 16C16 16.5523 15.5523 17 15 17C14.4477 17 14 16.5523 14 16Z" fill="currentColor"/>\
+<path fill-rule="evenodd" clip-rule="evenodd" d="M12 1C10.8954 1 10 1.89543 10 3C10 3.74028 10.4022 4.38663 11 4.73244V7H6C4.34315 7 3 8.34315 3 10V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V10C21 8.34315 19.6569 7 18 7H13V4.73244C13.5978 4.38663 14 3.74028 14 3C14 1.89543 13.1046 1 12 1ZM5 10C5 9.44772 5.44772 9 6 9H7.38197L8.82918 11.8944C9.16796 12.572 9.86049 13 10.618 13H13.382C14.1395 13 14.832 12.572 15.1708 11.8944L16.618 9H18C18.5523 9 19 9.44772 19 10V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V10ZM13.382 11L14.382 9H9.61803L10.618 11H13.382Z" fill="currentColor"/>\
+<path d="M1 14C0.447715 14 0 14.4477 0 15V17C0 17.5523 0.447715 18 1 18C1.55228 18 2 17.5523 2 17V15C2 14.4477 1.55228 14 1 14Z" fill="currentColor"/>\
+<path d="M22 15C22 14.4477 22.4477 14 23 14C23.5523 14 24 14.4477 24 15V17C24 17.5523 23.5523 18 23 18C22.4477 18 22 17.5523 22 17V15Z" fill="currentColor"/>\
+ </svg>';
+    btnTopToggle.style.background = '#e53935';
+    btnTopToggle.style.color = '#fff';
+
+    const btnSettings = el('button', 'btn icon');
+    try {
+        btnSettings.title = (t('settings') || 'Настройки');
+    } catch (_) {
+        btnSettings.title = 'Настройки';
+    }
+    btnSettings.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="#ffffff" stroke-width="1.5"/><path d="M3.66122 10.6392C4.13377 10.9361 4.43782 11.4419 4.43782 11.9999C4.43781 12.558 4.13376 13.0638 3.66122 13.3607C3.33966 13.5627 3.13248 13.7242 2.98508 13.9163C2.66217 14.3372 2.51966 14.869 2.5889 15.3949C2.64082 15.7893 2.87379 16.1928 3.33973 16.9999C3.80568 17.8069 4.03865 18.2104 4.35426 18.4526C4.77508 18.7755 5.30694 18.918 5.83284 18.8488C6.07287 18.8172 6.31628 18.7185 6.65196 18.5411C7.14544 18.2803 7.73558 18.2699 8.21895 18.549C8.70227 18.8281 8.98827 19.3443 9.00912 19.902C9.02332 20.2815 9.05958 20.5417 9.15224 20.7654C9.35523 21.2554 9.74458 21.6448 10.2346 21.8478C10.6022 22 11.0681 22 12 22C12.9319 22 13.3978 22 13.7654 21.8478C14.2554 21.6448 14.6448 21.2554 14.8478 20.7654C14.9404 20.5417 14.9767 20.2815 14.9909 19.9021C15.0117 19.3443 15.2977 18.8281 15.7811 18.549C16.2644 18.27 16.8545 18.2804 17.3479 18.5412C17.6837 18.7186 17.9271 18.8173 18.1671 18.8489C18.693 18.9182 19.2249 18.7756 19.6457 18.4527C19.9613 18.2106 20.1943 17.807 20.6603 17C20.8677 16.6407 21.029 16.3614 21.1486 16.1272M20.3387 13.3608C19.8662 13.0639 19.5622 12.5581 19.5621 12.0001C19.5621 11.442 19.8662 10.9361 20.3387 10.6392C20.6603 10.4372 20.8674 10.2757 21.0148 10.0836C21.3377 9.66278 21.4802 9.13092 21.411 8.60502C21.3591 8.2106 21.1261 7.80708 20.6601 7.00005C20.1942 6.19301 19.9612 5.7895 19.6456 5.54732C19.2248 5.22441 18.6929 5.0819 18.167 5.15113C17.927 5.18274 17.6836 5.2814 17.3479 5.45883C16.8544 5.71964 16.2643 5.73004 15.781 5.45096C15.2977 5.1719 15.0117 4.6557 14.9909 4.09803C14.9767 3.71852 14.9404 3.45835 14.8478 3.23463C14.6448 2.74458 14.2554 2.35523 13.7654 2.15224C13.3978 2 12.9319 2 12 2C11.0681 2 10.6022 2 10.2346 2.15224C9.74458 2.35523 9.35523 2.74458 9.15224 3.23463C9.05958 3.45833 9.02332 3.71848 9.00912 4.09794C8.98826 4.65566 8.70225 5.17191 8.21891 5.45096C7.73557 5.73002 7.14548 5.71959 6.65205 5.4588C6.31633 5.28136 6.0729 5.18269 5.83285 5.15108C5.30695 5.08185 4.77509 5.22436 4.35427 5.54727C4.03866 5.78945 3.80569 6.19297 3.33974 7C3.13231 7.35929 2.97105 7.63859 2.85138 7.87273" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/></svg>';
+    btnSettings.addEventListener('click', () => {
+        try {
+            openSettingsModal();
+        } catch (_) {}
+    });
+
+    let AUTO_MODE_INTERVAL_MS = 31000;
+    let autoModeTimer = null;
+
+    let autoModePlainTimer = null;
+
+    let autoModeHoldCheckTimer = null;
+
+    let AUTO_MODE_FOCUS_DELAY_MS = 1500;
+
+    let autoModeFocusSession = false;
+
+    let AUTO_MODE_ON_FOCUS_ALWAYS = true;
+
+    let AUTO_MODE_SCAN_WINDOW_MS = 8000;
+    let AUTO_MODE_SCAN_INTERVAL_MS = 250;
+    let autoModeScanTimer = null;
+    let autoModeScanDeadline = 0;
+    btnTopToggle.addEventListener('click', () => {
+        const isOn = btnTopToggle.classList.toggle('active');
+        try {
+            console.log('[AutoMode] toggle ->', isOn ? 'ON' : 'OFF');
+        } catch (_) {}
+        if (isOn) {
+            btnTopToggle.style.background = '#2e7d32';
+
+            if (!state.acidModeEnabled) {
+                state.acidModeEnabled = true;
+                try {
+                    updateAcidBtn();
+                } catch (_) {}
+                try {
+                    persistSave();
+                } catch (_) {}
+                try {
+                    window.dispatchEvent(new Event('resize'));
+                } catch (_) {}
+                try {
+                    console.log('[AutoMode] eye mode forced ON');
+                } catch (_) {}
+            }
+
+            try {
+                btnAcid.disabled = true;
+                btnAcid.style.opacity = '0.6';
+                btnAcid.style.cursor = 'not-allowed';
+                btnAcid.title = (t('acidBlockedByAuto') || 'Режим глаз заблокирован АвтоРежимом');
+            } catch (_) {}
+            try {
+                state.autoModeEnabled = true;
+            } catch (_) {}
+            try {
+                persistSave();
+            } catch (_) {}
+            try {
+                console.log('[AutoMode] starting timer');
+            } catch (_) {}
+            try {
+                if (state.ahkEnabled) {
+                    const focused = (typeof document.hasFocus === 'function') ? document.hasFocus() : (document.visibilityState === 'visible');
+                    if (focused) startAutoModeTimer();
+                    else try {
+                        console.log('[AutoMode] window not focused; timer will start on focus');
+                    } catch (_) {}
+                } else {
+
+                    startAutoModePlainTimer();
+                }
+            } catch (_) {}
+        } else {
+            btnTopToggle.style.background = '#e53935';
+
+            if (state.acidModeEnabled) {
+                state.acidModeEnabled = false;
+                try {
+                    updateAcidBtn();
+                } catch (_) {}
+                try {
+                    persistSave();
+                } catch (_) {}
+                try {
+                    window.dispatchEvent(new Event('resize'));
+                } catch (_) {}
+                try {
+                    console.log('[AutoMode] eye mode forced OFF');
+                } catch (_) {}
+            }
+
+            try {
+                btnAcid.disabled = false;
+                btnAcid.style.opacity = '';
+                btnAcid.style.cursor = '';
+                btnAcid.title = t('acidToggleTitle');
+            } catch (_) {}
+            try {
+                state.autoModeEnabled = false;
+            } catch (_) {}
+            try {
+                persistSave();
+            } catch (_) {}
+            try {
+                console.log('[AutoMode] stopping timer');
+            } catch (_) {}
+            try {
+                stopAutoModeTimer();
+            } catch (_) {}
+        }
+
+        try {
+            btnTopToggle.title = 'АвтоРежим';
+        } catch (_) {}
+    });
+
+    function startAutoModeTimer() {
+        try {
+            stopAutoModeTimer();
+        } catch (_) {}
+
+        try {
+            const focused = (typeof document.hasFocus === 'function') ? document.hasFocus() : (document.visibilityState === 'visible');
+            if (!focused) {
+                try {
+                    console.log('[AutoMode] skip schedule: window not focused');
+                } catch (_) {}
+                return;
+            }
+            if (autoModeFocusSession) {
+                try {
+                    console.log('[AutoMode] skip schedule: session already fired');
+                } catch (_) {}
+                return;
+            }
+        } catch (_) {}
+        try {
+            console.log('[AutoMode] one-shot SCHEDULE');
+        } catch (_) {}
+        autoModeTimer = setTimeout(() => {
+            autoModeTimer = null;
+            try {
+                runAutoModeOneShot();
+            } catch (_) {}
+        }, AUTO_MODE_FOCUS_DELAY_MS);
+
+        try {
+            autoModeHoldCheckTimer = setInterval(() => {
+                try {
+                    const stillFocused = (typeof document.hasFocus === 'function') ? document.hasFocus() : (document.visibilityState === 'visible');
+                    if (!stillFocused) {
+                        stopAutoModeTimer();
+                    }
+                } catch (_) {}
+            }, 120);
+        } catch (_) {}
+    }
+
+    function runAutoModeOneShot() {
+        try {
+            if (!state?.autoModeEnabled) {
+                try {
+                    console.log('[AutoMode] one-shot: disabled');
+                } catch (_) {}
+                return;
+            }
+            const focused = (typeof document.hasFocus === 'function') ? document.hasFocus() : (document.visibilityState === 'visible');
+            if (!focused) {
+                try {
+                    console.log('[AutoMode] one-shot: window lost focus');
+                } catch (_) {}
+                return;
+            }
+            if (autoModeFocusSession) {
+                try {
+                    console.log('[AutoMode] one-shot: already fired this focus');
+                } catch (_) {}
+                return;
+            }
+
+            autoModeFocusSession = true;
+            try {
+                console.log('[AutoMode] one-shot action: trigger All Colors');
+            } catch (_) {}
+            try {
+                if (btnAllColors) btnAllColors.click();
+            } catch (_) {}
+        } catch (_) {}
+    }
+
+
+    function startAutoModePlainTimer() {
+        try {
+            if (autoModePlainTimer) {
+                clearInterval(autoModePlainTimer);
+                autoModePlainTimer = null;
+            }
+            autoModePlainTimer = setInterval(() => {
+                try {
+                    if (!state?.autoModeEnabled) return;
+
+                    try {
+                        console.log('[AutoModePlain] action: trigger All Colors');
+                    } catch (_) {}
+                    try {
+                        if (btnAllColors) btnAllColors.click();
+                    } catch (_) {}
+                } catch (_) {}
+            }, AUTO_MODE_INTERVAL_MS);
+            try {
+                console.log('[AutoModePlain] timer START interval=', AUTO_MODE_INTERVAL_MS);
+            } catch (_) {}
+        } catch (_) {
+            autoModePlainTimer = null;
+        }
+    }
+
+    function startAutoModeScanLoop() {
+        try {
+            stopAutoModeTimer();
+        } catch (_) {}
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        autoModeScanDeadline = now + AUTO_MODE_SCAN_WINDOW_MS;
+        try {
+            console.log('[AutoMode] scan-loop START', {
+                windowMs: AUTO_MODE_SCAN_WINDOW_MS,
+                intervalMs: AUTO_MODE_SCAN_INTERVAL_MS
+            });
+        } catch (_) {}
+        autoModeScanTimer = setInterval(() => {
+            try {
+                const focused = (typeof document.hasFocus === 'function') ? document.hasFocus() : (document.visibilityState === 'visible');
+                if (!state?.autoModeEnabled || !focused) {
+                    stopAutoModeScanLoop();
+                    return;
+                }
+
+                const running = !!state?.running;
+                const bulk = !!state?.bulkInProgress || !!(btnAllColors && btnAllColors.disabled);
+                if (running || bulk) {
+                    autoModeFocusSession = true;
+                    stopAutoModeScanLoop();
+                    return;
+                }
+                if (isNoPaintPopupVisible()) {
+                    autoModeFocusSession = true;
+                    stopAutoModeScanLoop();
+                    return;
+                }
+
+                const ready = !!isScreenCaptureReady();
+                if (ready) {
+                    if (AUTO_MODE_ON_FOCUS_ALWAYS) {
+                        autoModeFocusSession = true;
+                        const canClick = !!(btnAllColors && !btnAllColors.disabled);
+                        try {
+                            console.log('[AutoMode] scan-loop (always): trigger All Colors =>', canClick);
+                        } catch (_) {}
+                        if (canClick) {
+                            try {
+                                btnAllColors.click();
+                            } catch (_) {}
+                        }
+                        stopAutoModeScanLoop();
+                        return;
+                    }
+
+                    const found = !!hasAcidOnScreenFast();
+                    try {
+                        console.log('[AutoMode] scan-loop detection:', found ? 'FOUND' : 'NONE');
+                    } catch (_) {}
+                    if (found) {
+                        autoModeFocusSession = true;
+                        const canClick = !!(btnAllColors && !btnAllColors.disabled);
+                        try {
+                            console.log('[AutoMode] scan-loop action: trigger All Colors =>', canClick);
+                        } catch (_) {}
+                        if (canClick) {
+                            try {
+                                btnAllColors.click();
+                            } catch (_) {}
+                        }
+                        stopAutoModeScanLoop();
+                        return;
+                    }
+                }
+
+                const now2 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+                if (now2 >= autoModeScanDeadline) {
+                    try {
+                        console.log('[AutoMode] scan-loop TIMEOUT');
+                    } catch (_) {}
+                    autoModeFocusSession = true;
+                    stopAutoModeScanLoop();
+                    return;
+                }
+            } catch (__) {
+                autoModeFocusSession = true;
+                stopAutoModeScanLoop();
+            }
+        }, AUTO_MODE_SCAN_INTERVAL_MS);
+    }
+
+    function stopAutoModeScanLoop() {
+        try {
+            if (autoModeScanTimer) {
+                clearInterval(autoModeScanTimer);
+                autoModeScanTimer = null;
+            }
+            autoModeScanDeadline = 0;
+
+        } catch (_) {
+            autoModeScanTimer = null;
+            autoModeScanDeadline = 0;
+        }
+    }
+
+    function stopAutoModeTimer() {
+        try {
+            if (autoModeTimer) {
+                clearTimeout(autoModeTimer);
+                autoModeTimer = null;
+            }
+            if (autoModeHoldCheckTimer) {
+                clearInterval(autoModeHoldCheckTimer);
+                autoModeHoldCheckTimer = null;
+            }
+            if (autoModeScanTimer) {
+                clearInterval(autoModeScanTimer);
+                autoModeScanTimer = null;
+                autoModeScanDeadline = 0;
+            }
+            if (autoModePlainTimer) {
+                clearInterval(autoModePlainTimer);
+                autoModePlainTimer = null;
+            }
+
+        } catch (_) {
+            autoModeTimer = null;
+        }
+    }
+
+
+    try {
+        window.addEventListener('focus', () => {
+            try {
+                if (!state?.ahkEnabled) return;
+                autoModeFocusSession = false;
+                if (state?.autoModeEnabled) startAutoModeTimer();
+            } catch (_) {}
+        });
+        window.addEventListener('blur', () => {
+            try {
+                if (!state?.ahkEnabled) return;
+                stopAutoModeTimer();
+                autoModeFocusSession = false;
+            } catch (_) {}
+        });
+    } catch (_) {}
+
+
+    try {
+        document.addEventListener('visibilitychange', () => {
+            try {
+                if (!state?.ahkEnabled) return;
+                if (document.visibilityState !== 'visible') {
+                    stopAutoModeTimer();
+                    autoModeFocusSession = false;
+                } else {
+                    const focused = (typeof document.hasFocus === 'function') ? document.hasFocus() : true;
+                    if (focused && state?.autoModeEnabled && !autoModeFocusSession) startAutoModeTimer();
+                }
+            } catch (_) {}
+        });
+    } catch (_) {}
+
+
+    try {
+        document.addEventListener('focusin', () => {
+            try {
+                if (!state?.ahkEnabled) return;
+                autoModeFocusSession = false;
+                if (state?.autoModeEnabled) startAutoModeTimer();
+            } catch (_) {}
+        });
+        document.addEventListener('focusout', () => {
+            try {
+                if (!state?.ahkEnabled) return;
+                stopAutoModeTimer();
+                autoModeFocusSession = false;
+            } catch (_) {}
+        });
+    } catch (_) {}
+
+    let __acidRGBSet = null;
+    let __lastAcidScanInfo = null;
+
+    let __acidDynRGBSet = new Set();
+    let __acidDynLastUpdate = 0;
+
+    let ACID_RGB_TOLERANCE = 22;
+    let ACID_STRIDE_MIN = 3;
+    let ACID_STRIDE_MAX = 14;
+
+
+    try {
+        if (typeof state.scanTolerance !== 'number') state.scanTolerance = ACID_RGB_TOLERANCE | 0;
+        if (typeof state.scanStrideMin !== 'number') state.scanStrideMin = ACID_STRIDE_MIN | 0;
+        if (typeof state.scanStrideMax !== 'number') state.scanStrideMax = ACID_STRIDE_MAX | 0;
+    } catch (_) {}
+
+    function applyScanParamsFromState(silent) {
+        try {
+            let tol = Number(state.scanTolerance);
+            let smin = Number(state.scanStrideMin);
+            let smax = Number(state.scanStrideMax);
+            if (!Number.isFinite(tol)) tol = 22;
+            if (!Number.isFinite(smin)) smin = 3;
+            if (!Number.isFinite(smax)) smax = 14;
+
+            tol = Math.max(0, Math.min(96, Math.floor(tol)));
+            smin = Math.max(1, Math.min(64, Math.floor(smin)));
+            smax = Math.max(1, Math.min(64, Math.floor(smax)));
+            if (smin > smax) {
+                const tmp = smin;
+                smin = smax;
+                smax = tmp;
+            }
+            ACID_RGB_TOLERANCE = tol;
+            ACID_STRIDE_MIN = smin;
+            ACID_STRIDE_MAX = smax;
+            try {
+                if (!silent) console.log('[Settings] apply scan params', {
+                    tol,
+                    smin,
+                    smax
+                });
+            } catch (_) {}
+        } catch (_) {}
+    }
+    try {
+        applyScanParamsFromState(true);
+    } catch (_) {}
+
+    function ensureAcidColorSet() {
+        if (!__acidRGBSet) {
+            try {
+                __acidRGBSet = new Set((CV_FIXED_COLORS || []).map(c => `${c[0]},${c[1]},${c[2]}`));
+            } catch (_) {
+                __acidRGBSet = new Set();
+            }
+        }
+    }
+
+    function __acidDynAdd(r, g, b) {
+        try {
+            if (!__acidDynRGBSet) __acidDynRGBSet = new Set();
+
+            if (__acidDynRGBSet.size > 4096) __acidDynRGBSet.clear();
+            __acidDynRGBSet.add(`${r},${g},${b}`);
+            __acidDynLastUpdate = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        } catch (_) {}
+    }
+
+    function __getActiveAcidSet() {
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+
+        if (__acidDynRGBSet && __acidDynRGBSet.size && (__acidDynLastUpdate && (now - __acidDynLastUpdate) <= 8000)) {
+            return {
+                set: __acidDynRGBSet,
+                kind: 'dynamic'
+            };
+        }
+        ensureAcidColorSet();
+        return {
+            set: __acidRGBSet || new Set(),
+            kind: 'fixed'
+        };
+    }
+
+    function hasAcidOnScreenFast() {
+        try {
+            const active = __getActiveAcidSet();
+            const activeSet = active.set;
+            if (!activeSet || activeSet.size === 0) return false;
+            try {
+                console.log('[AutoMode] scan: capturing screen…');
+            } catch (_) {}
+            const snap = captureScreenSnapshot();
+            if (!snap) {
+                try {
+                    console.warn('[AutoMode] scan: snapshot unavailable');
+                } catch (_) {}
+                return false;
+            }
+            const data = snap.data.data;
+            const w = snap.width | 0;
+            const h = snap.height | 0;
+            if (w <= 0 || h <= 0) return false;
+
+
+            const toArray = (set) => {
+                const arr = [];
+                try {
+                    for (const k of set) {
+                        const [r, g, b] = k.split(',').map(n => (n | 0));
+                        if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) arr.push([r, g, b]);
+                    }
+                } catch (_) {}
+                return arr;
+            };
+
+            let targetArray = toArray(activeSet);
+
+            if (active.kind === 'dynamic' && targetArray.length <= 2) {
+                ensureAcidColorSet();
+                try {
+                    targetArray = targetArray.concat(toArray(__acidRGBSet || new Set()));
+                } catch (_) {}
+            }
+            if (targetArray.length === 0) return false;
+
+
+            let s = Math.floor(Math.sqrt((w * h) / 40000));
+            s = Math.max(ACID_STRIDE_MIN, Math.min(ACID_STRIDE_MAX, s));
+            if (active.kind === 'dynamic') {
+
+                s = Math.max(ACID_STRIDE_MIN, Math.floor(s * 0.75));
+            }
+            const approxSamples = Math.ceil((w / s)) * Math.ceil((h / s));
+            __lastAcidScanInfo = {
+                w,
+                h,
+                stride: s,
+                approxSamples
+            };
+            try {
+                console.log('[AutoMode] scan: size=', w, 'x', h, 'stride=', s, 'samples≈', approxSamples, 'set=', active.kind, 'setSize=', activeSet.size, 'tol=', ACID_RGB_TOLERANCE);
+            } catch (_) {}
+
+
+            const tol = ACID_RGB_TOLERANCE | 0;
+            const matches = (r, g, b) => {
+                for (let k = 0; k < targetArray.length; k++) {
+                    const t = targetArray[k];
+                    if (Math.abs(r - t[0]) <= tol && Math.abs(g - t[1]) <= tol && Math.abs(b - t[2]) <= tol) return true;
+                }
+                return false;
+            };
+
+            for (let y = 0; y < h; y += s) {
+                const row = y * w * 4;
+                for (let x = 0; x < w; x += s) {
+                    const i = row + x * 4;
+                    const r = data[i],
+                        g = data[i + 1],
+                        b = data[i + 2];
+                    if (matches(r, g, b)) {
+                        try {
+                            console.log('[AutoMode] scan: match at', {
+                                x,
+                                y,
+                                rgb: [r, g, b]
+                            });
+                        } catch (_) {}
+                        return true;
+                    }
+                }
+            }
+            try {
+                console.log('[AutoMode] scan: no improved colors found');
+            } catch (_) {}
+            return false;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    toolbarRow.append(btnAcc, btnLang, btnOpen, btnHistory, btnAcid, btnMarker, btnTopToggle, btnSettings, fileChip, spacer, btnClear, btnClose);
     toolbarScroll.append(toolbarRow);
     const fadeL = el("div", "fade-edge fade-left");
     const fadeR = el("div", "fade-edge fade-right");
@@ -1556,7 +2912,235 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     railCol.append(rail);
     const palTitle = el("div", "side-title", t("palette"));
     const paletteEl = el("div", "palette");
-    sideBody.append(panelHost, paletteEl);
+
+
+    const btnAllColors = el("button", "btn");
+    btnAllColors.textContent = "Все цвета";
+    btnAllColors.title = "Автоматически выбрать и кликнуть все цвета";
+    btnAllColors.style.margin = "6px 0 8px";
+    btnAllColors.addEventListener("click", async () => {
+        try {
+            console.log('[AllColors] click: disabled=', btnAllColors.disabled, 'paletteSize=', state?.palette?.length ?? null);
+        } catch (_) {}
+        if (!state || !Array.isArray(state.palette) || !state.palette.length) {
+            try {
+                console.warn('[AllColors] guard: empty palette');
+            } catch (_) {}
+            return;
+        }
+        if (!isScreenCaptureReady()) {
+            try {
+                console.warn('[AllColors] guard: screen capture not ready');
+            } catch (_) {}
+            showHint(t('hintAccessRequired'), 2400);
+            return;
+        }
+        if (btnAllColors.disabled) {
+            try {
+                console.log('[AllColors] guard: already disabled');
+            } catch (_) {}
+            return;
+        }
+
+        const prevAuto = !!autoColorChk?.checked;
+        try {
+            if (autoColorChk) autoColorChk.checked = true;
+            try {
+                if (rAuto) rAuto.classList.add("active");
+            } catch (_) {}
+        } catch (_) {}
+
+        btnAllColors.disabled = true;
+        try {
+            state.bulkInProgress = true;
+            console.log('[AllColors] bulkInProgress = true');
+        } catch (_) {}
+        try {
+            console.log('[AllColors] start: items=', state.palette.length);
+        } catch (_) {}
+        state.bulkAbort = false;
+
+        const __palShuffled = Array.isArray(state.palette) ? state.palette.slice() : [];
+        try {
+            for (let i = __palShuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const tmp = __palShuffled[i];
+                __palShuffled[i] = __palShuffled[j];
+                __palShuffled[j] = tmp;
+            }
+        } catch (_) {}
+        for (const c of __palShuffled) {
+            if (state.bulkAbort) {
+                try {
+                    console.warn('[AllColors] abort requested (pre-iteration)');
+                } catch (_) {}
+                break;
+            }
+
+            try {
+                if (isNoPaintPopupVisible()) {
+                    try {
+                        console.warn('[AllColors] abort: no-paint popup visible');
+                    } catch (_) {}
+                    state.bulkAbort = true;
+                    break;
+                }
+            } catch (_) {}
+            if (state.running) {
+                try {
+                    console.log('[AllColors] wait: run in progress, pausing before next color');
+                } catch (_) {}
+            }
+            while (state.running && !state.bulkAbort) {
+                await new Promise(r => setTimeout(r, 150));
+            }
+            if (state.bulkAbort) {
+                try {
+                    console.warn('[AllColors] abort requested (post-wait)');
+                } catch (_) {}
+                break;
+            }
+
+            try {
+                if (isNoPaintPopupVisible()) {
+                    try {
+                        console.warn('[AllColors] abort: no-paint popup visible (post-wait)');
+                    } catch (_) {}
+                    state.bulkAbort = true;
+                    break;
+                }
+            } catch (_) {}
+            try {
+                console.log('[AllColors] color:', c?.key ?? c?.name ?? c);
+            } catch (_) {}
+
+
+            let started = false;
+            try {
+                const sw = [...paletteEl.children].find(x => x?.dataset?.key === c.key);
+                if (sw) {
+                    try {
+                        console.log('[AllColors] click swatch:', c?.key);
+                    } catch (_) {}
+                    sw.click();
+
+                    for (let i = 0; i < 12 && !state.bulkAbort; i++) {
+                        if (state.running) {
+                            started = true;
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 80));
+                    }
+                }
+            } catch (_) {}
+
+            if (!started) {
+
+                let picked = false;
+                let selText = '';
+                try {
+                    selText = COLOR_NAME_MAP.get(c.key) || (c.hex || '').toUpperCase();
+                    picked = await ensureEditModeAndPick(selText);
+                } catch (_) {
+                    picked = false;
+                }
+                if (!picked) {
+                    try {
+                        console.warn('[AllColors] fallback pick failed for', c?.key);
+                    } catch (_) {}
+                    continue;
+                }
+
+                let confirmed = false;
+                for (let i = 0; i < 12 && !state.bulkAbort; i++) {
+                    try {
+                        const b = document.querySelector(`button[aria-label="${selText}"]`);
+                        if (b && b.querySelector('svg')) {
+                            confirmed = true;
+                            break;
+                        }
+                    } catch (_) {}
+                    await new Promise(r => setTimeout(r, 80));
+                }
+                if (!confirmed && !state.bulkAbort) {
+                    try {
+                        await ensureEditModeAndPick(selText);
+                    } catch (_) {}
+                    await new Promise(r => setTimeout(r, 160));
+                }
+
+                if (state.bulkAbort) break;
+                if (!isScreenCaptureReady()) {
+                    try {
+                        console.warn('[AllColors] guard during run: screen capture not ready');
+                    } catch (_) {}
+                    try {
+                        showHint(t('hintAccessRequired'), 2400);
+                    } catch (_) {}
+                    break;
+                }
+                try {
+                    await startPreciseCalibration();
+                } catch (_) {}
+
+                while (state.running && !state.bulkAbort) {
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                if (state.bulkAbort) break;
+
+                try {
+                    console.log('[AllColors] startAutoClick for', c?.key);
+                } catch (_) {}
+                startAutoClick(c);
+            }
+
+
+            while (state.running && !state.bulkAbort) {
+                await new Promise(r => setTimeout(r, 150));
+            }
+
+            if (state.bulkAbort) break;
+
+
+            try {
+                const d = Math.max(0, Math.round(Number(delayInp?.value) || 0));
+                if (d > 0) await new Promise(r => setTimeout(r, d));
+            } catch (_) {}
+        }
+
+        try {
+            console.log('[AllColors] finish');
+        } catch (_) {}
+
+        try {
+            if (!prevAuto && autoColorChk) autoColorChk.checked = false;
+            try {
+                if (!prevAuto && rAuto) rAuto.classList.remove("active");
+            } catch (_) {}
+        } catch (_) {}
+
+        try {
+            if (state.bulkAbort) {
+                try {
+                    console.log('[AllColors] abort: clicking under red marker');
+                } catch (_) {}
+                await clickUnderRedWhenReady();
+            } else {
+                await clickUnderRedWhenReady();
+            }
+        } catch (_) {}
+        try {
+            state.bulkInProgress = false;
+            console.log('[AllColors] bulkInProgress = false');
+        } catch (_) {}
+        state.bulkAbort = false;
+        btnAllColors.disabled = false;
+        try {
+            console.log('[AllColors] done: button re-enabled');
+        } catch (_) {}
+    });
+
+    sideBody.append(panelHost, btnAllColors, paletteEl);
 
     const railBrushPanel = el("div", "rail-panel");
     const railBrushBody = el("div", "panel-body");
@@ -1771,28 +3355,72 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     hookNetworkForAccountStats();
 
     function applyLanguage() {
-        try { btnOpen.title = t("open"); } catch {}
-        try { btnCopyArt.title = t("copyArt"); } catch {}
-        try { btnMove.title = t("moveModeTitle"); } catch {}
-        try { btnAcid.title = t("acidToggleTitle"); } catch {}
-        try { snapLabel.textContent = t("snap"); } catch {}
-        try { btnClose.title = t("close"); } catch {}
-        try { btnHistory.title = t("history"); } catch {}
-        try { btnAcc.title = t("accountStatsTitle"); } catch {}
-        try { btnLang.title = t("selectLanguageTitle"); } catch {}
-        try { delayLbl.textContent = t("delay") + ":"; } catch {}
-        try { btnStop.title = t("stop"); } catch {}
-        try { sizeLbl.textContent = t("sizeLabel"); } catch {}
-        try { activeChip.textContent = t("brushPrefix") + "—"; } catch {}
-        try { palStat.textContent = "— " + t("colorsSuffix"); } catch {}
-        try { rClock.title = t("delay"); } catch {}
-        try { rMove.title = t("moveModeTitle"); } catch {}
-        try { rBrush.title = t("brush"); } catch {}
-        try { rAuto.title = t("autoSelectTitle"); } catch {}
-        try { rAccess.title = t("giveAccess"); } catch {}
-        try { rStop.title = t("stop"); } catch {}
-        try { rCopy.title = t("copyArt"); } catch {}
-        try { palTitle.textContent = t("palette"); } catch {}
+        try {
+            btnOpen.title = t("open");
+        } catch {}
+        try {
+            btnCopyArt.title = t("copyArt");
+        } catch {}
+        try {
+            btnMove.title = t("moveModeTitle");
+        } catch {}
+        try {
+            btnAcid.title = t("acidToggleTitle");
+        } catch {}
+        try {
+            snapLabel.textContent = t("snap");
+        } catch {}
+        try {
+            btnClose.title = t("close");
+        } catch {}
+        try {
+            btnHistory.title = t("history");
+        } catch {}
+        try {
+            btnAcc.title = t("accountStatsTitle");
+        } catch {}
+        try {
+            btnLang.title = t("selectLanguageTitle");
+        } catch {}
+        try {
+            delayLbl.textContent = t("delay") + ":";
+        } catch {}
+        try {
+            btnStop.title = t("stop");
+        } catch {}
+        try {
+            sizeLbl.textContent = t("sizeLabel");
+        } catch {}
+        try {
+            activeChip.textContent = t("brushPrefix") + "—";
+        } catch {}
+        try {
+            palStat.textContent = "— " + t("colorsSuffix");
+        } catch {}
+        try {
+            rClock.title = t("delay");
+        } catch {}
+        try {
+            rMove.title = t("moveModeTitle");
+        } catch {}
+        try {
+            rBrush.title = t("brush");
+        } catch {}
+        try {
+            rAuto.title = t("autoSelectTitle");
+        } catch {}
+        try {
+            rAccess.title = t("giveAccess");
+        } catch {}
+        try {
+            rStop.title = t("stop");
+        } catch {}
+        try {
+            rCopy.title = t("copyArt");
+        } catch {}
+        try {
+            palTitle.textContent = t("palette");
+        } catch {}
         try {
             if (accTip && accTip.style.display !== 'none') renderAccTip();
         } catch {}
@@ -1838,7 +3466,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
     try {
-        setTimeout(() => {
+        window.__OVERLAY_STARTUP_TIMER__ = setTimeout(() => {
             try {
                 if (!isScreenCaptureReady()) showStartupModal();
             } catch (_) {
@@ -1875,6 +3503,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         posSetCache: new Map(),
         paintedByColor: new Map(),
         running: null,
+
+        bulkInProgress: false,
         brushMode: !1,
         brushSize: 1,
         isBrushing: !1,
@@ -1904,23 +3534,83 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         gridOffsetYSteps: 0,
 
         mapPan: {
-            active: !1,
+            active: false,
             pointerId: null,
             lastX: 0,
             lastY: 0
         },
 
+        markerVisible: false,
+        markerX: 200,
+        markerY: 200,
+
         acidModeEnabled: false,
-
+        ahkEnabled: false,
+        suppressAutoMoveOnce: false,
         history: [],
-
         historyPopupEl: null,
-        suppressAutoMoveOnce: false
+        bulkAbort: false,
+        _rafMove: null
     };
+    const HISTORY_KEY = 'bm_history';
+    const PERSIST_KEY = 'bm_persist';
+    const MARKER_KEY = 'bm_marker';
+    const LAST_IMG_KEY = 'bm_last_image_v1';
 
-    const PERSIST_KEY = "overlay_tool_persist_v2";
+    function markerPersistSave() {
+        try {
+            const data = {
+                x: Number(state.markerX) || 0,
+                y: Number(state.markerY) || 0,
+                visible: !!state.markerVisible
+            };
+            localStorage.setItem(MARKER_KEY, JSON.stringify(data));
+        } catch (_) {}
+    }
 
-    const HISTORY_KEY = "overlay_tool_history_v1";
+    function markerPersistLoad() {
+        try {
+            const raw = localStorage.getItem(MARKER_KEY);
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            return (obj && typeof obj === 'object') ? obj : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    try {
+        const mp = markerPersistLoad();
+        if (mp) {
+            if (Number.isFinite(mp.x)) state.markerX = Number(mp.x);
+            if (Number.isFinite(mp.y)) state.markerY = Number(mp.y);
+            if (typeof mp.visible === 'boolean') state.markerVisible = !!mp.visible;
+        }
+        try {
+            ensureMarkerInBounds();
+        } catch (_) {}
+        try {
+            updateMarkerPos();
+        } catch (_) {}
+        try {
+            dragMarker.style.display = state.markerVisible ? 'block' : 'none';
+        } catch (_) {}
+        try {
+            btnMarker.classList.toggle('active', state.markerVisible);
+        } catch (_) {}
+    } catch (_) {}
+
+    try {
+        window.__OVERLAY_BEFOREUNLOAD__ = () => {
+            try {
+                markerPersistSave();
+            } catch (_) {}
+            try {
+                persistSave();
+            } catch (_) {}
+        };
+        window.addEventListener('beforeunload', window.__OVERLAY_BEFOREUNLOAD__);
+    } catch (_) {}
 
     function historyIdOf(fileName, w, h) {
         return `${fileName}__${w}x${h}`
@@ -1928,11 +3618,83 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
     function historyLoad() {
         try {
-            const raw = localStorage.getItem(HISTORY_KEY);
-            const arr = raw ? JSON.parse(raw) : [];
-            state.history = Array.isArray(arr) ? arr.filter(e => e && typeof e === 'object') : [];
+            const out = [];
+            const pushMany = (arr) => {
+                if (!Array.isArray(arr)) return;
+                for (const e of arr)
+                    if (e && typeof e === 'object') out.push(e);
+            };
+            const tryParse = (s) => {
+                try {
+                    return JSON.parse(s);
+                } catch {
+                    return null;
+                }
+            };
+
+            let raw = localStorage.getItem(HISTORY_KEY);
+            if (raw) {
+                const parsed = tryParse(raw);
+                if (Array.isArray(parsed)) pushMany(parsed);
+                else if (parsed && typeof parsed === 'object') {
+                    if (Array.isArray(parsed.history)) pushMany(parsed.history);
+                    if (Array.isArray(parsed.items)) pushMany(parsed.items);
+                    else pushMany(Object.values(parsed));
+                }
+            }
+
+
+            if (out.length === 0) {
+                try {
+                    const len = Number(localStorage.length) || 0;
+                    for (let i = 0; i < len; i++) {
+                        const k = localStorage.key(i);
+                        if (!k || !/history/i.test(k)) continue;
+                        const cand = localStorage.getItem(k);
+                        if (!cand) continue;
+                        const parsed = tryParse(cand);
+                        if (!parsed) continue;
+                        if (Array.isArray(parsed)) pushMany(parsed);
+                        else if (parsed && typeof parsed === 'object') {
+                            if (Array.isArray(parsed.history)) pushMany(parsed.history);
+                            if (Array.isArray(parsed.items)) pushMany(parsed.items);
+                            else pushMany(Object.values(parsed));
+                        }
+                    }
+                } catch (_) {}
+            }
+
+
+            const map = new Map();
+            for (const e of out) {
+                const id = e && e.id ? String(e.id) : (e && e.fileName && e.w && e.h ? historyIdOf(e.fileName, e.w, e.h) : null);
+                if (!id) continue;
+                const rec = {
+                    id,
+                    fileName: e.fileName,
+                    w: Number(e.w) || 0,
+                    h: Number(e.h) || 0,
+                    x: Number.isFinite(e.x) ? e.x : undefined,
+                    y: Number.isFinite(e.y) ? e.y : undefined,
+                    tx: Number.isFinite(e.tx) ? e.tx : undefined,
+                    ty: Number.isFinite(e.ty) ? e.ty : undefined,
+                    px: Number.isFinite(e.px) ? e.px : undefined,
+                    py: Number.isFinite(e.py) ? e.py : undefined,
+
+                    markerX: Number.isFinite(e.markerX) ? e.markerX : undefined,
+                    markerY: Number.isFinite(e.markerY) ? e.markerY : undefined,
+                    markerVisible: (typeof e.markerVisible === 'boolean') ? !!e.markerVisible : undefined,
+                    ts: Number(e.ts) || 0
+                };
+                map.set(id, rec);
+            }
+            const list = Array.from(map.values())
+                .filter(e => e.fileName && e.w && e.h)
+                .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+                .slice(0, 10);
+            state.history = list;
         } catch (_) {
-            state.history = []
+            state.history = [];
         }
     }
 
@@ -1951,19 +3713,33 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const id = historyIdOf(entry.fileName, w, h);
             const list = Array.isArray(state.history) ? state.history.slice() : [];
             const idx = list.findIndex(e => e && e.id === id);
+            const existing = idx >= 0 ? list[idx] : null;
             const rec = {
                 id,
                 fileName: entry.fileName,
                 w,
                 h,
-           
-                x: entry.x != null ? entry.x : state.x,
-                y: entry.y != null ? entry.y : state.y,
- 
-                tx: Number.isFinite(entry.tx) ? entry.tx : (state.anchorSet && Number.isFinite(state.anchorTx) ? state.anchorTx : undefined),
-                ty: Number.isFinite(entry.ty) ? entry.ty : (state.anchorSet && Number.isFinite(state.anchorTy) ? state.anchorTy : undefined),
-                px: Number.isFinite(entry.px) ? entry.px : (state.anchorSet && Number.isFinite(state.anchorPx) ? state.anchorPx : undefined),
-                py: Number.isFinite(entry.py) ? entry.py : (state.anchorSet && Number.isFinite(state.anchorPy) ? state.anchorPy : undefined),
+
+                x: (entry.x != null) ? entry.x : (existing && existing.x != null ? existing.x : state.x),
+                y: (entry.y != null) ? entry.y : (existing && existing.y != null ? existing.y : state.y),
+
+                tx: Number.isFinite(entry.tx) ? entry.tx : (
+                    (state.anchorSet && Number.isFinite(state.anchorTx)) ? state.anchorTx : (existing && Number.isFinite(existing.tx) ? existing.tx : undefined)
+                ),
+                ty: Number.isFinite(entry.ty) ? entry.ty : (
+                    (state.anchorSet && Number.isFinite(state.anchorTy)) ? state.anchorTy : (existing && Number.isFinite(existing.ty) ? existing.ty : undefined)
+                ),
+                px: Number.isFinite(entry.px) ? entry.px : (
+                    (state.anchorSet && Number.isFinite(state.anchorPx)) ? state.anchorPx : (existing && Number.isFinite(existing.px) ? existing.px : undefined)
+                ),
+                py: Number.isFinite(entry.py) ? entry.py : (
+                    (state.anchorSet && Number.isFinite(state.anchorPy)) ? state.anchorPy : (existing && Number.isFinite(existing.py) ? existing.py : undefined)
+                ),
+
+                markerX: Number.isFinite(entry.markerX) ? entry.markerX : (existing && Number.isFinite(existing.markerX) ? existing.markerX : (Number.isFinite(state.markerX) ? state.markerX : undefined)),
+                markerY: Number.isFinite(entry.markerY) ? entry.markerY : (existing && Number.isFinite(existing.markerY) ? existing.markerY : (Number.isFinite(state.markerY) ? state.markerY : undefined)),
+                markerVisible: (typeof entry.markerVisible === 'boolean') ? !!entry.markerVisible : (existing && typeof existing.markerVisible === 'boolean' ? !!existing.markerVisible : (typeof state.markerVisible === 'boolean' ? !!state.markerVisible : undefined)),
+
                 ts: Date.now()
             };
             if (idx >= 0) list.splice(idx, 1);
@@ -1996,7 +3772,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 back.append(pop);
                 shadow.append(back);
 
-                function onKey(e) { if (e.key === 'Escape') cleanup(false); }
+                function onKey(e) {
+                    if (e.key === 'Escape') cleanup(false);
+                }
+
                 function onDown(e) {
                     try {
                         const path = e.composedPath ? e.composedPath() : [];
@@ -2009,12 +3788,16 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 window.addEventListener('keydown', onKey, true);
                 window.addEventListener('pointerdown', onDown, true);
 
-                try { btnOk.focus(); } catch (_) {}
+                try {
+                    btnOk.focus();
+                } catch (_) {}
 
                 function cleanup(v) {
                     window.removeEventListener('keydown', onKey, true);
                     window.removeEventListener('pointerdown', onDown, true);
-                    try { back.remove(); } catch (_) {}
+                    try {
+                        back.remove();
+                    } catch (_) {}
                     resolve(!!v);
                 }
             } catch (_) {
@@ -2052,7 +3835,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 back.append(pop);
                 shadow.append(back);
 
-                function onKey(e) { if (e.key === 'Escape') cleanup(null); }
+                function onKey(e) {
+                    if (e.key === 'Escape') cleanup(null);
+                }
+
                 function onDown(e) {
                     try {
                         const path = e.composedPath ? e.composedPath() : [];
@@ -2068,7 +3854,9 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 function cleanup(v) {
                     window.removeEventListener('keydown', onKey, true);
                     window.removeEventListener('pointerdown', onDown, true);
-                    try { back.remove(); } catch (_) {}
+                    try {
+                        back.remove();
+                    } catch (_) {}
                     resolve(v);
                 }
             } catch (_) {
@@ -2080,14 +3868,25 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
     function applyHistoryPlacement(it) {
         const hasT = Number.isFinite(it.tx) && Number.isFinite(it.ty) && Number.isFinite(it.px) && Number.isFinite(it.py);
+        try {
+            dbg('applyHistoryPlacement', {
+                hasT,
+                it
+            });
+        } catch (_) {}
         if (hasT) {
-     
             state.anchorTx = it.tx;
             state.anchorTy = it.ty;
             state.anchorPx = it.px;
             state.anchorPy = it.py;
             state.anchorSet = true;
-      
+
+            state.anchorProvisional = false;
+            state.localAnchorTx = undefined;
+            state.localAnchorTy = undefined;
+            state.localAnchorPx = undefined;
+            state.localAnchorPy = undefined;
+            state.__anchorAdjusted = true;
             const g = computeSnapGrid();
             if (g) {
                 const globalX = it.tx * TILE_SIZE + it.px;
@@ -2097,14 +3896,57 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 computeGridOffsetsFromXY();
             }
         } else {
-          
             state.x = it.x;
             state.y = it.y;
             computeGridOffsetsFromXY();
+
+            try {
+                deriveAnchorFromCurrentXY();
+            } catch (_) {}
         }
-        try { syncUI(); } catch (_) {}
-        try { persistSave(); } catch (_) {}
- 
+
+        try {
+            if (Number.isFinite(it.markerX)) state.markerX = Number(it.markerX);
+            if (Number.isFinite(it.markerY)) state.markerY = Number(it.markerY);
+            if (typeof it.markerVisible === 'boolean') state.markerVisible = !!it.markerVisible;
+            try {
+                ensureMarkerInBounds();
+            } catch (_) {}
+            try {
+                dragMarker.style.display = state.markerVisible ? 'block' : 'none';
+            } catch (_) {}
+            try {
+                btnMarker.classList.toggle('active', state.markerVisible);
+            } catch (_) {}
+            try {
+                updateMarkerPos();
+            } catch (_) {}
+            try {
+                markerPersistSave();
+            } catch (_) {}
+        } catch (_) {}
+        try {
+            syncUI();
+        } catch (_) {}
+        try {
+            persistSave();
+        } catch (_) {}
+
+        try {
+            if (state.currentFileName && state.iw && state.ih) {
+                historyAddOrUpdate({
+                    fileName: state.currentFileName,
+                    w: state.iw,
+                    h: state.ih,
+                    x: state.x,
+                    y: state.y,
+                    tx: state.anchorTx,
+                    ty: state.anchorTy,
+                    px: state.anchorPx,
+                    py: state.anchorPy
+                });
+            }
+        } catch (_) {}
         try {
             if (typeof hint !== 'undefined' && hint) hint.style.display = 'none';
             if (typeof placeState !== 'undefined' && placeState && placeState.active) {
@@ -2114,17 +3956,32 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     placeState.onDocClick = null;
                 }
                 if (placeState.onImageClick) {
-                    try { img.removeEventListener('click', placeState.onImageClick); } catch (_) {}
+                    try {
+                        img.removeEventListener('click', placeState.onImageClick);
+                    } catch (_) {}
                     placeState.onImageClick = null;
                 }
             }
-            try { content.style.pointerEvents = 'auto'; } catch (_) {}
- 
-            try { setMoveMode(false); } catch (_) {}
+            try {
+                content.style.pointerEvents = 'auto';
+            } catch (_) {}
+            try {
+                setMoveMode(false);
+            } catch (_) {}
         } catch (_) {}
         try {
             if (state.currentFileName && state.iw && state.ih) {
-                historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: state.x, y: state.y, tx: state.anchorTx, ty: state.anchorTy, px: state.anchorPx, py: state.anchorPy });
+                historyAddOrUpdate({
+                    fileName: state.currentFileName,
+                    w: state.iw,
+                    h: state.ih,
+                    x: state.x,
+                    y: state.y,
+                    tx: state.anchorTx,
+                    ty: state.anchorTy,
+                    px: state.anchorPx,
+                    py: state.anchorPy
+                });
             }
         } catch (_) {}
     }
@@ -2140,15 +3997,23 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 shadow.append(inp);
                 inp.addEventListener('change', async (e) => {
                     const f = e.target.files && e.target.files[0];
-                    try { inp.remove(); } catch (_) {}
-                    if (!f) { resolve(false); return; }
+                    try {
+                        inp.remove();
+                    } catch (_) {}
+                    if (!f) {
+                        resolve(false);
+                        return;
+                    }
 
                     if (expectedName && f.name && f.name !== expectedName) {
                         const msg = (t('selectedFileDiffers') || 'Selected file “{file}” differs from “{expected}”.')
                             .replace('{file}', String(f.name || ''))
                             .replace('{expected}', String(expectedName || ''));
                         const cont = await confirmModal((t('history') || 'History'), msg, (t('continue') || 'Continue'), (t('cancel') || 'Cancel'));
-                        if (!cont) { resolve(false); return; }
+                        if (!cont) {
+                            resolve(false);
+                            return;
+                        }
                     }
                     try {
                         state.suppressAutoMoveOnce = true;
@@ -2158,16 +4023,26 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                             state.suppressAutoMoveOnce = false;
                         }
                         resolve(ok);
-                    } catch (_) { state.suppressAutoMoveOnce = false; resolve(false); }
-                }, { once: true });
+                    } catch (_) {
+                        state.suppressAutoMoveOnce = false;
+                        resolve(false);
+                    }
+                }, {
+                    once: true
+                });
                 inp.click();
-            } catch (_) { resolve(false); }
+            } catch (_) {
+                resolve(false);
+            }
         });
     }
 
     function openHistoryModal() {
         try {
-            if (state.historyPopupEl) { closeHistoryModal(); return; }
+            if (state.historyPopupEl) {
+                closeHistoryModal();
+                return;
+            }
             const pop = el('div', 'history-pop');
             const ttl = el('div', 'history-title', t('history'));
             const controls = el('div', 'history-controls');
@@ -2181,8 +4056,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     state.history = [];
                     historySave();
                 } catch (_) {}
-                try { closeHistoryModal(); } catch (_) {}
-                try { openHistoryModal(); } catch (_) {}
+                try {
+                    closeHistoryModal();
+                } catch (_) {}
+                try {
+                    openHistoryModal();
+                } catch (_) {}
             });
             controls.append(btnClear);
             const list = el('div', 'history-list');
@@ -2203,41 +4082,60 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     row.addEventListener('click', async () => {
                         const hasImg = !!state.currentFileName;
                         if (!hasImg) {
-                  
+
                             const ok = await selectFileAndLoad(it.fileName);
                             if (ok) {
-                                try { applyHistoryPlacement(it); } catch (_) {}
+                                try {
+                                    applyHistoryPlacement(it);
+                                } catch (_) {}
                                 closeHistoryModal();
                             }
                             return;
                         }
                         const sameFile = (state.currentFileName === it.fileName && state.iw === it.w && state.ih === it.h);
                         if (sameFile) {
-                            try { applyHistoryPlacement(it); } catch (_) {}
+                            try {
+                                applyHistoryPlacement(it);
+                            } catch (_) {}
                             closeHistoryModal();
                             return;
                         }
-              
+
                         const choice = await choiceModal(
                             (t('mismatchTitle') || 'Different image detected'),
                             (t('mismatchBody') || 'The currently loaded image is different from this history entry.'),
-                            [
-                                { label: (t('useCurrentFile') || 'Use Current File'), className: '', value: 'use' },
-                                { label: (t('loadOriginalFile') || 'Load Original File'), className: 'primary', value: 'load' },
-                                { label: (t('cancel') || 'Cancel'), className: 'danger', value: 'cancel' }
+                            [{
+                                    label: (t('useCurrentFile') || 'Use Current File'),
+                                    className: '',
+                                    value: 'use'
+                                },
+                                {
+                                    label: (t('loadOriginalFile') || 'Load Original File'),
+                                    className: 'primary',
+                                    value: 'load'
+                                },
+                                {
+                                    label: (t('cancel') || 'Cancel'),
+                                    className: 'danger',
+                                    value: 'cancel'
+                                }
                             ]
                         );
                         if (choice === 'use') {
-                            try { applyHistoryPlacement(it); } catch (_) {}
+                            try {
+                                applyHistoryPlacement(it);
+                            } catch (_) {}
                             closeHistoryModal();
                         } else if (choice === 'load') {
                             const ok = await selectFileAndLoad(it.fileName);
                             if (ok) {
-                                try { applyHistoryPlacement(it); } catch (_) {}
+                                try {
+                                    applyHistoryPlacement(it);
+                                } catch (_) {}
                                 closeHistoryModal();
                             }
                         } else {
-                  
+
                             return;
                         }
                     });
@@ -2275,8 +4173,18 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 }
                 closeHistoryModal();
             }
-            function onKey(e) { if (e.key === 'Escape') closeHistoryModal(); }
-            function onRelayout() { try { if (state.historyPopupEl) { closeHistoryModal(); } } catch (_) {} }
+
+            function onKey(e) {
+                if (e.key === 'Escape') closeHistoryModal();
+            }
+
+            function onRelayout() {
+                try {
+                    if (state.historyPopupEl) {
+                        closeHistoryModal();
+                    }
+                } catch (_) {}
+            }
             window.addEventListener('pointerdown', onDocDown, true);
             window.addEventListener('keydown', onKey, true);
             window.addEventListener('resize', onRelayout);
@@ -2295,7 +4203,9 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const elp = state.historyPopupEl;
             state.historyPopupEl = null;
             if (!elp) return;
-            try { elp.__cleanup && elp.__cleanup(); } catch (_) {}
+            try {
+                elp.__cleanup && elp.__cleanup();
+            } catch (_) {}
             elp.remove();
         } catch (_) {}
     }
@@ -2309,7 +4219,22 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 h: state.h,
                 gridOffsetXSteps: state.gridOffsetXSteps,
                 gridOffsetYSteps: state.gridOffsetYSteps,
-                imgURLTag: state.currentFileName || null
+                x: Number(state.x) || 0,
+                y: Number(state.y) || 0,
+                imgURLTag: state.currentFileName || null,
+
+                scanTolerance: Number(state.scanTolerance),
+                scanStrideMin: Number(state.scanStrideMin),
+                scanStrideMax: Number(state.scanStrideMax),
+
+                ahkEnabled: !!state.ahkEnabled,
+                autoModeEnabled: !!state.autoModeEnabled,
+                acidModeEnabled: !!state.acidModeEnabled,
+                autoIntervalMs: Number(AUTO_MODE_INTERVAL_MS),
+                focusDelayMs: Number(AUTO_MODE_FOCUS_DELAY_MS),
+                onFocusAlways: !!AUTO_MODE_ON_FOCUS_ALWAYS,
+                scanWindowMs: Number(AUTO_MODE_SCAN_WINDOW_MS),
+                scanIntervalMs: Number(AUTO_MODE_SCAN_INTERVAL_MS)
             };
             localStorage.setItem(PERSIST_KEY, JSON.stringify(data));
         } catch (_) {}
@@ -2323,6 +4248,197 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         } catch (_) {
             return null;
         }
+    }
+
+
+    function blobToDataURL(blob) {
+        return new Promise((resolve, reject) => {
+            try {
+                const fr = new FileReader();
+                fr.onload = () => resolve(String(fr.result || ''));
+                fr.onerror = reject;
+                fr.readAsDataURL(blob);
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    async function saveLastImageFromURL(url, fileName) {
+        try {
+            if (!url) return;
+            const resp = await fetch(url);
+            const blob = await resp.blob();
+            const dataUrl = await blobToDataURL(blob);
+            const rec = {
+                fileName: fileName || null,
+                dataUrl,
+                ts: Date.now()
+            };
+            try {
+                localStorage.setItem(LAST_IMG_KEY, JSON.stringify(rec));
+            } catch (_) {}
+        } catch (_) {}
+    }
+
+    async function loadLastImageIfAny() {
+        try {
+            dbg('loadLastImageIfAny: start');
+            const raw = localStorage.getItem(LAST_IMG_KEY);
+            if (!raw) return false;
+            let rec;
+            try {
+                rec = JSON.parse(raw);
+            } catch {
+                rec = null;
+            }
+            if (!rec || !rec.dataUrl) return false;
+
+            const resp = await fetch(rec.dataUrl);
+            const blob = await resp.blob();
+            const u = URL.createObjectURL(blob);
+            dbg('loadLastImageIfAny: blob URL created', {
+                file: rec.fileName,
+                size: blob?.size
+            });
+            try {
+                state.suppressAutoMoveOnce = true;
+            } catch (_) {}
+            setImageURL(u, rec.fileName || 'image');
+            dbg('loadLastImageIfAny: setImageURL called', {
+                anchorSet: !!state.anchorSet,
+                x: state.x,
+                y: state.y
+            });
+
+            try {
+                if (!state.anchorSet) deriveAnchorFromCurrentXY();
+            } catch (_) {}
+            dbg('loadLastImageIfAny: after deriveAnchor', {
+                anchorSet: !!state.anchorSet,
+                tx: state.anchorTx,
+                ty: state.anchorTy,
+                px: state.anchorPx,
+                py: state.anchorPy
+            });
+
+            try {
+                window.dispatchEvent(new Event('resize'));
+            } catch (_) {}
+            try {
+                setTimeout(() => {
+                    try {
+                        window.dispatchEvent(new Event('resize'));
+                    } catch (_) {}
+                }, 250);
+            } catch (_) {}
+            dbg('loadLastImageIfAny: resize nudged');
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function applyPersistedPlacementOnStartup() {
+        try {
+            const p = persistLoad();
+            if (!p) return;
+            dbg('applyPersistedPlacementOnStartup: loaded', p);
+            if (Number.isFinite(p.x)) state.x = Number(p.x);
+            if (Number.isFinite(p.y)) state.y = Number(p.y);
+            if (Number.isFinite(p.gridOffsetXSteps)) state.gridOffsetXSteps = Number(p.gridOffsetXSteps);
+            if (Number.isFinite(p.gridOffsetYSteps)) state.gridOffsetYSteps = Number(p.gridOffsetYSteps);
+
+            try {
+                if (Number.isFinite(p.scanTolerance)) state.scanTolerance = Math.floor(p.scanTolerance);
+                if (Number.isFinite(p.scanStrideMin)) state.scanStrideMin = Math.floor(p.scanStrideMin);
+                if (Number.isFinite(p.scanStrideMax)) state.scanStrideMax = Math.floor(p.scanStrideMax);
+                applyScanParamsFromState(true);
+            } catch (_) {}
+
+            try {
+                if (typeof p.ahkEnabled === 'boolean') state.ahkEnabled = !!p.ahkEnabled;
+                if (Number.isFinite(p.autoIntervalMs)) AUTO_MODE_INTERVAL_MS = Math.max(1000, Math.floor(p.autoIntervalMs));
+                if (Number.isFinite(p.focusDelayMs)) AUTO_MODE_FOCUS_DELAY_MS = Math.max(0, Math.floor(p.focusDelayMs));
+                if (typeof p.onFocusAlways === 'boolean') AUTO_MODE_ON_FOCUS_ALWAYS = !!p.onFocusAlways;
+                if (Number.isFinite(p.scanWindowMs)) AUTO_MODE_SCAN_WINDOW_MS = Math.max(250, Math.floor(p.scanWindowMs));
+                if (Number.isFinite(p.scanIntervalMs)) AUTO_MODE_SCAN_INTERVAL_MS = Math.max(25, Math.floor(p.scanIntervalMs));
+            } catch (_) {}
+
+            try {
+                if (typeof p.acidModeEnabled === 'boolean') {
+                    state.acidModeEnabled = !!p.acidModeEnabled;
+                    try {
+                        updateAcidBtn();
+                    } catch (_) {}
+                }
+            } catch (_) {}
+
+            try {
+                if (typeof p.autoModeEnabled === 'boolean') {
+                    state.autoModeEnabled = !!p.autoModeEnabled;
+                    if (state.autoModeEnabled) {
+                        try {
+                            btnTopToggle.classList.add('active');
+                            btnTopToggle.style.background = '#2e7d32';
+                        } catch (_) {}
+                        try {
+                            btnAcid.disabled = true;
+                            btnAcid.style.opacity = '0.6';
+                            btnAcid.style.cursor = 'not-allowed';
+                            btnAcid.title = (t('acidBlockedByAuto') || 'Режим глаз заблокирован АвтоРежимом');
+                        } catch (_) {}
+                        if (!state.acidModeEnabled) {
+                            state.acidModeEnabled = true;
+                            try {
+                                updateAcidBtn();
+                            } catch (_) {}
+                        }
+                        try {
+                            if (state.ahkEnabled) {
+                                const focused = (typeof document.hasFocus === 'function') ? document.hasFocus() : (document.visibilityState === 'visible');
+                                if (focused) startAutoModeTimer();
+                            } else {
+                                startAutoModePlainTimer();
+                            }
+                        } catch (_) {}
+                    } else {
+                        try {
+                            btnTopToggle.classList.remove('active');
+                            btnTopToggle.style.background = '#e53935';
+                        } catch (_) {}
+                        try {
+                            btnAcid.disabled = false;
+                            btnAcid.style.opacity = '';
+                            btnAcid.style.cursor = '';
+                            btnAcid.title = t('acidToggleTitle');
+                        } catch (_) {}
+                        try {
+                            stopAutoModeTimer();
+                        } catch (_) {}
+                    }
+                }
+            } catch (_) {}
+            try {
+                syncUI();
+            } catch (_) {}
+
+            try {
+                deriveAnchorFromCurrentXY();
+            } catch (_) {}
+            dbg('applyPersistedPlacementOnStartup: after derive', {
+                x: state.x,
+                y: state.y,
+                anchorSet: !!state.anchorSet,
+                tx: state.anchorTx,
+                ty: state.anchorTy,
+                px: state.anchorPx,
+                py: state.anchorPy
+            });
+            try {
+                syncSettingsUIFromState();
+            } catch (_) {}
+        } catch (_) {}
     }
 
 
@@ -2343,8 +4459,85 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         state.y = g.baseY + state.gridOffsetYSteps * g.stepY;
         syncUI();
         try {
-            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: state.x, y: state.y });
+            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({
+                fileName: state.currentFileName,
+                w: state.iw,
+                h: state.ih,
+                x: state.x,
+                y: state.y
+            });
         } catch (_) {}
+    }
+
+    function deriveAnchorFromCurrentXY() {
+        dbg('deriveAnchorFromCurrentXY: start', {
+            x: state.x,
+            y: state.y,
+            anchorSet: !!state.anchorSet,
+            adjusted: !!state.__anchorAdjusted
+        });
+
+        if (state.anchorSet && state.__anchorAdjusted) {
+            dbg('deriveAnchorFromCurrentXY: already finalized, skipping');
+            return true;
+        }
+        const g = computeSnapGrid();
+        if (!g) {
+            dbg('deriveAnchorFromCurrentXY: no grid');
+            return false;
+        }
+        const localX = Math.round((state.x - g.baseX) / g.stepX);
+        const localY = Math.round((state.y - g.baseY) / g.stepY);
+        const locTx = Math.floor(localX / TILE_SIZE);
+        const locTy = Math.floor(localY / TILE_SIZE);
+        const locPx = ((localX % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+        const locPy = ((localY % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+
+        if (Number.isFinite(state.viewTileBaseX) && Number.isFinite(state.viewTileBaseY)) {
+            const gLeft = locTx * TILE_SIZE + locPx + state.viewTileBaseX * TILE_SIZE;
+            const gTop = locTy * TILE_SIZE + locPy + state.viewTileBaseY * TILE_SIZE;
+            state.anchorTx = Math.floor(gLeft / TILE_SIZE);
+            state.anchorTy = Math.floor(gTop / TILE_SIZE);
+            state.anchorPx = ((gLeft % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+            state.anchorPy = ((gTop % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+            state.anchorSet = true;
+            state.anchorProvisional = false;
+            state.__anchorAdjusted = true;
+            dbg('deriveAnchorFromCurrentXY: world anchor', {
+                tx: state.anchorTx,
+                ty: state.anchorTy,
+                px: state.anchorPx,
+                py: state.anchorPy
+            });
+            try {
+                if (state.currentFileName && state.iw && state.ih) {
+                    historyAddOrUpdate({
+                        fileName: state.currentFileName,
+                        w: state.iw,
+                        h: state.ih,
+                        tx: state.anchorTx,
+                        ty: state.anchorTy,
+                        px: state.anchorPx,
+                        py: state.anchorPy
+                    });
+                }
+            } catch (_) {}
+            return true;
+        }
+
+
+        state.localAnchorTx = locTx;
+        state.localAnchorTy = locTy;
+        state.localAnchorPx = locPx;
+        state.localAnchorPy = locPy;
+        state.anchorProvisional = true;
+        dbg('deriveAnchorFromCurrentXY: provisional (local)', {
+            tx: locTx,
+            ty: locTy,
+            px: locPx,
+            py: locPy
+        });
+        return false;
     }
 
 
@@ -2363,25 +4556,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         }
     }
 
-    function measurePaletteNeededHeight() {
-        try {
-            const count = state.palette?.length || 0;
-            if (count <= 0) return 0;
-            const gridStyles = getComputedStyle(paletteEl);
-            const gap = parseInt(gridStyles.gap || '6', 10) || 0;
-            const cell = 24;
-            const innerW = Math.max(1, paletteEl.clientWidth || 1);
-            const cols = Math.max(1, Math.floor((innerW + gap) / (cell + gap)));
-            const rows = Math.ceil(count / cols);
-            const gridH = rows * cell + (rows - 1) * gap;
-            const pcStyles = getComputedStyle(sideBody);
-            const pt = parseInt(pcStyles.paddingTop || '0', 10) || 0;
-            const pb = parseInt(pcStyles.paddingBottom || '0', 10) || 0;
-            return gridH + pt + pb;
-        } catch (_) {
-            return 0;
-        }
-    }
+
 
     function recalcSidebarHeight() {
         try {
@@ -2407,13 +4582,27 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         overlay.style.width = state.w + "px";
         overlay.style.height = state.h + "px";
 
+        try {
+            updateMarkerPos();
+        } catch (_) {}
+
     }
 
     function updateAcidBtn() {
         try {
             btnAcid.classList.toggle('active', !!state.acidModeEnabled);
-            btnAcid.title = t("acidToggleTitle");
             btnAcid.innerHTML = state.acidModeEnabled ? eyeOpenSvg : eyeOffSvg;
+            if (state.autoModeEnabled) {
+                btnAcid.disabled = true;
+                btnAcid.style.opacity = '0.6';
+                btnAcid.style.cursor = 'not-allowed';
+                btnAcid.title = (t('acidBlockedByAuto') || 'Режим глаз заблокирован АвтоРежимом');
+            } else {
+                btnAcid.disabled = false;
+                btnAcid.style.opacity = '';
+                btnAcid.style.cursor = '';
+                btnAcid.title = t("acidToggleTitle");
+            }
         } catch (_) {}
     }
 
@@ -2521,18 +4710,31 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
     function computeSnapGrid() {
         try {
-
+            dbg('computeSnapGrid: start', {
+                iw: state.iw,
+                ih: state.ih,
+                w: state.w,
+                h: state.h
+            });
             const snap = ensureSnapCanvas();
             const cnv = snap || getMainCanvas();
             const rect = cnv?.getBoundingClientRect?.();
-            if (!state.iw || !state.ih) return null;
+            if (!state.iw || !state.ih) {
+                dbg('computeSnapGrid: missing image size');
+                return null;
+            }
             const imgStepX = state.w / state.iw;
             const imgStepY = state.h / state.ih;
             const m = getCanvasStep();
             if (!m) {
-
                 const baseX = 0.5 * imgStepX;
                 const baseY = 0.5 * imgStepY;
+                dbg('computeSnapGrid: no snap grid, using image step', {
+                    baseX,
+                    baseY,
+                    stepX: imgStepX,
+                    stepY: imgStepY
+                });
                 return {
                     baseX,
                     baseY,
@@ -2541,9 +4743,24 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 };
             }
 
-            const baseX = m.rectLeft + 0.5 * m.stepX - 0.5 * imgStepX;
-            const baseY = m.rectTop + 0.5 * m.stepY - 0.5 * imgStepY;
+            const host = /** @type {HTMLElement|null} */ (overlay?.offsetParent || overlay?.parentElement || document.body);
+            const hostRect = host?.getBoundingClientRect?.();
+            const hostLeft = hostRect?.left || 0;
+            const hostTop = hostRect?.top || 0;
 
+            const baseX = (m.rectLeft - hostLeft) + 0.5 * m.stepX - 0.5 * imgStepX;
+            const baseY = (m.rectTop - hostTop) + 0.5 * m.stepY - 0.5 * imgStepY;
+
+            dbg('computeSnapGrid: snap grid present', {
+                baseX,
+                baseY,
+                stepX: m.stepX,
+                stepY: m.stepY,
+                hostLeft,
+                hostTop,
+                rectLeft: m.rectLeft,
+                rectTop: m.rectTop
+            });
             return {
                 baseX,
                 baseY,
@@ -2551,55 +4768,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 stepY: m.stepY
             };
         } catch (_) {
+            try {
+                dbg('computeSnapGrid: error');
+            } catch (_) {}
             return null;
         }
     }
 
-    function startDrag(e) {
-        if (e.button !== 0) return;
-        if (!state.moveMode) return;
-        e.preventDefault();
-        ensureSnapCanvas();
-
-        enforcePixelScaleIfSnap();
-        state.dragging = !0;
-        state.start.x = e.clientX;
-        state.start.y = e.clientY;
-        state.start.left = state.x;
-        state.start.top = state.y;
-        state.start.pointerId = e.pointerId;
-        state.captureEl = overlay;
-
-        state.snapGrid = snapCheck.checked ? computeSnapGrid() : null;
-        try {
-            overlay.setPointerCapture?.(e.pointerId)
-        } catch (_) {}
-    }
-
-    function moveDrag(e) {
-        if (!state.dragging) return;
-        const dx = e.clientX - state.start.x;
-        const dy = e.clientY - state.start.y;
-        let nx = state.start.left + dx;
-        let ny = state.start.top + dy;
-        if (snapCheck.checked) {
-            const g = computeSnapGrid() || state.snapGrid;
-
-            if (g) {
-                nx = g.baseX + Math.round((nx - g.baseX) / g.stepX) * g.stepX;
-                ny = g.baseY + Math.round((ny - g.baseY) / g.stepY) * g.stepY;
-            }
-        }
-        state.x = nx;
-        state.y = ny;
-
-        if (!state._rafMove) {
-            state._rafMove = requestAnimationFrame(() => {
-                state._rafMove = null;
-                syncUI();
-            });
-        }
-    }
 
     function endDrag(e) {
         state.dragging = !1;
@@ -2616,7 +4791,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             persistSave();
         } catch (_) {}
         try {
-            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: state.x, y: state.y });
+            if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({
+                fileName: state.currentFileName,
+                w: state.iw,
+                h: state.ih,
+                x: state.x,
+                y: state.y
+            });
         } catch (_) {}
     }
 
@@ -2628,7 +4809,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     } catch (_) {}
 
     try {
-        window.addEventListener('resize', () => ensureSnapCanvas());
+        window.addEventListener('resize', () => {
+            ensureSnapCanvas();
+            try {
+                ensureMarkerInBounds();
+                updateMarkerPos();
+            } catch (_) {}
+        });
     } catch (_) {}
 
     async function extractPalette() {
@@ -2786,6 +4973,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             prevOverlayPE = overlay.style.pointerEvents;
             overlay.style.pointerEvents = 'none';
         } catch (_) {}
+        let prevMarkerPE = '';
+        try {
+            prevMarkerPE = dragMarker.style.pointerEvents;
+            dragMarker.style.pointerEvents = 'none';
+        } catch (_) {}
 
         toolbar.style.pointerEvents = "none";
         sidebar.style.pointerEvents = "none";
@@ -2848,6 +5040,95 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             try {
                 overlay.style.pointerEvents = prevOverlayPE;
             } catch (_) {}
+            try {
+                dragMarker.style.pointerEvents = prevMarkerPE;
+            } catch (_) {}
+        }
+    }
+
+    function isNoPaintPopupVisible() {
+        try {
+
+            if (document.querySelector('body > div:nth-child(1) > section > ol')) return true;
+        } catch (_) {}
+        return false;
+    }
+
+
+    const PAINT_BTN_WRAP_SEL = 'body > div:nth-child(1) > div.disable-pinch-zoom.relative.h-full.overflow-hidden.svelte-6wmtgk > div.absolute.bottom-0.left-0.z-50.w-full > div > div > div.relative.h-12.sm\\:h-14 > div.absolute.bottom-0.left-1\\/2.-translate-x-1\\/2';
+
+    function __findPaintBtnContainer() {
+        try {
+            return document.querySelector(PAINT_BTN_WRAP_SEL) ||
+                document.querySelector('div.absolute.bottom-0.left-1\\/2.-translate-x-1\\/2') ||
+                null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function isBottomPaintLoadingActive() {
+        try {
+            const cont = __findPaintBtnContainer();
+            if (!cont) return false;
+            if (cont.querySelector('.loading.loading-spinner')) return true;
+
+            const btn = cont.querySelector('button');
+            if (btn && (btn.disabled || btn.getAttribute('disabled') != null)) {
+
+                return true;
+            }
+        } catch (_) {}
+        return false;
+    }
+    async function clickUnderRedWhenReady(maxWaitMs = 120000) {
+        const start = Date.now();
+        try {
+            while (isBottomPaintLoadingActive()) {
+                if ((Date.now() - start) > maxWaitMs) break;
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        } catch (_) {}
+        try {
+            clickRandomInsideMarker();
+        } catch (_) {}
+    }
+
+    function isEditModeActiveForColorName(colorName) {
+        if (!colorName) return false;
+        try {
+            const btn = document.querySelector(`button[aria-label="${colorName}"]`);
+            return !!btn;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function ensureEditModeAndPick(colorName) {
+        try {
+
+            if (!isEditModeActiveForColorName(colorName)) {
+                try {
+                    await clickUnderRedWhenReady();
+                } catch (_) {}
+                await new Promise(r => setTimeout(r, 3000));
+            }
+
+            if (!isEditModeActiveForColorName(colorName)) {
+                try {
+                    await clickUnderRedWhenReady();
+                } catch (_) {}
+                await new Promise(r => setTimeout(r, 3000));
+            }
+            let ok = !!autoPickColorOnPage(colorName);
+            if (!ok) {
+
+                await new Promise(r => setTimeout(r, 200));
+                ok = !!autoPickColorOnPage(colorName);
+            }
+            return ok;
+        } catch (_) {
+            return false;
         }
     }
 
@@ -2889,6 +5170,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             delay,
             building: true,
             colorKey: color && color.key ? color.key : null,
+
+            __shuffled: false,
 
             buildStartAt: performance.now(),
             lastBuildProgressAt: performance.now()
@@ -2945,14 +5228,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const taken = new Set();
             const batch = [];
 
-           
+
             const matchesPixel = state.acidModeEnabled ? isAcidTarget : looksMarked;
             const getRGBat = (x, y) => {
                 const idx = (y * w + x) * 4;
                 return [data[idx], data[idx + 1], data[idx + 2]];
             };
             const block2x2Matches = (cx, cy) => {
-              
+
                 if (cx + 1 >= w || cy + 1 >= h) return false;
                 const p00 = getRGBat(cx, cy);
                 const p10 = getRGBat(cx + 1, cy);
@@ -2963,17 +5246,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     matchesPixel(p01[0], p01[1], p01[2]) &&
                     matchesPixel(p11[0], p11[1], p11[2]);
             };
-            const block3x3Matches = (cx, cy) => {
-              
-                if (cx - 1 < 0 || cy - 1 < 0 || cx + 1 >= w || cy + 1 >= h) return false;
-                for (let dy = -1; dy <= 1; dy++) {
-                    for (let dx = -1; dx <= 1; dx++) {
-                        const p = getRGBat(cx + dx, cy + dy);
-                        if (!matchesPixel(p[0], p[1], p[2])) return false;
-                    }
-                }
-                return true;
-            };
+
             let rowsPerChunk = 60;
             let sy = 0;
             const scheduleBuildStep = () => {
@@ -3018,8 +5291,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     }
                 }
                 if (batch.length) {
-                    batch.sort((a, b) => (a[1] - b[1]) || (a[0] - b[0]));
+                    const startIdx = runner.points.length;
                     runner.points.push(...batch);
+
+                    for (let k = startIdx; k < runner.points.length; k++) {
+                        const r = Math.floor(Math.random() * (k + 1));
+                        const t = runner.points[k];
+                        runner.points[k] = runner.points[r];
+                        runner.points[r] = t;
+                    }
                     runner.total = runner.points.length;
                     updateStat();
 
@@ -3042,8 +5322,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         const tick = () => {
 
             try {
-                if (document.querySelector('body > div:nth-child(1) > section > ol')) {
-
+                if (isNoPaintPopupVisible()) {
+                    try {
+                        console.warn('[Runner] stopping due to no-paint popup');
+                    } catch (_) {}
                     stopAutoClick();
                     return;
                 }
@@ -3071,14 +5353,46 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 return;
             }
 
-            const [x, y] = runner.points[runner.idx++];
+
+            if (state.autoModeEnabled && !runner.__shuffled && runner.points && runner.points.length > 1) {
+                try {
+                    const a = runner.points;
+                    for (let i = a.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        const t = a[i];
+                        a[i] = a[j];
+                        a[j] = t;
+                    }
+                    runner.__shuffled = true;
+                } catch (_) {}
+            }
+            const [x, y] = runner.points[runner.idx];
             const k = x + "," + y;
 
+
+            try {
+                const colorName = (runner.colorKey && COLOR_NAME_MAP.get(runner.colorKey)) ||
+                    (state.activeColor && (COLOR_NAME_MAP.get(state.activeColor.key) || (state.activeColor.hex || '').toUpperCase())) ||
+                    null;
+                if (colorName && !isEditModeActiveForColorName(colorName)) {
+
+                    if (isBottomPaintLoadingActive()) {
+                        runner.timer = setTimeout(tick, 1000);
+                        return;
+                    }
+                    try {
+                        clickRandomInsideMarker();
+                    } catch (_) {}
+                    runner.timer = setTimeout(tick, 3000);
+                    return;
+                }
+            } catch (_) {}
 
             if (!isPointInUI(x, y) && !exclude.has(k)) {
                 exclude.add(k);
                 simulateClickAt(x, y);
             }
+            runner.idx++;
             updateStat();
 
             if (!runner.running) return;
@@ -3180,43 +5494,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         return inTree(toolbar) || inTree(sidebar);
     }
 
-    function captureViewportSnapshot() {
-        try {
-            const w = Math.max(1, Math.floor(window.innerWidth));
-            const h = Math.max(1, Math.floor(window.innerHeight));
-            const c = document.createElement('canvas');
-            c.width = w;
-            c.height = h;
-            const ctx = c.getContext('2d', { willReadFrequently: true });
-            if (!ctx) return null;
-            ctx.imageSmoothingEnabled = false;
-            ctx.clearRect(0, 0, w, h);
-            const canvases = Array.from(document.querySelectorAll('canvas'));
-            for (const cv of canvases) {
-                try {
-                    const r = cv.getBoundingClientRect();
-                    if (r.width <= 0 || r.height <= 0) continue;
-                    ctx.drawImage(cv, Math.max(0, Math.floor(r.left)), Math.max(0, Math.floor(r.top)), Math.floor(r.width), Math.floor(r.height));
-                } catch {}
-            }
-            const imgs = Array.from(document.images);
-            for (const img of imgs) {
-                try {
-                    const r = img.getBoundingClientRect();
-                    if (r.width <= 0 || r.height <= 0) continue;
-                    ctx.drawImage(img, Math.max(0, Math.floor(r.left)), Math.max(0, Math.floor(r.top)), Math.floor(r.width), Math.floor(r.height));
-                } catch {}
-            }
-            const data = ctx.getImageData(0, 0, w, h);
-            return {
-                data,
-                width: w,
-                height: h
-            };
-        } catch {
-            return null;
-        }
-    }
+
 
     async function ensureScreenCapture() {
         if (screenVideo && screenCtx && screenCanvas) return true;
@@ -3467,15 +5745,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }
 
             if (!placeState.refSet) {
-                placeState.refX = Math.floor(Math.max(1, state.iw || 1) / 2);
-                placeState.refY = Math.floor(Math.max(1, state.ih || 1) / 2);
+                placeState.refX = 0;
+                placeState.refY = 0;
             }
             const pxStepX = Math.max(1e-6, (state.w || 1) / Math.max(1, state.iw || 1));
             const pxStepY = Math.max(1e-6, (state.h || 1) / Math.max(1, state.ih || 1));
             const targetX = e.clientX;
             const targetY = e.clientY;
-            state.x = Math.round(targetX - (placeState.refX + 0.5) * pxStepX);
-            state.y = Math.round(targetY - (placeState.refY + 0.5) * pxStepY);
+            state.x = Math.round(targetX - (placeState.refX) * pxStepX);
+            state.y = Math.round(targetY - (placeState.refY) * pxStepY);
             syncUI();
 
             placeState.active = false;
@@ -3501,11 +5779,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             } catch (_) {}
 
             if (state.selectedImageSize && state.selectedImageSize.w && state.selectedImageSize.h) {
-                state.refX = Math.floor(state.selectedImageSize.w / 2);
-                state.refY = Math.floor(state.selectedImageSize.h / 2);
+                state.refX = 0;
+                state.refY = 0;
                 state.refSet = true;
             }
-            hint.textContent = 'Кликните по карте, чтобы разместить центр изображения.';
+            hint.textContent = 'Кликните по карте, чтобы разместить левый верхний угол изображения.';
             positionHint(8);
             hint.style.display = '';
 
@@ -3533,26 +5811,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         }
     }
 
-    function updateBrushCursorAt(clientX, clientY) {
-        if (!state.brushMode || !state.activeColor) {
-            brushCursor.style.display = "none";
-            return
-        }
-        const rect = img.getBoundingClientRect();
-        const sx = rect.width / state.iw,
-            sy = rect.height / state.ih;
-        const ix = Math.floor((clientX - rect.left) / sx);
-        const iy = Math.floor((clientY - rect.top) / sy);
-        const cx = rect.left + (clamp(ix, 0, state.iw - 1) + .5) * sx;
-        const cy = rect.top + (clamp(iy, 0, state.ih - 1) + .5) * sy;
-        const w = Math.max(1, state.brushSize) * sx;
-        const h = Math.max(1, state.brushSize) * sy;
-        brushCursor.style.width = w + "px";
-        brushCursor.style.height = h + "px";
-        brushCursor.style.left = cx + "px";
-        brushCursor.style.top = cy + "px";
-        brushCursor.style.display = "block"
-    }
 
 
     function setPanelOpen(panel, open) {
@@ -3570,9 +5828,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         recalcSidebarHeight();
     }
 
-    function openBrushPanel() {
-        setPanelOpen(railBrushPanel, true);
-    }
+
 
     function closeBrushPanel() {
         setPanelOpen(railBrushPanel, false);
@@ -3583,39 +5839,23 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         setPanelOpen(railDelayPanel, state.delayPanelOpen);
     }
 
-    function brushPaintAt(clientX, clientY) {
-        if (!state.activeColor || !state.iw || !state.ih) return;
-        const rect = img.getBoundingClientRect();
-        const sx = rect.width / state.iw,
-            sy = rect.height / state.ih;
-        const ix = Math.floor((clientX - rect.left) / sx);
-        const iy = Math.floor((clientY - rect.top) / sy);
-        const size = Math.max(1, state.brushSize);
-        const half = Math.floor((size - 1) / 2);
-        let x0 = ix - half,
-            y0 = iy - half,
-            x1 = ix + size - half - 1,
-            y1 = iy + size - half - 1;
-        x0 = clamp(x0, 0, state.iw - 1);
-        y0 = clamp(y0, 0, state.ih - 1);
-        x1 = clamp(x1, 0, state.iw - 1);
-        y1 = clamp(y1, 0, state.ih - 1);
-        const set = getPosSetForColor(state.activeColor.key);
-        if (!state.paintedByColor.has(state.activeColor.key)) state.paintedByColor.set(state.activeColor.key, new Set());
-        const painted = state.paintedByColor.get(state.activeColor.key);
-        for (let y = y0; y <= y1; y++) {
-            for (let x = x0; x <= x1; x++) {
-                const idx = y * state.iw + x;
-                if (!set.has(idx) || painted.has(idx)) continue;
-                const cx = rect.left + (x + .5) * sx,
-                    cy = rect.top + (y + .5) * sy;
-                simulateClickAt(cx, cy);
-                painted.add(idx)
-            }
-        }
-    }
+
 
     function setImageURL(url, fileName) {
+
+        try {
+            if (state.selectedImageBitmap && typeof state.selectedImageBitmap.close === 'function') {
+                state.selectedImageBitmap.close();
+            }
+        } catch (_) {}
+        state.selectedImageBitmap = null;
+        state.selectedImageSize = null;
+        state.__autoSniffDone = false;
+        try {
+            dbg('setImageURL: start', {
+                fileName
+            });
+        } catch (_) {}
 
         if (state.currentURL && state.currentURL !== url) {
             try {
@@ -3632,6 +5872,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         im.decoding = "async";
         im.onload = async () => {
             try {
+                dbg('setImageURL: onload', {
+                    naturalW: im.naturalWidth,
+                    naturalH: im.naturalHeight
+                });
+            } catch (_) {}
+            try {
                 state.selectedImageBitmap = await createImageBitmap(im);
                 state.selectedImageSize = {
                     w: state.selectedImageBitmap.width,
@@ -3647,6 +5893,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             state.iw = state.selectedImageSize.w;
             state.ih = state.selectedImageSize.h;
             try {
+                dbg('setImageURL: size set', {
+                    iw: state.iw,
+                    ih: state.ih
+                });
+            } catch (_) {}
+            try {
                 await extractPalette();
             } catch {}
             try {
@@ -3654,9 +5906,33 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             } catch {}
 
             try {
+
+                state.__dbgMinTileX = Infinity;
+                state.__dbgMinTileY = Infinity;
+                state.__dbgNoIntersectCount = 0;
+                state.__dbgAutoAdjustedAnchor = false;
+
+                state.viewTileBaseX = undefined;
+                state.viewTileBaseY = undefined;
+                state.__anchorAdjusted = false;
+
+                state.anchorProvisional = false;
+                state.localAnchorTx = undefined;
+                state.localAnchorTy = undefined;
+                state.localAnchorPx = undefined;
+                state.localAnchorPy = undefined;
+            } catch (_) {}
+
+            try {
                 if (state.suppressAutoMoveOnce) {
+                    try {
+                        dbg('setImageURL: auto move suppressed once');
+                    } catch (_) {}
                     state.suppressAutoMoveOnce = false;
                 } else {
+                    try {
+                        dbg('setImageURL: enabling move mode');
+                    } catch (_) {}
                     setMoveMode(true);
                 }
             } catch {}
@@ -3665,12 +5941,94 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 btnClear.style.display = '';
             } catch (_) {}
 
+
             try {
-                if (state.currentFileName && state.iw && state.ih) historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: state.x, y: state.y });
+                await saveLastImageFromURL(url, state.currentFileName);
+            } catch (_) {}
+
+
+            try {
+                const fname = state.currentFileName;
+                const iw = state.iw,
+                    ih = state.ih;
+                if (fname && iw && ih && Array.isArray(state.history) && state.history.length) {
+                    const id = historyIdOf(fname, iw, ih);
+                    const hit = state.history.find(e => e && e.id === id);
+                    const hasT = hit && Number.isFinite(hit.tx) && Number.isFinite(hit.ty) && Number.isFinite(hit.px) && Number.isFinite(hit.py);
+                    if (hasT) {
+                        try {
+                            dbg('setImageURL: restoring from history entry', {
+                                tx: hit.tx,
+                                ty: hit.ty,
+                                px: hit.px,
+                                py: hit.py
+                            });
+                        } catch (_) {}
+                        applyHistoryPlacement(hit);
+                    }
+                }
+            } catch (_) {}
+
+
+            try {
+                if (!state.anchorSet) deriveAnchorFromCurrentXY();
+            } catch (_) {}
+            try {
+                dbg('setImageURL: after ensure anchor', {
+                    anchorSet: !!state.anchorSet,
+                    tx: state.anchorTx,
+                    ty: state.anchorTy,
+                    px: state.anchorPx,
+                    py: state.anchorPy
+                });
+            } catch (_) {}
+
+            try {
+                updateViewBaseFromDOM();
+            } catch (_) {}
+            try {
+                updateViewBaseFromPerformance();
+            } catch (_) {}
+            try {
+                setTimeout(updateViewBaseFromDOM, 50);
+            } catch (_) {}
+            try {
+                setTimeout(updateViewBaseFromDOM, 200);
+            } catch (_) {}
+            try {
+                setTimeout(updateViewBaseFromPerformance, 50);
+            } catch (_) {}
+            try {
+                setTimeout(updateViewBaseFromPerformance, 200);
+            } catch (_) {}
+            try {
+                tryAdjustAnchorWithViewBase();
+            } catch (_) {}
+            try {
+                nudgeTileReloadOnce();
+            } catch (_) {}
+            try {
+                setTimeout(nudgeTileReloadOnce, 50);
+            } catch (_) {}
+            try {
+                setTimeout(nudgeTileReloadOnce, 200);
+            } catch (_) {}
+            try {
+                window.dispatchEvent(new Event('resize'));
+            } catch (_) {}
+            try {
+                setTimeout(() => {
+                    try {
+                        window.dispatchEvent(new Event('resize'));
+                    } catch (_) {}
+                }, 200);
+            } catch (_) {}
+            try {
+                dbg('setImageURL: resize nudged, onload end');
             } catch (_) {}
         };
         im.onerror = () => {
-            /* ignore */
+
         };
         im.src = url;
     }
@@ -4339,17 +6697,6 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         return /\/pixel\//i.test(u) && /[?&]x=\d+/i.test(u) && /[?&]y=\d+/i.test(u);
     }
 
-    function parseXYFromURL(url) {
-        try {
-            const u = new URL(url);
-            const x = parseInt(u.searchParams.get('x'), 10);
-            const y = parseInt(u.searchParams.get('y'), 10);
-            if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
-        } catch (_) {}
-        return null;
-    }
-
-
     function parsePixelRequest(url) {
         try {
             const u = new URL(url);
@@ -4359,7 +6706,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             const ty = parseInt(m[2], 10);
             const px = parseInt(u.searchParams.get('x'), 10);
             const py = parseInt(u.searchParams.get('y'), 10);
-            if ([tx, ty, px, py].every(Number.isFinite)) return { tx, ty, px, py };
+            if ([tx, ty, px, py].every(Number.isFinite)) return {
+                tx,
+                ty,
+                px,
+                py
+            };
         } catch (_) {}
         return null;
     }
@@ -4370,8 +6722,9 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             if (!state.currentFileName || !state.iw || !state.ih) return;
             const p = parsePixelRequest(url);
             if (!p) return;
-       
-            let sx = undefined, sy = undefined;
+
+            let sx = undefined,
+                sy = undefined;
             const g = computeSnapGrid();
             if (g) {
                 const globalX = p.tx * TILE_SIZE + p.px;
@@ -4379,7 +6732,17 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 sx = Math.round(g.baseX + globalX * g.stepX);
                 sy = Math.round(g.baseY + globalY * g.stepY);
             }
-            historyAddOrUpdate({ fileName: state.currentFileName, w: state.iw, h: state.ih, x: sx, y: sy, tx: p.tx, ty: p.ty, px: p.px, py: p.py });
+            historyAddOrUpdate({
+                fileName: state.currentFileName,
+                w: state.iw,
+                h: state.ih,
+                x: sx,
+                y: sy,
+                tx: p.tx,
+                ty: p.ty,
+                px: p.px,
+                py: p.py
+            });
         } catch (_) {}
     }
 
@@ -4730,7 +7093,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }, {
                 passive: !1
             });
-            
+
             preview.addEventListener("pointerleave", () => {
                 if (editMode) {
                     hoverPos = null;
@@ -4886,19 +7249,34 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
     async function openPixelArtDialog(file) {
         return new Promise(async (resolve) => {
-            const fileURL = URL.createObjectURL(file);
+
+            let sourceBlob = null;
+            let sourceURL = null;
+            try {
+                const buf = await file.arrayBuffer();
+                sourceBlob = new Blob([buf], {
+                    type: file.type || 'application/octet-stream'
+                });
+                sourceURL = URL.createObjectURL(sourceBlob);
+            } catch (_) {
+
+                try {
+                    sourceURL = URL.createObjectURL(file);
+                } catch (_) {}
+            }
+
             let bitmap = null,
                 imEl = null,
                 ow = 0,
                 oh = 0;
             async function loadDims() {
                 try {
-                    bitmap = await createImageBitmap(file);
+                    bitmap = await createImageBitmap(sourceBlob || file);
                     ow = bitmap.width;
                     oh = bitmap.height
                 } catch (e) {
                     try {
-                        imEl = await createImageElementFromURL(fileURL);
+                        imEl = await createImageElementFromURL(sourceURL);
                         ow = imEl.naturalWidth;
                         oh = imEl.naturalHeight
                     } catch (err) {}
@@ -4907,7 +7285,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             await loadDims();
             if (!ow || !oh) {
                 try {
-                    URL.revokeObjectURL(fileURL)
+                    if (sourceURL) URL.revokeObjectURL(sourceURL)
                 } catch (e) {}
                 return resolve({
                     action: "cancel"
@@ -5106,57 +7484,62 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 willReadFrequently: !0,
                 alpha: !0
             });
-        
+
             let editMode = false;
-            let lockedForEdit = false; 
+            let lockedForEdit = false;
             let eraser = false;
             let eyedropper = false;
             let brushSizeEdit = 1;
             let editImageData = null;
-         
+
             let selectMode = false;
-            let selectionMask = null; 
+            let selectionMask = null;
             let selectionCount = 0;
-            let selCanvas = null, selCtx = null;
-            let magicSelectMode = false; 
+            let selCanvas = null,
+                selCtx = null;
+            let magicSelectMode = false;
             let magicTolerance = 32;
-           
-            let antsCanvas = null, antsCtx = null;
-            let antsMaskCanvas = null, antsMaskCtx = null;
-            let antsPatternCanvas = null; 
-            let antsOffset = 0; 
-            let antsAnimating = false, antsAnimRAF = 0;
-    
-            let antsSpeed = 1;            
-            let antsTileSize = 4;           
-            let antsBandWidth = 2;            
-            let antsOutlineThicknessPx = 1;  
-           
+
+            let antsCanvas = null,
+                antsCtx = null;
+            let antsMaskCanvas = null,
+                antsMaskCtx = null;
+            let antsPatternCanvas = null;
+            let antsOffset = 0;
+            let antsAnimating = false,
+                antsAnimRAF = 0;
+
+            let antsSpeed = 1;
+            let antsTileSize = 4;
+            let antsBandWidth = 2;
+            let antsOutlineThicknessPx = 1;
+
             let antsPatternSizeCache = 0;
             let antsPatternBandCache = 0;
-          
-            let antsScreenSpace = true;   
-            let antsSegH = [];            
-            let antsSegV = [];              
+
+            let antsScreenSpace = true;
+            let antsSegH = [];
+            let antsSegV = [];
             let editPalette = [];
             let editColor = [0, 0, 0];
             let activeColorIdx = 0;
-            let hoverPos = null; 
-           
+            let hoverPos = null;
+
             const UNDO_LIMIT = 100;
             let undoStack = [];
             let redoStack = [];
-            let strokeRec = null; 
-          
-            let selStrokeRec = null; 
-            let selOp = 'add'; 
-  
+            let strokeRec = null;
+
+            let selStrokeRec = null;
+            let selOp = 'add';
+
             let deferAntsWhileStroke = false;
             let renderScheduled = false;
-  
+
             let useEditedSource = false;
             let editedSource = null;
-            let editedSourceW = 0, editedSourceH = 0;
+            let editedSourceW = 0,
+                editedSourceH = 0;
             let pixelSize = 1;
             slider.value = String(pixelSize);
             pxVal.textContent = String(pixelSize);
@@ -5271,10 +7654,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 processQuantAndDither();
                 render();
             }
+
             function doQuickSelectAt(clientX, clientY, opts) {
                 if (!editImageData) return;
                 opts = opts || {};
-                const mode = opts.mode || 'replace'; 
+                const mode = opts.mode || 'replace';
                 const tol = clamp(typeof opts.tolerance === 'number' ? opts.tolerance : magicTolerance, 0, 255) | 0;
                 ensureSelectionBuffer();
                 ensureSelCanvas();
@@ -5283,64 +7667,117 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 const [sx, sy] = pos;
                 const data = editImageData.data;
                 const seedIdx = (sy * dwnW + sx) * 4;
-                const tr = data[seedIdx], tg = data[seedIdx + 1], tb = data[seedIdx + 2];
-             
+                const tr = data[seedIdx],
+                    tg = data[seedIdx + 1],
+                    tb = data[seedIdx + 2];
+
                 const total = dwnW * dwnH;
                 const visited = new Uint8Array(total);
                 const q = new Uint32Array(total);
-                let h = 0, t = 0;
+                let h = 0,
+                    t = 0;
                 const seed = sy * dwnW + sx;
-                visited[seed] = 1; q[t++] = seed;
+                visited[seed] = 1;
+                q[t++] = seed;
                 while (h < t) {
                     const i = q[h++];
                     const y = (i / dwnW) | 0;
                     const x = i - y * dwnW;
-    
+
                     if (x > 0) {
-                        const ni = i - 1; if (!visited[ni]) {
-                            const di = ni * 4; const r=data[di], g=data[di+1], b=data[di+2];
-                            if (Math.abs(r-tr)<=tol && Math.abs(g-tg)<=tol && Math.abs(b-tb)<=tol) { visited[ni]=1; q[t++]=ni; }
+                        const ni = i - 1;
+                        if (!visited[ni]) {
+                            const di = ni * 4;
+                            const r = data[di],
+                                g = data[di + 1],
+                                b = data[di + 2];
+                            if (Math.abs(r - tr) <= tol && Math.abs(g - tg) <= tol && Math.abs(b - tb) <= tol) {
+                                visited[ni] = 1;
+                                q[t++] = ni;
+                            }
                         }
                     }
-                   
+
                     if (x + 1 < dwnW) {
-                        const ni = i + 1; if (!visited[ni]) {
-                            const di = ni * 4; const r=data[di], g=data[di+1], b=data[di+2];
-                            if (Math.abs(r-tr)<=tol && Math.abs(g-tg)<=tol && Math.abs(b-tb)<=tol) { visited[ni]=1; q[t++]=ni; }
+                        const ni = i + 1;
+                        if (!visited[ni]) {
+                            const di = ni * 4;
+                            const r = data[di],
+                                g = data[di + 1],
+                                b = data[di + 2];
+                            if (Math.abs(r - tr) <= tol && Math.abs(g - tg) <= tol && Math.abs(b - tb) <= tol) {
+                                visited[ni] = 1;
+                                q[t++] = ni;
+                            }
                         }
                     }
-              
+
                     if (y > 0) {
-                        const ni = i - dwnW; if (!visited[ni]) {
-                            const di = ni * 4; const r=data[di], g=data[di+1], b=data[di+2];
-                            if (Math.abs(r-tr)<=tol && Math.abs(g-tg)<=tol && Math.abs(b-tb)<=tol) { visited[ni]=1; q[t++]=ni; }
+                        const ni = i - dwnW;
+                        if (!visited[ni]) {
+                            const di = ni * 4;
+                            const r = data[di],
+                                g = data[di + 1],
+                                b = data[di + 2];
+                            if (Math.abs(r - tr) <= tol && Math.abs(g - tg) <= tol && Math.abs(b - tb) <= tol) {
+                                visited[ni] = 1;
+                                q[t++] = ni;
+                            }
                         }
                     }
-                  
+
                     if (y + 1 < dwnH) {
-                        const ni = i + dwnW; if (!visited[ni]) {
-                            const di = ni * 4; const r=data[di], g=data[di+1], b=data[di+2];
-                            if (Math.abs(r-tr)<=tol && Math.abs(g-tg)<=tol && Math.abs(b-tb)<=tol) { visited[ni]=1; q[t++]=ni; }
+                        const ni = i + dwnW;
+                        if (!visited[ni]) {
+                            const di = ni * 4;
+                            const r = data[di],
+                                g = data[di + 1],
+                                b = data[di + 2];
+                            if (Math.abs(r - tr) <= tol && Math.abs(g - tg) <= tol && Math.abs(b - tb) <= tol) {
+                                visited[ni] = 1;
+                                q[t++] = ni;
+                            }
                         }
                     }
                 }
-           
+
                 const newMask = new Uint8Array(total);
                 let newSelCount = 0;
                 if (mode === 'replace') {
-                    for (let i = 0; i < total; i++) { const v = visited[i] | 0; newMask[i] = v; newSelCount += v; }
+                    for (let i = 0; i < total; i++) {
+                        const v = visited[i] | 0;
+                        newMask[i] = v;
+                        newSelCount += v;
+                    }
                 } else if (mode === 'add') {
-                    for (let i = 0; i < total; i++) { const v = ((selectionMask[i] | 0) | (visited[i] | 0)) | 0; newMask[i] = v; newSelCount += v; }
+                    for (let i = 0; i < total; i++) {
+                        const v = ((selectionMask[i] | 0) | (visited[i] | 0)) | 0;
+                        newMask[i] = v;
+                        newSelCount += v;
+                    }
                 } else if (mode === 'subtract') {
-                    for (let i = 0; i < total; i++) { const v = ((selectionMask[i] | 0) & ((visited[i] ^ 1) | 0)) | 0; newMask[i] = v; newSelCount += v; }
+                    for (let i = 0; i < total; i++) {
+                        const v = ((selectionMask[i] | 0) & ((visited[i] ^ 1) | 0)) | 0;
+                        newMask[i] = v;
+                        newSelCount += v;
+                    }
                 } else {
-                    
-                    for (let i = 0; i < total; i++) { const v = visited[i] | 0; newMask[i] = v; newSelCount += v; }
+
+                    for (let i = 0; i < total; i++) {
+                        const v = visited[i] | 0;
+                        newMask[i] = v;
+                        newSelCount += v;
+                    }
                 }
-           
+
                 let changedCount = 0;
-                for (let i = 0; i < total; i++) { if ((selectionMask[i] | 0) !== (newMask[i] | 0)) changedCount++; }
-                if (!changedCount) { render(); return; }
+                for (let i = 0; i < total; i++) {
+                    if ((selectionMask[i] | 0) !== (newMask[i] | 0)) changedCount++;
+                }
+                if (!changedCount) {
+                    render();
+                    return;
+                }
                 const idxs = new Uint32Array(changedCount);
                 const oldArr = new Uint8Array(changedCount);
                 const neuArr = new Uint8Array(changedCount);
@@ -5348,14 +7785,24 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 for (let i = 0; i < total; i++) {
                     const o = selectionMask[i] | 0;
                     const n = newMask[i] | 0;
-                    if (o !== n) { idxs[w] = i; oldArr[w] = o; neuArr[w] = n; w++; }
+                    if (o !== n) {
+                        idxs[w] = i;
+                        oldArr[w] = o;
+                        neuArr[w] = n;
+                        w++;
+                    }
                 }
-             
+
                 selectionMask = newMask;
                 selectionCount = newSelCount;
                 rebuildSelOverlayFromMask();
-            
-                const act = { kind: 'selection', indices: idxs, old: oldArr, neu: neuArr };
+
+                const act = {
+                    kind: 'selection',
+                    indices: idxs,
+                    old: oldArr,
+                    neu: neuArr
+                };
                 undoStack.push(act);
                 if (undoStack.length > UNDO_LIMIT) undoStack.shift();
                 redoStack = [];
@@ -5393,7 +7840,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 sctx.imageSmoothingQuality = quality;
                 sctx.clearRect(0, 0, dwnW, dwnH);
                 if (useEditedSource && editedSource) {
-                  
+
                     sctx.drawImage(editedSource, 0, 0, editedSourceW, editedSourceH, 0, 0, dwnW, dwnH);
                 } else if (bitmap) {
                     sctx.drawImage(bitmap, 0, 0, ow, oh, 0, 0, dwnW, dwnH)
@@ -5407,12 +7854,20 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 } catch (_) {
                     baseSmallData = null;
                 }
+
+                let paintablePx = dwnW * dwnH;
+                if (baseSmallData && baseSmallData.length === (dwnW * dwnH * 4)) {
+                    let count = 0;
+                    for (let i = 3; i < baseSmallData.length; i += 4) {
+                        if (baseSmallData[i] >= 8) count++;
+                    }
+                    paintablePx = count;
+                }
                 stH.textContent = t("horizontal") + ": " + dwnW;
                 stV.textContent = t("vertical") + ": " + dwnH;
-                stT.textContent = t("total") + ": " + (dwnW * dwnH).toLocaleString("ru-RU");
+                stT.textContent = t("total") + ": " + paintablePx.toLocaleString("ru-RU");
                 stExport.textContent = `${t("export")}: ${dwnW} × ${dwnH}`
-                const totalPx = dwnW * dwnH;
-                stTime.textContent = `${t("timeSpend")}: ${formatDuration(totalPx * TIME_PER_PIXEL_SECONDS)}`
+                stTime.textContent = `${t("timeSpend")}: ${formatDuration(paintablePx * TIME_PER_PIXEL_SECONDS)}`
             }
 
             function getPaletteForMode() {
@@ -5465,6 +7920,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     if (outlineGrow > 0) dilateAlphaWithBlackImageData(post, outlineGrow);
                     sctx.putImageData(post, 0, 0);
                 } catch {}
+
+                try {
+                    const cur = sctx.getImageData(0, 0, dwnW, dwnH);
+                    let count = 0;
+                    for (let i = 3; i < cur.data.length; i += 4)
+                        if (cur.data[i] >= 8) count++;
+                    stT.textContent = t("total") + ": " + count.toLocaleString("ru-RU");
+                    stTime.textContent = `${t("timeSpend")}: ${formatDuration(count * TIME_PER_PIXEL_SECONDS)}`;
+                } catch {}
                 stC.textContent = `Colors used: ${used}/${total}`
             }
             let zoom2 = 1,
@@ -5491,7 +7955,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 ctx.clearRect(0, 0, vw, vh);
                 const drawW = dwnW * zoom2,
                     drawH = dwnH * zoom2;
-          
+
                 {
                     const halfSpanX = (vw - drawW) / 2;
                     const halfSpanY = (vh - drawH) / 2;
@@ -5499,7 +7963,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     const maxX = Math.max(halfSpanX, -halfSpanX);
                     const minY = Math.min(halfSpanY, -halfSpanY);
                     const maxY = Math.max(halfSpanY, -halfSpanY);
-              
+
                     const panMargin = Math.max(24, Math.round(0.25 * Math.min(vw, vh)));
                     offX2 = clamp(offX2, minX - panMargin, maxX + panMargin);
                     offY2 = clamp(offY2, minY - panMargin, maxY + panMargin);
@@ -5508,18 +7972,27 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     cy = (vh - drawH) / 2 + offY2;
                 ctx.imageSmoothingEnabled = !1;
                 ctx.drawImage(small, 0, 0, dwnW, dwnH, Math.round(cx), Math.round(cy), Math.round(drawW), Math.round(drawH));
-        
+
                 try {
                     if (selectionCount > 0 && selectionMask && selectionMask.length === dwnW * dwnH) {
                         if (!selCanvas || selCanvas.width !== dwnW || selCanvas.height !== dwnH) {
                             selCanvas = document.createElement('canvas');
-                            selCanvas.width = dwnW; selCanvas.height = dwnH;
-                            selCtx = selCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
-                    
+                            selCanvas.width = dwnW;
+                            selCanvas.height = dwnH;
+                            selCtx = selCanvas.getContext('2d', {
+                                willReadFrequently: true,
+                                alpha: true
+                            });
+
                             const img = selCtx.createImageData(dwnW, dwnH);
                             const dd = img.data;
                             for (let i = 0; i < selectionMask.length; i++) {
-                                if (selectionMask[i]) { dd[i*4+0]=0; dd[i*4+1]=200; dd[i*4+2]=255; dd[i*4+3]=255; }
+                                if (selectionMask[i]) {
+                                    dd[i * 4 + 0] = 0;
+                                    dd[i * 4 + 1] = 200;
+                                    dd[i * 4 + 2] = 255;
+                                    dd[i * 4 + 3] = 255;
+                                }
                             }
                             selCtx.putImageData(img, 0, 0);
                         }
@@ -5530,10 +8003,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         ctx.restore();
                     }
                 } catch (_) {}
-             
+
                 try {
                     if (selectionCount > 0 && antsScreenSpace && (antsSegH.length || antsSegV.length)) {
-                        const on = Math.max(0.5, Number(antsBandWidth) || 2); 
+                        const on = Math.max(0.5, Number(antsBandWidth) || 2);
                         const period = Math.max(on * 2, Number(antsTileSize) || on * 2);
                         const off = Math.max(0, period - on);
                         const thick = Math.max(0, Number(antsOutlineThicknessPx) || 0);
@@ -5544,14 +8017,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         ctx.lineCap = 'butt';
                         ctx.lineJoin = 'miter';
                         ctx.setLineDash([on, off]);
-                     
+
                         const strokeAll = (color, dashOffset) => {
                             ctx.strokeStyle = color;
                             ctx.lineDashOffset = -dashOffset;
                             ctx.lineWidth = lw;
                             ctx.globalAlpha = alpha;
                             ctx.beginPath();
-                     
+
                             for (let k = 0; k < antsSegH.length; k++) {
                                 const seg = antsSegH[k];
                                 const yS = Math.round(cy + seg.y * zoom2) + 0.5;
@@ -5560,7 +8033,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 ctx.moveTo(x0S, yS);
                                 ctx.lineTo(x1S, yS);
                             }
-                    
+
                             for (let k = 0; k < antsSegV.length; k++) {
                                 const seg = antsSegV[k];
                                 const xS = Math.round(cx + seg.x * zoom2) + 0.5;
@@ -5571,19 +8044,19 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                             }
                             ctx.stroke();
                         };
-                      
+
                         strokeAll('#000', antsOffset % period);
                         strokeAll('#fff', (antsOffset + on) % period);
                         ctx.restore();
                     } else if (selectionCount > 0 && antsCanvas && antsCanvas.width === dwnW && antsCanvas.height === dwnH) {
-                
+
                         ctx.save();
                         ctx.imageSmoothingEnabled = false;
                         ctx.drawImage(antsCanvas, 0, 0, dwnW, dwnH, Math.round(cx), Math.round(cy), Math.round(drawW), Math.round(drawH));
                         ctx.restore();
                     }
                 } catch (_) {}
-          
+
                 if (editMode && hoverPos) {
                     const [ix, iy] = hoverPos;
                     const size = Math.max(1, Math.round(brushSizeEdit));
@@ -5615,12 +8088,18 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 sy2 = 0,
                 sox2 = 0,
                 soy2 = 0;
-          
+
             let painting = false;
             let panningWhileEdit = false;
+
             function beginStroke() {
-                strokeRec = { indices: [], old: [], seen: new Set() };
+                strokeRec = {
+                    indices: [],
+                    old: [],
+                    seen: new Set()
+                };
             }
+
             function recordBeforeChange(idx4, data) {
                 if (!strokeRec) return;
                 if (strokeRec.seen.has(idx4)) return;
@@ -5628,11 +8107,18 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 strokeRec.indices.push(idx4);
                 strokeRec.old.push(data[idx4], data[idx4 + 1], data[idx4 + 2], data[idx4 + 3]);
             }
+
             function finishStroke() {
-                if (!strokeRec || strokeRec.indices.length === 0) { strokeRec = null; return; }
-           
+                if (!strokeRec || strokeRec.indices.length === 0) {
+                    strokeRec = null;
+                    return;
+                }
+
                 const data = editImageData?.data;
-                if (!data) { strokeRec = null; return; }
+                if (!data) {
+                    strokeRec = null;
+                    return;
+                }
                 const newArr = new Uint8ClampedArray(strokeRec.indices.length * 4);
                 for (let i = 0; i < strokeRec.indices.length; i++) {
                     const base = strokeRec.indices[i];
@@ -5653,10 +8139,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 strokeRec = null;
                 updateUndoRedoButtons();
             }
+
             function applyAction(act, useOld) {
                 if (!act) return;
                 if (act.kind === 'selection') {
-                    ensureSelectionBuffer(); ensureSelCanvas();
+                    ensureSelectionBuffer();
+                    ensureSelCanvas();
                     const src = useOld ? act.old : act.neu;
                     for (let i = 0; i < act.indices.length; i++) {
                         const si = act.indices[i];
@@ -5665,7 +8153,8 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         if (prev === next) continue;
                         selectionMask[si] = next;
                         selectionCount += (next - prev);
-                        const x = si % dwnW, y = (si / dwnW) | 0;
+                        const x = si % dwnW,
+                            y = (si / dwnW) | 0;
                         if (next) {
                             selCtx.fillStyle = '#00c8ff';
                             selCtx.fillRect(x, y, 1, 1);
@@ -5687,10 +8176,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         data[base + 2] = src[di + 2];
                         data[base + 3] = src[di + 3];
                     }
-                    try { sctx.putImageData(editImageData, 0, 0); } catch {}
+                    try {
+                        sctx.putImageData(editImageData, 0, 0);
+                    } catch {}
                     render();
                 }
             }
+
             function doUndo() {
                 if (!undoStack.length) return;
                 const act = undoStack.pop();
@@ -5699,6 +8191,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 if (redoStack.length > UNDO_LIMIT) redoStack.shift();
                 updateUndoRedoButtons();
             }
+
             function doRedo() {
                 if (!redoStack.length) return;
                 const act = redoStack.pop();
@@ -5707,18 +8200,22 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 if (undoStack.length > UNDO_LIMIT) undoStack.shift();
                 updateUndoRedoButtons();
             }
+
             function updateUndoRedoButtons() {
                 try {
                     btnUndo.disabled = !undoStack.length;
                     btnRedo.disabled = !redoStack.length;
                 } catch (_) {}
             }
+
             function onKeyDownEdit(e) {
                 if (!editMode) return;
                 const tag = (e.target && (e.target.tagName || '')).toLowerCase();
                 const key = (e.key || '').toLowerCase();
                 if (key === 'alt') {
-                    try { btnToolEyedropper.classList.add('primary'); } catch {}
+                    try {
+                        btnToolEyedropper.classList.add('primary');
+                    } catch {}
                     return;
                 }
                 if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
@@ -5728,27 +8225,43 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         e.preventDefault();
                         eraser = false;
                         eyedropper = false;
-                        try { btnToolBrush.classList.add('primary'); } catch {}
-                        try { btnToolEraser.classList.remove('primary'); } catch {}
-                        try { btnToolEyedropper.classList.remove('primary'); } catch {}
+                        try {
+                            btnToolBrush.classList.add('primary');
+                        } catch {}
+                        try {
+                            btnToolEraser.classList.remove('primary');
+                        } catch {}
+                        try {
+                            btnToolEyedropper.classList.remove('primary');
+                        } catch {}
                         return;
                     }
                     if (key === 'e') {
                         e.preventDefault();
                         eraser = true;
                         eyedropper = false;
-                        try { btnToolEraser.classList.add('primary'); } catch {}
-                        try { btnToolBrush.classList.remove('primary'); } catch {}
-                        try { btnToolEyedropper.classList.remove('primary'); } catch {}
+                        try {
+                            btnToolEraser.classList.add('primary');
+                        } catch {}
+                        try {
+                            btnToolBrush.classList.remove('primary');
+                        } catch {}
+                        try {
+                            btnToolEyedropper.classList.remove('primary');
+                        } catch {}
                         return;
                     }
                     if (key === 's') {
                         e.preventDefault();
                         selectMode = !selectMode;
-                        try { btnToolSelect.classList.toggle('primary', selectMode); } catch {}
-                       
+                        try {
+                            btnToolSelect.classList.toggle('primary', selectMode);
+                        } catch {}
+
                         eyedropper = false;
-                        try { btnToolEyedropper.classList.remove('primary'); } catch {}
+                        try {
+                            btnToolEyedropper.classList.remove('primary');
+                        } catch {}
                         render();
                         return;
                     }
@@ -5761,6 +8274,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     doRedo();
                 }
             }
+
             function onKeyUpEdit(e) {
                 if (!editMode) return;
                 const key = (e.key || '').toLowerCase();
@@ -5770,10 +8284,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     } catch {}
                 }
             }
+
             function mapClientToPixel(clientX, clientY) {
                 const rect = canvas.getBoundingClientRect();
-                const vw = canvas.width, vh = canvas.height;
-                const drawW = dwnW * zoom2, drawH = dwnH * zoom2;
+                const vw = canvas.width,
+                    vh = canvas.height;
+                const drawW = dwnW * zoom2,
+                    drawH = dwnH * zoom2;
                 const cx = (vw - drawW) / 2 + offX2;
                 const cy = (vh - drawH) / 2 + offY2;
                 const x = Math.floor((clientX - rect.left - cx) / Math.max(1e-6, zoom2));
@@ -5781,6 +8298,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 if (x < 0 || y < 0 || x >= dwnW || y >= dwnH) return null;
                 return [x, y];
             }
+
             function pickColorAt(clientX, clientY) {
                 if (!editImageData) return;
                 const pos = mapClientToPixel(clientX, clientY);
@@ -5801,50 +8319,73 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 updateActivePaletteUI();
                 render();
             }
+
             function ensureSelectionBuffer() {
                 if (!selectionMask || selectionMask.length !== dwnW * dwnH) {
                     selectionMask = new Uint8Array(dwnW * dwnH);
                     selectionCount = 0;
                 }
             }
+
             function ensureSelCanvas() {
                 if (!selCanvas || selCanvas.width !== dwnW || selCanvas.height !== dwnH) {
                     selCanvas = document.createElement('canvas');
-                    selCanvas.width = dwnW; selCanvas.height = dwnH;
-                    selCtx = selCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+                    selCanvas.width = dwnW;
+                    selCanvas.height = dwnH;
+                    selCtx = selCanvas.getContext('2d', {
+                        willReadFrequently: true,
+                        alpha: true
+                    });
                 }
             }
+
             function rebuildSelOverlayFromMask() {
                 ensureSelCanvas();
                 const img = selCtx.createImageData(dwnW, dwnH);
                 const dd = img.data;
                 for (let i = 0; i < selectionMask.length; i++) {
-                    if (selectionMask[i]) { dd[i*4+0]=0; dd[i*4+1]=200; dd[i*4+2]=255; dd[i*4+3]=255; }
+                    if (selectionMask[i]) {
+                        dd[i * 4 + 0] = 0;
+                        dd[i * 4 + 1] = 200;
+                        dd[i * 4 + 2] = 255;
+                        dd[i * 4 + 3] = 255;
+                    }
                 }
                 selCtx.putImageData(img, 0, 0);
                 rebuildAntsMaskFromSelection();
             }
-          
+
             function ensureAntsCanvases() {
                 if (!antsCanvas || antsCanvas.width !== dwnW || antsCanvas.height !== dwnH) {
                     antsCanvas = document.createElement('canvas');
-                    antsCanvas.width = dwnW; antsCanvas.height = dwnH;
-                    antsCtx = antsCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+                    antsCanvas.width = dwnW;
+                    antsCanvas.height = dwnH;
+                    antsCtx = antsCanvas.getContext('2d', {
+                        willReadFrequently: true,
+                        alpha: true
+                    });
                 }
                 if (!antsMaskCanvas || antsMaskCanvas.width !== dwnW || antsMaskCanvas.height !== dwnH) {
                     antsMaskCanvas = document.createElement('canvas');
-                    antsMaskCanvas.width = dwnW; antsMaskCanvas.height = dwnH;
-                    antsMaskCtx = antsMaskCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+                    antsMaskCanvas.width = dwnW;
+                    antsMaskCanvas.height = dwnH;
+                    antsMaskCtx = antsMaskCanvas.getContext('2d', {
+                        willReadFrequently: true,
+                        alpha: true
+                    });
                 }
-              
+
                 const ts = Math.max(2, Math.floor(antsTileSize) || 8);
                 const bw = Math.max(0, Math.min(ts, Math.floor(antsBandWidth) || 0));
                 if (!antsPatternCanvas || antsPatternSizeCache !== ts || antsPatternBandCache !== bw) {
                     antsPatternSizeCache = ts;
                     antsPatternBandCache = bw;
                     const tile = document.createElement('canvas');
-                    tile.width = ts; tile.height = ts;
-                    const tctx = tile.getContext('2d', { alpha: true });
+                    tile.width = ts;
+                    tile.height = ts;
+                    const tctx = tile.getContext('2d', {
+                        alpha: true
+                    });
                     const img = tctx.createImageData(ts, ts);
                     const d = img.data;
                     for (let y = 0; y < ts; y++) {
@@ -5852,15 +8393,19 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                             const band = (((x + y) % ts) < bw);
                             const c = band ? 0 : 255;
                             const i = (y * ts + x) * 4;
-                            d[i] = c; d[i+1] = c; d[i+2] = c; d[i+3] = 255;
+                            d[i] = c;
+                            d[i + 1] = c;
+                            d[i + 2] = c;
+                            d[i + 3] = 255;
                         }
                     }
                     tctx.putImageData(img, 0, 0);
                     antsPatternCanvas = tile;
-                 
+
                     antsOffset = ((antsOffset % ts) + ts) % ts;
                 }
             }
+
             function rebuildAntsMaskFromSelection() {
                 ensureAntsCanvases();
                 antsMaskCtx.clearRect(0, 0, dwnW, dwnH);
@@ -5873,56 +8418,60 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 }
                 const img = antsMaskCtx.createImageData(dwnW, dwnH);
                 const dd = img.data;
-              
+
                 const thick = Math.max(0, Number(antsOutlineThicknessPx) || 0);
-                const full = Math.floor(thick);         
-                const frac = thick - full;             
-                const innerRad = Math.max(0, full - 1);  
+                const full = Math.floor(thick);
+                const frac = thick - full;
+                const innerRad = Math.max(0, full - 1);
                 for (let y = 0; y < dwnH; y++) {
                     const row = y * dwnW;
                     for (let x = 0; x < dwnW; x++) {
                         const i = row + x;
                         if (!selectionMask[i]) continue;
                         let isEdge = false;
-                  
+
                         if (x === 0 || !selectionMask[i - 1]) isEdge = true;
                         else if (x === dwnW - 1 || !selectionMask[i + 1]) isEdge = true;
                         else if (y === 0 || !selectionMask[i - dwnW]) isEdge = true;
                         else if (y === dwnH - 1 || !selectionMask[i + dwnW]) isEdge = true;
                         if (isEdge) {
                             if (thick < 1) {
-                             
+
                                 const a = Math.round(255 * thick);
-                                dd[i*4+3] = Math.max(dd[i*4+3], a);
+                                dd[i * 4 + 3] = Math.max(dd[i * 4 + 3], a);
                             } else {
-                          
+
                                 if (innerRad === 0) {
-                                    dd[i*4+3] = 255;
+                                    dd[i * 4 + 3] = 255;
                                 } else {
                                     for (let dy = -innerRad; dy <= innerRad; dy++) {
-                                        const yy = y + dy; if (yy < 0 || yy >= dwnH) continue;
+                                        const yy = y + dy;
+                                        if (yy < 0 || yy >= dwnH) continue;
                                         const mdx = innerRad - Math.abs(dy);
                                         const base = yy * dwnW;
                                         for (let dx = -mdx; dx <= mdx; dx++) {
-                                            const xx = x + dx; if (xx < 0 || xx >= dwnW) continue;
+                                            const xx = x + dx;
+                                            if (xx < 0 || xx >= dwnW) continue;
                                             const j = base + xx;
-                                            dd[j*4+3] = 255;
+                                            dd[j * 4 + 3] = 255;
                                         }
                                     }
                                 }
-                             
+
                                 if (frac > 0) {
                                     const r2 = innerRad + 1;
                                     const a2 = Math.round(255 * frac);
                                     for (let dy = -r2; dy <= r2; dy++) {
-                                        const yy = y + dy; if (yy < 0 || yy >= dwnH) continue;
+                                        const yy = y + dy;
+                                        if (yy < 0 || yy >= dwnH) continue;
                                         const mdx = r2 - Math.abs(dy);
                                         const base = yy * dwnW;
                                         for (let dx = -mdx; dx <= mdx; dx++) {
-                                            const xx = x + dx; if (xx < 0 || xx >= dwnW) continue;
+                                            const xx = x + dx;
+                                            if (xx < 0 || xx >= dwnW) continue;
                                             const j = base + xx;
-                                         
-                                            dd[j*4+3] = Math.max(dd[j*4+3], a2);
+
+                                            dd[j * 4 + 3] = Math.max(dd[j * 4 + 3], a2);
                                         }
                                     }
                                 }
@@ -5931,41 +8480,49 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     }
                 }
                 antsMaskCtx.putImageData(img, 0, 0);
-              
+
                 antsSegH = [];
                 antsSegV = [];
-             
+
                 for (let y = 0; y < dwnH; y++) {
                     const row = y * dwnW;
-                    
+
                     let x = 0;
                     while (x < dwnW) {
-                      
+
                         if (selectionMask[row + x] && (y === 0 || !selectionMask[row + x - dwnW])) {
                             let x0 = x;
                             x++;
                             while (x < dwnW && selectionMask[row + x] && (y === 0 || !selectionMask[row + x - dwnW])) x++;
-                            antsSegH.push({ y: y, x0, x1: x - 1 });
+                            antsSegH.push({
+                                y: y,
+                                x0,
+                                x1: x - 1
+                            });
                         } else {
                             x++;
                         }
                     }
-                
+
                     x = 0;
                     while (x < dwnW) {
                         if (selectionMask[row + x] && (y === dwnH - 1 || !selectionMask[row + x + dwnW])) {
                             let x0 = x;
                             x++;
                             while (x < dwnW && selectionMask[row + x] && (y === dwnH - 1 || !selectionMask[row + x + dwnW])) x++;
-                            antsSegH.push({ y: y + 1, x0, x1: x - 1 });
+                            antsSegH.push({
+                                y: y + 1,
+                                x0,
+                                x1: x - 1
+                            });
                         } else {
                             x++;
                         }
                     }
                 }
-             
+
                 for (let x = 0; x < dwnW; x++) {
-                 
+
                     let y = 0;
                     while (y < dwnH) {
                         const i = y * dwnW + x;
@@ -5974,14 +8531,19 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                             y++;
                             while (y < dwnH) {
                                 const j = y * dwnW + x;
-                                if (selectionMask[j] && (x === 0 || !selectionMask[j - 1])) y++; else break;
+                                if (selectionMask[j] && (x === 0 || !selectionMask[j - 1])) y++;
+                                else break;
                             }
-                            antsSegV.push({ x: x, y0, y1: y - 1 });
+                            antsSegV.push({
+                                x: x,
+                                y0,
+                                y1: y - 1
+                            });
                         } else {
                             y++;
                         }
                     }
-                
+
                     y = 0;
                     while (y < dwnH) {
                         const i2 = y * dwnW + x;
@@ -5990,9 +8552,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                             y++;
                             while (y < dwnH) {
                                 const j2 = y * dwnW + x;
-                                if (selectionMask[j2] && (x === dwnW - 1 || !selectionMask[j2 + 1])) y++; else break;
+                                if (selectionMask[j2] && (x === dwnW - 1 || !selectionMask[j2 + 1])) y++;
+                                else break;
                             }
-                            antsSegV.push({ x: x + 1, y0, y1: y - 1 });
+                            antsSegV.push({
+                                x: x + 1,
+                                y0,
+                                y1: y - 1
+                            });
                         } else {
                             y++;
                         }
@@ -6001,25 +8568,27 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 redrawAnts();
                 startAntsAnimation();
             }
+
             function redrawAnts() {
                 ensureAntsCanvases();
-                antsCtx.setTransform(1,0,0,1,0,0);
+                antsCtx.setTransform(1, 0, 0, 1, 0, 0);
                 antsCtx.clearRect(0, 0, dwnW, dwnH);
                 if (!selectionMask || selectionCount <= 0) return;
                 const pat = antsCtx.createPattern(antsPatternCanvas, 'repeat');
                 if (!pat) return;
                 antsCtx.save();
-             
+
                 antsCtx.setTransform(1, 0, 0, 1, antsOffset, antsOffset);
                 antsCtx.fillStyle = pat;
-             
+
                 const ts = antsPatternSizeCache || 8;
-                antsCtx.fillRect(-antsOffset - ts, -antsOffset - ts, dwnW + ts*2, dwnH + ts*2);
+                antsCtx.fillRect(-antsOffset - ts, -antsOffset - ts, dwnW + ts * 2, dwnH + ts * 2);
                 antsCtx.restore();
                 antsCtx.globalCompositeOperation = 'destination-in';
                 antsCtx.drawImage(antsMaskCanvas, 0, 0);
                 antsCtx.globalCompositeOperation = 'source-over';
             }
+
             function startAntsAnimation() {
                 if (antsAnimating) return;
                 if (!selectionMask || selectionCount <= 0) return;
@@ -6028,7 +8597,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 const step = (t) => {
                     if (!antsAnimating) return;
                     if (!lastT) lastT = t;
-            
+
                     const dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000));
                     lastT = t;
                     const ts = Math.max(2, Math.floor(antsPatternSizeCache || antsTileSize) || 8);
@@ -6040,12 +8609,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 };
                 antsAnimRAF = requestAnimationFrame(step);
             }
+
             function stopAntsAnimation() {
                 antsAnimating = false;
                 cancelAnimationFrame(antsAnimRAF);
                 requestRender();
             }
-       
+
             function requestRender() {
                 if (renderScheduled) return;
                 renderScheduled = true;
@@ -6054,8 +8624,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     render();
                 });
             }
-       
-            function beginSelStroke() { selStrokeRec = { indices: [], old: [], seen: new Set() }; }
+
+            function beginSelStroke() {
+                selStrokeRec = {
+                    indices: [],
+                    old: [],
+                    seen: new Set()
+                };
+            }
+
             function recordSelBeforeChange(si) {
                 if (!selStrokeRec) return;
                 if (selStrokeRec.seen.has(si)) return;
@@ -6063,21 +8640,30 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 selStrokeRec.indices.push(si);
                 selStrokeRec.old.push(selectionMask ? (selectionMask[si] | 0) : 0);
             }
+
             function finishSelStroke() {
-                if (!selStrokeRec || selStrokeRec.indices.length === 0) { selStrokeRec = null; return; }
+                if (!selStrokeRec || selStrokeRec.indices.length === 0) {
+                    selStrokeRec = null;
+                    return;
+                }
                 ensureSelectionBuffer();
                 const neu = new Uint8Array(selStrokeRec.indices.length);
                 for (let i = 0; i < selStrokeRec.indices.length; i++) {
                     neu[i] = selectionMask[selStrokeRec.indices[i]] | 0;
                 }
-                const act = { kind: 'selection', indices: new Uint32Array(selStrokeRec.indices), old: new Uint8Array(selStrokeRec.old), neu };
+                const act = {
+                    kind: 'selection',
+                    indices: new Uint32Array(selStrokeRec.indices),
+                    old: new Uint8Array(selStrokeRec.old),
+                    neu
+                };
                 undoStack.push(act);
                 if (undoStack.length > UNDO_LIMIT) undoStack.shift();
                 redoStack = [];
                 selStrokeRec = null;
                 updateUndoRedoButtons();
             }
-      
+
             function modifySelectionAt(clientX, clientY) {
                 ensureSelectionBuffer();
                 ensureSelCanvas();
@@ -6100,7 +8686,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         let next = prev;
                         if (op === 'add') next = 1;
                         else if (op === 'subtract') next = 0;
-                        else /* toggle */ next = prev ^ 1;
+                        else next = prev ^ 1;
                         if (prev !== next) {
                             recordSelBeforeChange(si);
                             selectionMask[si] = next;
@@ -6110,20 +8696,21 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     }
                 }
                 if (selectionCount < 0) selectionCount = 0;
-                const ww = x1 - x0 + 1, hh = y1 - y0 + 1;
+                const ww = x1 - x0 + 1,
+                    hh = y1 - y0 + 1;
                 if (op === 'add') {
                     selCtx.fillStyle = '#00c8ff';
                     selCtx.fillRect(x0, y0, ww, hh);
                 } else if (op === 'subtract') {
                     selCtx.clearRect(x0, y0, ww, hh);
                 } else {
-                  
+
                     if (toggledAny) rebuildSelOverlayFromMask();
                 }
                 if (!deferAntsWhileStroke) rebuildAntsMaskFromSelection();
                 requestRender();
             }
-    
+
             function paintAt(clientX, clientY) {
                 if (!editMode || !editImageData) return;
                 const pos = mapClientToPixel(clientX, clientY);
@@ -6145,7 +8732,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         }
                         recordBeforeChange(idx, data);
                         if (eraser) {
-                            data[idx + 3] = 0; 
+                            data[idx + 3] = 0;
                         } else {
                             data[idx + 0] = editColor[0] | 0;
                             data[idx + 1] = editColor[1] | 0;
@@ -6154,27 +8741,33 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         }
                     }
                 }
-                try { sctx.putImageData(editImageData, 0, 0); } catch {}
+                try {
+                    sctx.putImageData(editImageData, 0, 0);
+                } catch {}
                 render();
             }
             preview.addEventListener("pointerdown", (e) => {
                 if (editMode) {
-                   
+
                     if (e.button === 0) {
                         const tempPick = !!e.altKey;
                         if (eyedropper || tempPick) {
                             pickColorAt(e.clientX, e.clientY);
-                          
+
                             if (eyedropper) {
                                 eyedropper = false;
-                                try { btnToolEyedropper.classList.remove("primary"); } catch {}
+                                try {
+                                    btnToolEyedropper.classList.remove("primary");
+                                } catch {}
                                 eraser = false;
-                                try { btnToolBrush.classList.add("primary"); } catch {}
+                                try {
+                                    btnToolBrush.classList.add("primary");
+                                } catch {}
                             }
                             return;
                         }
                         if (magicSelectMode) {
-           
+
                             preview.setPointerCapture?.(e.pointerId);
                             let mode = 'replace';
                             if (e.shiftKey) {
@@ -6186,7 +8779,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 }
                                 mode = under ? 'subtract' : 'add';
                             }
-                            doQuickSelectAt(e.clientX, e.clientY, { mode, tolerance: magicTolerance });
+                            doQuickSelectAt(e.clientX, e.clientY, {
+                                mode,
+                                tolerance: magicTolerance
+                            });
                             return;
                         }
                         if (selectMode) {
@@ -6203,7 +8799,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         beginStroke();
                         paintAt(e.clientX, e.clientY);
                     } else if (e.button === 1 || e.button === 2) {
-                   
+
                         e.preventDefault();
                         panningWhileEdit = true;
                         preview.setPointerCapture?.(e.pointerId);
@@ -6231,10 +8827,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         return;
                     }
                     if (painting) {
-                        if (selectMode) modifySelectionAt(e.clientX, e.clientY); else paintAt(e.clientX, e.clientY);
+                        if (selectMode) modifySelectionAt(e.clientX, e.clientY);
+                        else paintAt(e.clientX, e.clientY);
                         return;
                     }
-                  
+
                     render();
                     return;
                 }
@@ -6261,11 +8858,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             });
             preview.addEventListener("wheel", (e) => {
                 e.preventDefault();
-              
+
                 if (editMode && (e.ctrlKey || e.metaKey)) {
                     const dir = e.deltaY > 0 ? -1 : 1;
                     brushSizeEdit = clamp(brushSizeEdit + dir, 1, 64);
-                    try { sizeInp.value = String(brushSizeEdit); } catch {}
+                    try {
+                        sizeInp.value = String(brushSizeEdit);
+                    } catch {}
                     render();
                     return;
                 }
@@ -6287,11 +8886,11 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }, {
                 passive: !1
             });
-         
+
             preview.addEventListener("contextmenu", (e) => {
                 if (editMode) e.preventDefault();
             });
-     
+
             const editToolbar = el("div", null);
             editToolbar.style.position = "absolute";
             editToolbar.style.top = "8px";
@@ -6316,8 +8915,12 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             btnRedo.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 5l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 19a8 8 0 0 1 8-8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
             btnRedo.title = t("redoTitle");
             btnRedo.disabled = true;
-            btnUndo.addEventListener('click', () => { if (editMode) doUndo(); });
-            btnRedo.addEventListener('click', () => { if (editMode) doRedo(); });
+            btnUndo.addEventListener('click', () => {
+                if (editMode) doUndo();
+            });
+            btnRedo.addEventListener('click', () => {
+                if (editMode) doRedo();
+            });
             const btnToolBrush = el("button", "btn icon primary");
             btnToolBrush.title = t("brushTitle");
             btnToolBrush.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 17C4 15.3431 5.34315 14 7 14V14C8.65685 14 10 15.3431 10 17V17C10 18.6569 8.65685 20 7 20H4.54545C4.24421 20 4 19.7558 4 19.4545V18.5V17V17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 13.7542L15.5898 5.32104C16.3563 4.46932 17.6804 4.4345 18.4906 5.24475L18.6229 5.37708L18.7552 5.5094C19.5655 6.31965 19.5307 7.64365 18.679 8.4102L10.2458 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -6343,6 +8946,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             paletteWrap.style.display = "flex";
             paletteWrap.style.flexWrap = "wrap";
             paletteWrap.style.gap = "6px";
+
             function getColorNameForRgb(rgb) {
                 try {
                     const m = MASTER_COLORS.find(c => c.rgb && c.rgb[0] === rgb[0] && c.rgb[1] === rgb[1] && c.rgb[2] === rgb[2]);
@@ -6351,6 +8955,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 const toHex = (n) => n.toString(16).padStart(2, '0');
                 return `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
             }
+
             function findPaletteIndex(rgb) {
                 try {
                     for (let i = 0; i < editPalette.length; i++) {
@@ -6360,6 +8965,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 } catch {}
                 return -1;
             }
+
             function updateActivePaletteUI() {
                 const children = Array.from(paletteWrap.children);
                 children.forEach((node, idx) => {
@@ -6372,6 +8978,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     }
                 });
             }
+
             function rebuildPaletteUI() {
                 paletteWrap.innerHTML = "";
                 editPalette.forEach((item, idx) => {
@@ -6386,13 +8993,17 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     b.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
                     b.title = item.name || getColorNameForRgb(rgb);
                     b.setAttribute("aria-label", b.title);
-                
-                    b.addEventListener("pointerdown", (e) => { e.stopPropagation(); });
+
+                    b.addEventListener("pointerdown", (e) => {
+                        e.stopPropagation();
+                    });
                     b.addEventListener("click", () => {
                         eraser = false;
                         btnToolBrush.classList.add("primary");
                         btnToolEraser.classList.remove("primary");
-                        try { btnToolEyedropper.classList.remove("primary"); } catch {}
+                        try {
+                            btnToolEyedropper.classList.remove("primary");
+                        } catch {}
                         eyedropper = false;
                         editColor = rgb.slice();
                         activeColorIdx = idx;
@@ -6408,26 +9019,38 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 eraser = false;
                 btnToolBrush.classList.add("primary");
                 btnToolEraser.classList.remove("primary");
-                try { btnToolEyedropper.classList.remove("primary"); } catch {}
+                try {
+                    btnToolEyedropper.classList.remove("primary");
+                } catch {}
                 eyedropper = false;
 
                 selectMode = false;
-                try { btnToolSelect.classList.remove("primary"); } catch {}
+                try {
+                    btnToolSelect.classList.remove("primary");
+                } catch {}
                 magicSelectMode = false;
-                try { btnToolMagic.classList.remove("primary"); } catch {}
+                try {
+                    btnToolMagic.classList.remove("primary");
+                } catch {}
             });
             btnToolEraser.addEventListener("click", () => {
                 eraser = true;
                 btnToolEraser.classList.add("primary");
                 btnToolBrush.classList.remove("primary");
-                try { btnToolEyedropper.classList.remove("primary"); } catch {}
+                try {
+                    btnToolEyedropper.classList.remove("primary");
+                } catch {}
                 eyedropper = false;
                 selectMode = false;
-                try { btnToolSelect.classList.remove("primary"); } catch {}
+                try {
+                    btnToolSelect.classList.remove("primary");
+                } catch {}
                 magicSelectMode = false;
-                try { btnToolMagic.classList.remove("primary"); } catch {}
+                try {
+                    btnToolMagic.classList.remove("primary");
+                } catch {}
             });
-        
+
             btnToolBrush.addEventListener("pointerdown", (e) => e.stopPropagation());
             btnToolEraser.addEventListener("pointerdown", (e) => e.stopPropagation());
             sizeInp.addEventListener("change", () => {
@@ -6447,8 +9070,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     btnToolEyedropper.classList.add("primary");
                     btnToolBrush.classList.remove("primary");
                     btnToolEraser.classList.remove("primary");
-                    selectMode = false; try { btnToolSelect.classList.remove("primary"); } catch {}
-                    magicSelectMode = false; try { btnToolMagic.classList.remove("primary"); } catch {}
+                    selectMode = false;
+                    try {
+                        btnToolSelect.classList.remove("primary");
+                    } catch {}
+                    magicSelectMode = false;
+                    try {
+                        btnToolMagic.classList.remove("primary");
+                    } catch {}
                 } else {
                     btnToolEyedropper.classList.remove("primary");
                 }
@@ -6456,21 +9085,26 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             btnToolEyedropper.addEventListener("pointerdown", (e) => e.stopPropagation());
 
             let tolPopover = null;
+
             function closeTolPopover() {
                 if (!tolPopover) return;
-                try { tolPopover.remove(); } catch {}
+                try {
+                    tolPopover.remove();
+                } catch {}
                 tolPopover = null;
                 document.removeEventListener('pointerdown', onOutsideClick, true);
                 window.removeEventListener('resize', closeTolPopover);
                 window.removeEventListener('scroll', closeTolPopover, true);
                 document.removeEventListener('keydown', onTolKeyDown, true);
             }
+
             function onOutsideClick(ev) {
                 if (!tolPopover) return;
                 const t = ev.target;
                 if (tolPopover.contains(t) || btnToolMagic.contains(t)) return;
                 closeTolPopover();
             }
+
             function openTolPopover(anchorRect) {
                 closeTolPopover();
                 const wrap = document.createElement('div');
@@ -6519,18 +9153,20 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
                 document.body.append(wrap);
 
-        
+
                 const rect = anchorRect || btnToolMagic.getBoundingClientRect();
                 const margin = 8;
                 const position = () => {
-                    const vw = window.innerWidth, vh = window.innerHeight;
-                    const pw = wrap.offsetWidth, ph = wrap.offsetHeight;
-      
+                    const vw = window.innerWidth,
+                        vh = window.innerHeight;
+                    const pw = wrap.offsetWidth,
+                        ph = wrap.offsetHeight;
+
                     let left = rect.left + (rect.width / 2) - (pw / 2);
                     let top = rect.top - ph - margin;
-          
+
                     if (top < margin) top = rect.bottom + margin;
-  
+
                     const maxLeft = Math.max(vw - pw - margin, margin);
                     const maxTop = Math.max(vh - ph - margin, margin);
                     left = Math.min(Math.max(left, margin), maxLeft);
@@ -6538,7 +9174,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     wrap.style.left = left + 'px';
                     wrap.style.top = top + 'px';
                 };
-        
+
                 requestAnimationFrame(position);
 
                 tolPopover = wrap;
@@ -6547,14 +9183,26 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 window.addEventListener('scroll', closeTolPopover, true);
                 document.addEventListener('keydown', onTolKeyDown, true);
             }
-            function onTolKeyDown(e) { if ((e.key || '').toLowerCase() === 'escape') closeTolPopover(); }
+
+            function onTolKeyDown(e) {
+                if ((e.key || '').toLowerCase() === 'escape') closeTolPopover();
+            }
             btnToolMagic.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (tolPopover) { closeTolPopover(); }
-                else {
-                    const x = e.clientX, y = e.clientY;
-                    const r = { left: x, top: y, right: x, bottom: y, width: 0, height: 0 };
+                if (tolPopover) {
+                    closeTolPopover();
+                } else {
+                    const x = e.clientX,
+                        y = e.clientY;
+                    const r = {
+                        left: x,
+                        top: y,
+                        right: x,
+                        bottom: y,
+                        width: 0,
+                        height: 0
+                    };
                     openTolPopover(r);
                 }
             });
@@ -6562,11 +9210,16 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             btnToolSelect.addEventListener("click", () => {
                 selectMode = !selectMode;
                 btnToolSelect.classList.toggle("primary", selectMode);
-            
+
                 if (selectMode) {
                     eyedropper = false;
-                    try { btnToolEyedropper.classList.remove("primary"); } catch {}
-                    magicSelectMode = false; try { btnToolMagic.classList.remove("primary"); } catch {}
+                    try {
+                        btnToolEyedropper.classList.remove("primary");
+                    } catch {}
+                    magicSelectMode = false;
+                    try {
+                        btnToolMagic.classList.remove("primary");
+                    } catch {}
                 }
                 render();
             });
@@ -6575,28 +9228,46 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 magicSelectMode = !magicSelectMode;
                 btnToolMagic.classList.toggle("primary", magicSelectMode);
                 if (magicSelectMode) {
-                   
-                    selectMode = false; try { btnToolSelect.classList.remove("primary"); } catch {}
-                    eyedropper = false; try { btnToolEyedropper.classList.remove("primary"); } catch {}
+
+                    selectMode = false;
+                    try {
+                        btnToolSelect.classList.remove("primary");
+                    } catch {}
+                    eyedropper = false;
+                    try {
+                        btnToolEyedropper.classList.remove("primary");
+                    } catch {}
                 }
             });
             btnToolMagic.addEventListener("pointerdown", (e) => e.stopPropagation());
             btnClearSel.addEventListener("click", () => {
                 ensureSelectionBuffer();
                 ensureSelCanvas();
-         
+
                 const idxs = [];
                 const olds = [];
                 for (let i = 0; i < selectionMask.length; i++) {
-                    if (selectionMask[i]) { idxs.push(i); olds.push(1); }
+                    if (selectionMask[i]) {
+                        idxs.push(i);
+                        olds.push(1);
+                    }
                 }
-                const act = { kind: 'selection', indices: new Uint32Array(idxs), old: new Uint8Array(olds), neu: new Uint8Array(olds.length) };
+                const act = {
+                    kind: 'selection',
+                    indices: new Uint32Array(idxs),
+                    old: new Uint8Array(olds),
+                    neu: new Uint8Array(olds.length)
+                };
                 selectionMask.fill(0);
                 selectionCount = 0;
                 selCtx.clearRect(0, 0, dwnW, dwnH);
-          
-                try { stopAntsAnimation(); } catch {}
-                try { antsCtx && antsCtx.clearRect(0, 0, dwnW, dwnH); } catch {}
+
+                try {
+                    stopAntsAnimation();
+                } catch {}
+                try {
+                    antsCtx && antsCtx.clearRect(0, 0, dwnW, dwnH);
+                } catch {}
                 undoStack.push(act);
                 if (undoStack.length > UNDO_LIMIT) undoStack.shift();
                 redoStack = [];
@@ -6608,19 +9279,23 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             editToolbar.append(toolRow, paletteWrap);
             preview.style.position = "relative";
             preview.append(editToolbar);
-         
-            ["pointerdown","pointermove","pointerup"].forEach(ev => {
-                editToolbar.addEventListener(ev, (e) => { e.stopPropagation(); });
+
+            ["pointerdown", "pointermove", "pointerup"].forEach(ev => {
+                editToolbar.addEventListener(ev, (e) => {
+                    e.stopPropagation();
+                });
             });
-           
+
             document.addEventListener('keydown', onKeyDownEdit, true);
             document.addEventListener('keyup', onKeyUpEdit, true);
 
             function setControlsDisabled(dis) {
                 [method, slider, quant, space, dith, dithStr, sliderGrow, sliderShrink, btnClearRef, btnAddFreeRef, btnSelectAllRef, btnImportOwnedRef].forEach(elm => {
-                    try { elm.disabled = !!dis; } catch {}
+                    try {
+                        elm.disabled = !!dis;
+                    } catch {}
                 });
-                
+
             }
 
             btnEdit.addEventListener("click", () => {
@@ -6629,27 +9304,39 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         lockedForEdit = true;
                     }
                     setControlsDisabled(true);
-                
-                    try { editImageData = sctx.getImageData(0, 0, dwnW, dwnH); } catch { editImageData = null; }
+
+                    try {
+                        editImageData = sctx.getImageData(0, 0, dwnW, dwnH);
+                    } catch {
+                        editImageData = null;
+                    }
                     if (currentPalette && currentPalette.length) {
-                        editPalette = currentPalette.map(rgb => ({ rgb, name: getColorNameForRgb(rgb) }));
+                        editPalette = currentPalette.map(rgb => ({
+                            rgb,
+                            name: getColorNameForRgb(rgb)
+                        }));
                     } else {
-                        editPalette = MASTER_COLORS.filter(c => !c.paid).map(c => ({ rgb: c.rgb, name: c.name }));
+                        editPalette = MASTER_COLORS.filter(c => !c.paid).map(c => ({
+                            rgb: c.rgb,
+                            name: c.name
+                        }));
                     }
                     activeColorIdx = 0;
-                    editColor = editPalette[0] ? editPalette[0].rgb.slice() : [0,0,0];
+                    editColor = editPalette[0] ? editPalette[0].rgb.slice() : [0, 0, 0];
                     rebuildPaletteUI();
                     editMode = true;
                     btnEdit.textContent = t("done");
                     editToolbar.style.display = '';
-                   
+
                     undoStack = [];
                     redoStack = [];
                     updateUndoRedoButtons();
                 } else {
-                 
-                    try { sctx.putImageData(editImageData, 0, 0); } catch {}
-                
+
+                    try {
+                        sctx.putImageData(editImageData, 0, 0);
+                    } catch {}
+
                     try {
                         const off = document.createElement('canvas');
                         off.width = dwnW;
@@ -6659,7 +9346,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         editedSourceW = dwnW;
                         editedSourceH = dwnH;
                         useEditedSource = true;
-                       
+
                         const post = sctx.getImageData(0, 0, dwnW, dwnH);
                         baseSmallData = new Uint8ClampedArray(post.data);
                         processQuantAndDither();
@@ -6668,11 +9355,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     editMode = false;
                     btnEdit.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> ' + t("brush");
                     editToolbar.style.display = 'none';
-                  
+
                     lockedForEdit = false;
                     setControlsDisabled(false);
-                    
-                    try { applyUIState(); } catch {}
+
+                    try {
+                        applyUIState();
+                    } catch {}
                 }
             });
 
@@ -6688,7 +9377,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 slider.value = String(pixelSize);
                 pxVal.textContent = String(pixelSize);
                 fullRecalc();
-            
+
                 offX2 = 0;
                 offY2 = 0;
                 zoom2 = minZoom2;
@@ -6727,7 +9416,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         setImageURL(u, (file.name || "image").replace(/\.(\w+)$/, "") + `_grid${dwnW}x${dwnH}.png`)
                     } finally {
                         try {
-                            URL.revokeObjectURL(fileURL)
+                            if (sourceURL) URL.revokeObjectURL(sourceURL)
                         } catch (e) {}
                     }
                 }
@@ -6737,7 +9426,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 })
             });
             btnSkip.addEventListener("click", () => {
-                setImageURL(fileURL, file.name || "image");
+                setImageURL(sourceURL, file.name || "image");
                 cleanup(!1);
                 resolve({
                     action: "skip"
@@ -6770,7 +9459,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 } catch (e) {}
                 if (revoke) {
                     try {
-                        URL.revokeObjectURL(fileURL)
+                        if (sourceURL) URL.revokeObjectURL(sourceURL)
                     } catch (e) {}
                 }
             }
@@ -6809,6 +9498,18 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         openHistoryModal();
     });
     btnAcid.addEventListener('click', () => {
+
+        try {
+            if (state.autoModeEnabled) {
+
+                if (state.acidModeEnabled) {
+                    try {
+                        showHint(t('acidBlockedByAuto') || 'Нельзя выключить глаз при включенном АвтоРежиме', 1800);
+                    } catch (_) {}
+                    return;
+                }
+            }
+        } catch (_) {}
         state.acidModeEnabled = !state.acidModeEnabled;
         updateAcidBtn();
         try {
@@ -6831,9 +9532,19 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             state.currentURL = null;
         }
         state.currentFileName = null;
+        try {
+            if (state.selectedImageBitmap && typeof state.selectedImageBitmap.close === 'function') {
+                state.selectedImageBitmap.close();
+            }
+        } catch (_) {}
         state.selectedImageBitmap = null;
         state.selectedImageSize = null;
         fileChip.style.display = 'none';
+
+
+        try {
+            localStorage.removeItem(LAST_IMG_KEY);
+        } catch (_) {}
 
         try {
             btnClear.style.display = 'none';
@@ -6893,8 +9604,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         } catch (_) {}
     });
 
-    btnStop.addEventListener("click", () => stopAutoClick());
-    rStop.addEventListener("click", () => stopAutoClick());
+    btnStop.addEventListener("click", () => {
+        state.bulkAbort = true;
+        stopAutoClick();
+    });
+    rStop.addEventListener("click", () => {
+        state.bulkAbort = true;
+        stopAutoClick();
+    });
     rCopy.addEventListener("click", async () => {
         await openTileCropDialog();
     });
@@ -6925,7 +9642,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         toggleDelayPanel();
     });
 
-    document.addEventListener('pointerdown', (e) => {
+    const onGlobalPointerDown = (e) => {
         const path = e.composedPath ? e.composedPath() : [];
         const insideClock = path.includes(rClock) || path.includes(railDelayPanel);
         const insideBrush = path.includes(rBrush) || path.includes(railBrushPanel);
@@ -6934,9 +9651,10 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             setPanelOpen(railDelayPanel, false);
         }
         if (!insideBrush && state.brushMode) {
-            /* не сворачиваем при режиме кисти */
+
         }
-    }, true);
+    };
+    document.addEventListener('pointerdown', onGlobalPointerDown, true);
 
     setTimeout(() => {
         if (autoColorChk.checked) rAuto.classList.add("active");
@@ -6987,24 +9705,114 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         if (e.key.toLowerCase() === "m") {
             setMoveMode(!state.moveMode)
         }
-        if (e.key === "Escape") {
-            api.destroy()
-        }
     };
     document.addEventListener("keydown", onKey, !0);
     api.destroy = () => {
+
         try {
-            document.removeEventListener("keydown", onKey, !0)
-        } catch (e) {}
+            document.removeEventListener("keydown", onKey, !0);
+        } catch (_) {}
         try {
-            if (state.currentURL) URL.revokeObjectURL(state.currentURL)
-        } catch (e) {}
+            document.removeEventListener('pointerdown', onGlobalPointerDown, true);
+        } catch (_) {}
         try {
-            root.remove()
-        } catch (e) {}
-        delete window.__IMG_OVERLAY_TOOL__
+            window.removeEventListener('pointermove', onMarkerMove, true);
+        } catch (_) {}
+        try {
+            window.removeEventListener('pointerup', onMarkerUp, true);
+        } catch (_) {}
+
+
+        try {
+            if (window.__OVERLAY_STARTUP_TIMER__) {
+                clearTimeout(window.__OVERLAY_STARTUP_TIMER__);
+                delete window.__OVERLAY_STARTUP_TIMER__;
+            }
+        } catch (_) {}
+        try {
+            stopAutoModeTimer();
+        } catch (_) {}
+        try {
+            stopAutoClick();
+        } catch (_) {}
+        try {
+            if (typeof hintTimer !== 'undefined' && hintTimer) {
+                clearTimeout(hintTimer);
+                hintTimer = null;
+            }
+        } catch (_) {}
+        try {
+            if (typeof accTipTimer !== 'undefined' && accTipTimer) {
+                clearTimeout(accTipTimer);
+                accTipTimer = null;
+            }
+        } catch (_) {}
+
+        try {
+            state.bulkAbort = true;
+        } catch (_) {}
+        try {
+            state.autoModeEnabled = false;
+        } catch (_) {}
+
+        try {
+            const cnv = state.__panCanvas;
+            const h = state.__panHandlers;
+            if (cnv && h) {
+                cnv.removeEventListener('pointerdown', h.onCnvDown, true);
+                cnv.removeEventListener('pointermove', h.onCnvMove, true);
+                cnv.removeEventListener('pointerup', h.endPan, true);
+                cnv.removeEventListener('pointercancel', h.endPan, true);
+                window.removeEventListener('blur', h.endPan);
+            }
+        } catch (_) {}
+
+        try {
+            closeHistoryModal();
+        } catch (_) {}
+
+        try {
+            state.selectedImageBitmap = null;
+        } catch (_) {}
+        try {
+            state.anchorSet = false;
+        } catch (_) {}
+        try {
+            state.selectedImageSize = null;
+        } catch (_) {}
+
+        try {
+            if (window.__OVERLAY_ORIGINAL_FETCH__) {
+                window.fetch = window.__OVERLAY_ORIGINAL_FETCH__;
+                try {
+                    delete window.__OVERLAY_ORIGINAL_FETCH__;
+                } catch (_) {}
+            }
+        } catch (_) {}
+
+        try {
+            if (window.__OVERLAY_BEFOREUNLOAD__) {
+                window.removeEventListener('beforeunload', window.__OVERLAY_BEFOREUNLOAD__);
+                delete window.__OVERLAY_BEFOREUNLOAD__;
+            }
+        } catch (_) {}
+
+        try {
+            if (state.currentURL) URL.revokeObjectURL(state.currentURL);
+        } catch (_) {}
+        try {
+            root.remove();
+        } catch (_) {}
+        try {
+            delete window.__IMG_OVERLAY_TOOL__;
+        } catch (_) {}
     };
     (() => {
+
+        applyPersistedPlacementOnStartup();
+        try {
+            loadLastImageIfAny();
+        } catch (_) {}
         state.x = clamp(state.x, 8, window.innerWidth - state.w - 8);
         state.y = clamp(state.y, 8, window.innerHeight - state.h - 8);
         syncUI();
@@ -7024,14 +9832,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 }
                 if (!cnv.__overlayPanHooked__) {
                     cnv.__overlayPanHooked__ = true;
-                    cnv.addEventListener('pointerdown', (e) => {
+                    const onCnvDown = (e) => {
                         if (e.button !== 0) return;
                         state.mapPan.active = true;
                         state.mapPan.pointerId = e.pointerId;
                         state.mapPan.lastX = e.clientX;
                         state.mapPan.lastY = e.clientY;
-                    }, true);
-                    cnv.addEventListener('pointermove', (e) => {
+                    };
+                    const onCnvMove = (e) => {
                         if (!state.mapPan.active || (state.mapPan.pointerId != null && e.pointerId !== state.mapPan.pointerId)) return;
                         const dx = e.clientX - state.mapPan.lastX;
                         const dy = e.clientY - state.mapPan.lastY;
@@ -7042,13 +9850,21 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         state.y += dy;
                         computeGridOffsetsFromXY();
                         applyAnchoredPositionFromOffsets();
-                    }, true);
+                    };
                     const endPan = () => {
                         if (!state.mapPan.active) return;
                         state.mapPan.active = false;
                         state.mapPan.pointerId = null;
                         persistSave();
                     };
+                    state.__panCanvas = cnv;
+                    state.__panHandlers = {
+                        onCnvDown,
+                        onCnvMove,
+                        endPan
+                    };
+                    cnv.addEventListener('pointerdown', onCnvDown, true);
+                    cnv.addEventListener('pointermove', onCnvMove, true);
                     cnv.addEventListener('pointerup', endPan, true);
                     cnv.addEventListener('pointercancel', endPan, true);
                     window.addEventListener('blur', endPan);
@@ -7094,12 +9910,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     }
 
 
-    function maskAlreadyPlacedPixels(baseCtx, overlayCanvas, rect /* optional: {x,y,w,h} in overlay canvas coords */) {
+    function maskAlreadyPlacedPixels(baseCtx, overlayCanvas, rect) {
         try {
             const w = overlayCanvas.width | 0;
             const h = overlayCanvas.height | 0;
             if (w <= 0 || h <= 0) return;
-            const octx = overlayCanvas.getContext('2d', { willReadFrequently: true });
+            const octx = overlayCanvas.getContext('2d', {
+                willReadFrequently: true
+            });
             if (!octx) return;
             const base = baseCtx.getImageData(0, 0, w, h);
             const over = octx.getImageData(0, 0, w, h);
@@ -7129,13 +9947,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 }
             }
             octx.putImageData(over, 0, 0);
-        } catch {
-            /* ignore */
-        }
+        } catch {}
     }
 
     function applySubtleColorPerturbation(canvas, seedX, seedY) {
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const ctx = canvas.getContext('2d', {
+            willReadFrequently: true
+        });
         if (!ctx) return;
         const {
             width,
@@ -7156,12 +9974,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             }
             ctx.putImageData(img, 0, 0);
         } catch {
-            /* ignore */
+
         }
     }
 
     function applyAcidSurrogateToCanvas(canvas) {
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const ctx = canvas.getContext('2d', {
+            willReadFrequently: true
+        });
         if (!ctx) return;
         const {
             width,
@@ -7176,13 +9996,19 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 if (a === 0) continue;
                 const idx = rgb24Index(data[i], data[i + 1], data[i + 2]);
                 const col = cvColorFor(idx);
+
+                if ((i & 63) === 0) {
+                    try {
+                        __acidDynAdd(col[0], col[1], col[2]);
+                    } catch (_) {}
+                }
                 data[i] = col[0];
                 data[i + 1] = col[1];
                 data[i + 2] = col[2];
             }
             ctx.putImageData(img, 0, 0);
         } catch {
-            /* ignore */
+
         }
     }
 
@@ -7233,27 +10059,201 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         if (iW <= 0 || iH <= 0) return null;
         const dstX = (iLeft - tLeft) * getDrawMult();
         const dstY = (iTop - tTop) * getDrawMult();
-        return { x: dstX | 0, y: dstY | 0, w: (iW * getDrawMult()) | 0, h: (iH * getDrawMult()) | 0 };
+        return {
+            x: dstX | 0,
+            y: dstY | 0,
+            w: (iW * getDrawMult()) | 0,
+            h: (iH * getDrawMult()) | 0
+        };
     }
 
     function prepareForMapClick() {
 
         if (!state.selectedImageSize || !state.selectedImageSize.w || !state.selectedImageSize.h) return;
-        state.refX = Math.floor(state.selectedImageSize.w / 2);
-        state.refY = Math.floor(state.selectedImageSize.h / 2);
+        state.refX = 0;
+        state.refY = 0;
         state.refSet = true;
+    }
+
+
+    function tryAdjustAnchorWithViewBase() {
+        try {
+            if (!Number.isFinite(state.viewTileBaseX) || !Number.isFinite(state.viewTileBaseY)) return;
+
+            if (state.anchorProvisional && Number.isFinite(state.localAnchorTx) && Number.isFinite(state.localAnchorTy) && Number.isFinite(state.localAnchorPx) && Number.isFinite(state.localAnchorPy)) {
+                const gLeft = state.localAnchorTx * TILE_SIZE + state.localAnchorPx + state.viewTileBaseX * TILE_SIZE;
+                const gTop = state.localAnchorTy * TILE_SIZE + state.localAnchorPy + state.viewTileBaseY * TILE_SIZE;
+                state.anchorTx = Math.floor(gLeft / TILE_SIZE);
+                state.anchorTy = Math.floor(gTop / TILE_SIZE);
+                state.anchorPx = ((gLeft % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+                state.anchorPy = ((gTop % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+                state.anchorSet = true;
+                state.anchorProvisional = false;
+                state.__anchorAdjusted = true;
+                try {
+                    dbg('dom: anchor adjusted using view base', {
+                        tx: state.anchorTx,
+                        ty: state.anchorTy,
+                        px: state.anchorPx,
+                        py: state.anchorPy
+                    });
+                } catch (_) {}
+
+                try {
+                    if (state.currentFileName && state.iw && state.ih) {
+                        historyAddOrUpdate({
+                            fileName: state.currentFileName,
+                            w: state.iw,
+                            h: state.ih,
+                            tx: state.anchorTx,
+                            ty: state.anchorTy,
+                            px: state.anchorPx,
+                            py: state.anchorPy
+                        });
+                    }
+                } catch (_) {}
+                return;
+            }
+
+
+            if (!state.anchorSet || state.__anchorAdjusted) return;
+            const looksLocal = (Number(state.anchorTx) < 8) && (Number(state.anchorTy) < 8);
+            const baseIsLarge = (Number(state.viewTileBaseX) >= 64) || (Number(state.viewTileBaseY) >= 64);
+            if (!looksLocal || !baseIsLarge) return;
+            const gLeft = state.anchorTx * TILE_SIZE + state.anchorPx + state.viewTileBaseX * TILE_SIZE;
+            const gTop = state.anchorTy * TILE_SIZE + state.anchorPy + state.viewTileBaseY * TILE_SIZE;
+            state.anchorTx = Math.floor(gLeft / TILE_SIZE);
+            state.anchorTy = Math.floor(gTop / TILE_SIZE);
+            state.anchorPx = ((gLeft % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+            state.anchorPy = ((gTop % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+            state.__anchorAdjusted = true;
+            try {
+                dbg('dom: anchor adjusted using view base', {
+                    tx: state.anchorTx,
+                    ty: state.anchorTy,
+                    px: state.anchorPx,
+                    py: state.anchorPy
+                });
+            } catch (_) {}
+
+            try {
+                if (state.currentFileName && state.iw && state.ih) {
+                    historyAddOrUpdate({
+                        fileName: state.currentFileName,
+                        w: state.iw,
+                        h: state.ih,
+                        tx: state.anchorTx,
+                        ty: state.anchorTy,
+                        px: state.anchorPx,
+                        py: state.anchorPy
+                    });
+                }
+            } catch (_) {}
+        } catch (_) {}
+    }
+
+    function updateViewBaseFromDOM() {
+        try {
+            let minX, minY, baseOrigin;
+            const imgs = Array.from(document.querySelectorAll('img'));
+            const re = /\/tiles\/(\d+)\/(\d+)\.png(?:$|\b)/;
+            for (const im of imgs) {
+                const src = im.currentSrc || im.src || '';
+                const m = re.exec(src);
+                if (!m) continue;
+                const x = Number(m[1]);
+                const y = Number(m[2]);
+                if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+                minX = (minX === undefined) ? x : Math.min(minX, x);
+                minY = (minY === undefined) ? y : Math.min(minY, y);
+                try {
+                    baseOrigin = baseOrigin || new URL(src, window.location.href).origin;
+                } catch {}
+            }
+            if (minX !== undefined && minY !== undefined) {
+                const prevBX = Number.isFinite(state.viewTileBaseX) ? state.viewTileBaseX : undefined;
+                const prevBY = Number.isFinite(state.viewTileBaseY) ? state.viewTileBaseY : undefined;
+                state.viewTileBaseX = Number.isFinite(state.viewTileBaseX) ? Math.min(state.viewTileBaseX, minX) : minX;
+                state.viewTileBaseY = Number.isFinite(state.viewTileBaseY) ? Math.min(state.viewTileBaseY, minY) : minY;
+                if (state.viewTileBaseX !== prevBX || state.viewTileBaseY !== prevBY) {
+                    try {
+                        dbg('dom: view base updated', {
+                            baseX: state.viewTileBaseX,
+                            baseY: state.viewTileBaseY
+                        });
+                    } catch (_) {}
+                    tryAdjustAnchorWithViewBase();
+                }
+                if (baseOrigin && !state.tileBaseOrigin) {
+                    state.tileBaseOrigin = baseOrigin;
+                    try {
+                        dbg('dom: tile base origin', {
+                            origin: state.tileBaseOrigin
+                        });
+                    } catch {}
+                }
+            }
+        } catch (_) {}
     }
 
 
     (function setupFetchInterceptor() {
         const originalFetch = window.fetch;
+        try {
+            window.__OVERLAY_ORIGINAL_FETCH__ = originalFetch;
+        } catch (_) {}
         window.fetch = async function(...args) {
             const response = await originalFetch.apply(this, args);
             try {
                 const cloned = response.clone();
                 const endpoint = (args[0] instanceof Request) ? args[0]?.url : String(args[0] || '');
 
+                if (endpoint.includes('tiles')) {
+                    try {
+                        const path = endpoint.split('?')[0];
+                        const parts = path.split('/').filter(Boolean);
+                        const numbers = parts.filter(p => /^\d+(?:\.png)?$/.test(p)).map(p => Number(p.replace('.png', '')));
+                        const tY = numbers[numbers.length - 1];
+                        const tX = numbers[numbers.length - 2];
+                        if (Number.isFinite(tX) && Number.isFinite(tY)) {
+                            const prevBX = Number.isFinite(state.viewTileBaseX) ? state.viewTileBaseX : undefined;
+                            const prevBY = Number.isFinite(state.viewTileBaseY) ? state.viewTileBaseY : undefined;
+                            state.viewTileBaseX = Number.isFinite(state.viewTileBaseX) ? Math.min(state.viewTileBaseX, tX) : tX;
+                            state.viewTileBaseY = Number.isFinite(state.viewTileBaseY) ? Math.min(state.viewTileBaseY, tY) : tY;
+                            if (state.viewTileBaseX !== prevBX || state.viewTileBaseY !== prevBY) {
+                                try {
+                                    dbg('fetch(pre): view base updated', {
+                                        baseX: state.viewTileBaseX,
+                                        baseY: state.viewTileBaseY
+                                    });
+                                } catch (_) {}
+                                tryAdjustAnchorWithViewBase();
+                            }
+
+                            try {
+                                const u = new URL(endpoint);
+                                if (!state.tileBaseOrigin) {
+                                    state.tileBaseOrigin = u.origin;
+                                    try {
+                                        dbg('fetch(pre): tile base origin', {
+                                            origin: state.tileBaseOrigin
+                                        });
+                                    } catch {}
+                                }
+                            } catch {}
+                        }
+                    } catch (_) {}
+                }
+
+
                 if (endpoint.includes('pixel') && state.moveMode && state.refSet) {
+                    try {
+                        dbg('fetch: pixel sniff hit', {
+                            endpoint,
+                            moveMode: !!state.moveMode,
+                            refSet: !!state.refSet
+                        });
+                    } catch (_) {}
                     cloned.json().catch(() => ({})).then(() => {
                         try {
                             const clean = endpoint.split('?');
@@ -7266,6 +10266,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                             const params = new URLSearchParams(query);
                             const px = Number(params.get('x')) || 0;
                             const py = Number(params.get('y')) || 0;
+                            try {
+                                dbg('fetch: pixel coords', {
+                                    tx,
+                                    ty,
+                                    px,
+                                    py
+                                });
+                            } catch (_) {}
                             if (Number.isFinite(tx) && Number.isFinite(ty)) {
                                 const adjX = px - (state.refSet ? state.refX : 0);
                                 const adjY = py - (state.refSet ? state.refY : 0);
@@ -7276,6 +10284,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 state.anchorPx = ((gLeft % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
                                 state.anchorPy = ((gTop % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
                                 state.anchorSet = true;
+                                try {
+                                    dbg('fetch: anchor set from pixel sniff', {
+                                        tx: state.anchorTx,
+                                        ty: state.anchorTy,
+                                        px: state.anchorPx,
+                                        py: state.anchorPy
+                                    });
+                                } catch (_) {}
 
                                 document.getElementById('WRAP_ID')?.remove();
                                 if (hint) hint.style.display = 'none';
@@ -7285,12 +10301,19 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 } catch (_) {}
                             }
                         } catch {
-                            /* noop */
+
                         }
                     });
                 }
 
                 if (endpoint.includes('tiles') && state.selectedImageBitmap && state.anchorSet) {
+                    try {
+                        dbg('fetch: tiles intercept', {
+                            endpoint,
+                            anchorSet: !!state.anchorSet,
+                            hasBitmap: !!state.selectedImageBitmap
+                        });
+                    } catch (_) {}
                     const tileBlob = await cloned.blob();
                     return new Promise((resolve) => {
                         const path = endpoint.split('?')[0];
@@ -7298,16 +10321,71 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         const numbers = parts.filter(p => /^\d+(?:\.png)?$/.test(p)).map(p => Number(p.replace('.png', '')));
                         const tileY = numbers[numbers.length - 1];
                         const tileX = numbers[numbers.length - 2];
+                        try {
+                            dbg('fetch: tile coords', {
+                                tileX,
+                                tileY
+                            });
+                        } catch (_) {}
                         if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
                             resolve(response);
                             return;
                         }
+
+                        try {
+                            const prevBX = Number.isFinite(state.viewTileBaseX) ? state.viewTileBaseX : undefined;
+                            const prevBY = Number.isFinite(state.viewTileBaseY) ? state.viewTileBaseY : undefined;
+                            state.viewTileBaseX = Number.isFinite(state.viewTileBaseX) ? Math.min(state.viewTileBaseX, tileX) : tileX;
+                            state.viewTileBaseY = Number.isFinite(state.viewTileBaseY) ? Math.min(state.viewTileBaseY, tileY) : tileY;
+                            if (state.viewTileBaseX !== prevBX || state.viewTileBaseY !== prevBY) {
+                                try {
+                                    dbg('fetch: view base updated', {
+                                        baseX: state.viewTileBaseX,
+                                        baseY: state.viewTileBaseY
+                                    });
+                                } catch (_) {}
+                            }
+                        } catch (_) {}
+
+
+                        try {
+                            if (state.anchorSet && !state.__anchorAdjusted && Number.isFinite(state.viewTileBaseX) && Number.isFinite(state.viewTileBaseY)) {
+                                const looksLocal = (Number(state.anchorTx) < 8) && (Number(state.anchorTy) < 8);
+                                const baseIsLarge = (Number(state.viewTileBaseX) >= 64) || (Number(state.viewTileBaseY) >= 64);
+                                if (looksLocal && baseIsLarge) {
+                                    const gLeft = state.anchorTx * TILE_SIZE + state.anchorPx + state.viewTileBaseX * TILE_SIZE;
+                                    const gTop = state.anchorTy * TILE_SIZE + state.anchorPy + state.viewTileBaseY * TILE_SIZE;
+                                    state.anchorTx = Math.floor(gLeft / TILE_SIZE);
+                                    state.anchorTy = Math.floor(gTop / TILE_SIZE);
+                                    state.anchorPx = ((gLeft % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+                                    state.anchorPy = ((gTop % TILE_SIZE) + TILE_SIZE) % TILE_SIZE;
+                                    state.__anchorAdjusted = true;
+                                    try {
+                                        dbg('fetch: anchor adjusted using view base', {
+                                            tx: state.anchorTx,
+                                            ty: state.anchorTy,
+                                            px: state.anchorPx,
+                                            py: state.anchorPy
+                                        });
+                                    } catch (_) {}
+                                }
+                            }
+                        } catch (_) {}
                         (async () => {
                             try {
                                 const isPanning = !!(state.mapPan && state.mapPan.active);
-                           
+
                                 const fastRect = getIntersectionRectForTile(tileX, tileY);
-                                if (!fastRect) { resolve(response); return; }
+                                if (!fastRect) {
+                                    try {
+                                        dbg('fetch: no intersection for tile', {
+                                            tileX,
+                                            tileY
+                                        });
+                                    } catch (_) {}
+                                    resolve(response);
+                                    return;
+                                }
 
                                 const drawSize = TILE_SIZE * getDrawMult();
                                 const tileBitmap = await createImageBitmap(tileBlob);
@@ -7346,6 +10424,15 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                     octx.clearRect(0, 0, drawSize, drawSize);
 
                                     computeIntersectionDrawOnTile(octx, tileX, tileY);
+                                    try {
+                                        dbg('fetch: overlay drawn on tile', {
+                                            tileX,
+                                            tileY
+                                        });
+                                    } catch (_) {}
+                                    try {
+                                        state.__dbgNoIntersectCount = 0;
+                                    } catch (_) {}
 
                                     const mask = getDotMaskCanvas(drawSize);
                                     if (mask) {
@@ -7356,7 +10443,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 }
 
                                 if (!isPanning) {
-                      
+
                                     maskAlreadyPlacedPixels(ctx, overlayCanvas, fastRect);
                                 }
 
@@ -7366,12 +10453,16 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                 }
 
                                 if (!isPanning) {
-                                    try { binarizeAlphaOnCanvas(overlayCanvas, 8); } catch {}
+                                    try {
+                                        binarizeAlphaOnCanvas(overlayCanvas, 8);
+                                    } catch {}
                                 }
                                 ctx.drawImage(overlayCanvas, 0, 0);
 
                                 if (!isPanning) {
-                                    try { binarizeAlphaOnCanvas(canvas, 8); } catch {}
+                                    try {
+                                        binarizeAlphaOnCanvas(canvas, 8);
+                                    } catch {}
                                 }
 
                                 let outBlob;
@@ -7401,7 +10492,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     });
                 }
             } catch {
-                /* ignore */
+
             }
             return response;
         };
