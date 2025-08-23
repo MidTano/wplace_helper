@@ -2960,6 +2960,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         } catch (_) {}
         state.bulkAbort = false;
 
+
+        try {
+            if (!isEditModeOpen()) {
+                await clickUnderRedWhenReady(3000);
+                await new Promise(r => setTimeout(r, 500));
+            }
+        } catch (_) {}
+
         const __palShuffled = Array.isArray(state.palette) ? state.palette.slice() : [];
         try {
             for (let i = __palShuffled.length - 1; i > 0; i--) {
@@ -3122,12 +3130,16 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         try {
             if (state.bulkAbort) {
                 try {
-                    console.log('[AllColors] abort: clicking under red marker');
+                    console.log('[AllColors] abort: clicking under red marker (fast)');
                 } catch (_) {}
-                await clickUnderRedWhenReady();
+                await clickUnderRedWhenReady(2000);
             } else {
-                await clickUnderRedWhenReady();
+                await clickUnderRedWhenReady(2000);
             }
+        } catch (_) {}
+
+        try {
+            clickCloseEditIfPresent();
         } catch (_) {}
         try {
             state.bulkInProgress = false;
@@ -5094,6 +5106,40 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         } catch (_) {}
     }
 
+    function clickUnderRedFast() {
+        try {
+            clickRandomInsideMarker();
+        } catch (_) {}
+    }
+
+    const CLOSE_EDIT_SVG_SEL = 'body > div:nth-child(1) > div.disable-pinch-zoom.relative.h-full.overflow-hidden.svelte-6wmtgk > div.absolute.bottom-0.left-0.z-50.w-full > div > div > div.flex.items-center.gap-1\\.5 > button:nth-child(3) > svg';
+
+    function clickCloseEditIfPresent() {
+        try {
+            const el = document.querySelector(CLOSE_EDIT_SVG_SEL);
+            if (!el) return false;
+            const btn = el.closest('button');
+            (btn || el).click();
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function isEditModeOpen() {
+        try {
+            return !!document.querySelector(CLOSE_EDIT_SVG_SEL);
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function openEditModeIfClosedFast() {
+        try {
+            if (!isEditModeOpen()) clickUnderRedFast();
+        } catch (_) {}
+    }
+
     function isEditModeActiveForColorName(colorName) {
         if (!colorName) return false;
         try {
@@ -5106,23 +5152,14 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
     async function ensureEditModeAndPick(colorName) {
         try {
-
-            if (!isEditModeActiveForColorName(colorName)) {
+            if (!isEditModeOpen()) {
                 try {
-                    await clickUnderRedWhenReady();
+                    await clickUnderRedWhenReady(4000);
                 } catch (_) {}
-                await new Promise(r => setTimeout(r, 3000));
-            }
-
-            if (!isEditModeActiveForColorName(colorName)) {
-                try {
-                    await clickUnderRedWhenReady();
-                } catch (_) {}
-                await new Promise(r => setTimeout(r, 3000));
+                await new Promise(r => setTimeout(r, 800));
             }
             let ok = !!autoPickColorOnPage(colorName);
             if (!ok) {
-
                 await new Promise(r => setTimeout(r, 200));
                 ok = !!autoPickColorOnPage(colorName);
             }
@@ -5349,6 +5386,13 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     runner.timer = latestDelay <= 0 ? requestAnimationFrame(tick) : setTimeout(tick, latestDelay);
                     return;
                 }
+
+                try {
+                    if (!runner.total && !state.bulkInProgress) {
+                        clickUnderRedFast();
+                        clickCloseEditIfPresent();
+                    }
+                } catch (_) {}
                 stopAutoClick();
                 return;
             }
@@ -5376,14 +5420,19 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                     null;
                 if (colorName && !isEditModeActiveForColorName(colorName)) {
 
-                    if (isBottomPaintLoadingActive()) {
-                        runner.timer = setTimeout(tick, 1000);
+                    if (!isEditModeOpen()) {
+                        if (isBottomPaintLoadingActive()) {
+                            runner.timer = setTimeout(tick, 500);
+                            return;
+                        }
+                        openEditModeIfClosedFast();
+                        runner.timer = setTimeout(tick, 600);
                         return;
                     }
                     try {
-                        clickRandomInsideMarker();
+                        autoPickColorOnPage(colorName);
                     } catch (_) {}
-                    runner.timer = setTimeout(tick, 3000);
+                    runner.timer = setTimeout(tick, 200);
                     return;
                 }
             } catch (_) {}
