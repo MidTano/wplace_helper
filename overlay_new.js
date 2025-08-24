@@ -2212,6 +2212,200 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
     fileChip.style.textOverflow = "ellipsis";
     fileChip.style.overflow = "hidden";
 
+
+    const progressChip = chip("0%");
+    progressChip.title = "ETA: —";
+    progressChip.style.minWidth = "46px";
+    progressChip.style.textAlign = "center";
+
+
+    function etaFormat(seconds) {
+        try {
+            let s = Math.max(0, Math.round(seconds | 0));
+            const days = Math.floor(s / 86400);
+            s -= days * 86400;
+            const hours = Math.floor(s / 3600);
+            s -= hours * 3600;
+            const minutes = Math.floor(s / 60);
+            if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+            if (hours > 0) return `${hours}h ${minutes}m`;
+            return `${minutes}m`;
+        } catch (_) {
+            return "—";
+        }
+    }
+
+
+    let etaAccounts = 1;
+    try {
+        const saved = Number(localStorage.getItem('eta.accounts') || '1');
+        if (Number.isFinite(saved)) etaAccounts = Math.min(64, Math.max(1, Math.floor(saved)));
+    } catch (_) {}
+
+    function setEtaAccounts(n) {
+        try {
+            const v = Math.min(64, Math.max(1, n | 0));
+            etaAccounts = v;
+            try {
+                localStorage.setItem('eta.accounts', String(v));
+            } catch (_) {}
+            try {
+                if (etaValue) etaValue.textContent = `Аккаунты: ${v}`;
+            } catch (_) {}
+            updateToolbarProgressChip();
+        } catch (_) {}
+    }
+
+    const etaPopover = document.createElement('div');
+    etaPopover.style.position = 'fixed';
+    etaPopover.style.zIndex = '9999';
+    etaPopover.style.padding = '10px';
+    etaPopover.style.border = '1px solid rgba(0,0,0,0.2)';
+    etaPopover.style.borderRadius = '8px';
+    etaPopover.style.background = '#222';
+    etaPopover.style.color = '#fff';
+    etaPopover.style.boxShadow = '0 6px 16px rgba(0,0,0,0.35)';
+    etaPopover.style.display = 'none';
+    const etaValue = document.createElement('div');
+    etaValue.style.marginBottom = '6px';
+    etaValue.style.fontSize = '12px';
+    etaValue.textContent = `Аккаунты: ${etaAccounts}`;
+    const etaSlider = document.createElement('input');
+    etaSlider.type = 'range';
+    etaSlider.min = '1';
+    etaSlider.max = '64';
+    etaSlider.step = '1';
+    etaSlider.value = String(etaAccounts);
+    etaSlider.style.width = '220px';
+    etaSlider.addEventListener('input', () => setEtaAccounts(Number(etaSlider.value)));
+    etaPopover.append(etaValue, etaSlider);
+    document.body.appendChild(etaPopover);
+    let etaCloseHandler = null;
+
+    function hideEtaPopover() {
+        etaPopover.style.display = 'none';
+        if (etaCloseHandler) {
+            document.removeEventListener('pointerdown', etaCloseHandler, true);
+            etaCloseHandler = null;
+        }
+    }
+
+    function showEtaPopoverNear(elm) {
+        try {
+            const rect = elm.getBoundingClientRect();
+            etaSlider.value = String(etaAccounts);
+            etaValue.textContent = `Аккаунты: ${etaAccounts}`;
+            etaPopover.style.left = Math.round(rect.left) + 'px';
+            etaPopover.style.top = Math.round(rect.bottom + 6) + 'px';
+            etaPopover.style.display = 'block';
+            etaCloseHandler = (ev) => {
+                if (!etaPopover.contains(ev.target) && ev.target !== elm) hideEtaPopover();
+            };
+            document.addEventListener('pointerdown', etaCloseHandler, true);
+        } catch (_) {}
+    }
+    progressChip.addEventListener('contextmenu', (e) => {
+        try {
+            e.preventDefault();
+            e.stopPropagation();
+        } catch (_) {}
+        showEtaPopoverNear(progressChip);
+    });
+
+    let progressTotal = 0;
+    let progressRemain = 0;
+    let lastOverlaySig = "";
+
+    function getOverlaySig() {
+        try {
+            return `${(state.x|0)},${(state.y|0)},${(state.w|0)},${(state.h|0)},${(state.iw|0)},${(state.ih|0)},dm=${getDrawMult()|0}`;
+        } catch (_) {
+            return "";
+        }
+    }
+
+    function resetProgressIfOverlayChanged() {
+        const sig = getOverlaySig();
+        if (sig && sig !== lastOverlaySig) {
+            lastOverlaySig = sig;
+            progressTotal = 0;
+            progressRemain = 0;
+            try {
+                progressTiles.clear();
+            } catch (_) {}
+        }
+    }
+
+    function updateToolbarProgressChip() {
+        if (!progressChip) return;
+        if (!progressTotal || progressTotal <= 0) {
+            progressChip.textContent = "0%";
+            progressChip.title = "ETA: —";
+            return;
+        }
+        const painted = Math.max(0, progressTotal - progressRemain);
+        const pct = Math.round((painted / progressTotal) * 100);
+        progressChip.textContent = `${pct}%`;
+        let secs = 0;
+        try {
+            secs = (progressRemain | 0) * (TIME_PER_PIXEL_SECONDS | 0);
+        } catch (_) {
+            secs = (progressRemain | 0) * 30;
+        }
+        const div = Math.max(1, (etaAccounts | 0));
+        secs = Math.floor(secs / div);
+        try {
+            progressChip.title = `ETA: ${etaFormat(secs)}`;
+        } catch (_) {
+            progressChip.title = `ETA: ~${Math.max(1, Math.ceil(secs / 60))}m`;
+        }
+    }
+
+    function countAlphaOnCanvas(cnv, threshold = 8) {
+        try {
+            const ctx = cnv.getContext('2d', {
+                willReadFrequently: true
+            });
+            if (!ctx) return 0;
+            const w = cnv.width | 0,
+                h = cnv.height | 0;
+            if (w <= 0 || h <= 0) return 0;
+            const img = ctx.getImageData(0, 0, w, h);
+            const d = img.data;
+            let c = 0;
+            for (let i = 3; i < d.length; i += 4)
+                if (d[i] >= threshold) c++;
+            return c;
+        } catch (_) {
+            return 0;
+        }
+    }
+
+
+    const progressTiles = new Map();
+    const PROGRESS_TTL_MS = 10000;
+
+    function updateProgressFromTiles() {
+        const now = Date.now();
+        let tot = 0,
+            rem = 0;
+        for (const [k, v] of progressTiles) {
+            if (!v || typeof v.tot !== 'number' || typeof v.rem !== 'number' || typeof v.ts !== 'number') {
+                progressTiles.delete(k);
+                continue;
+            }
+            if (now - v.ts > PROGRESS_TTL_MS) {
+                progressTiles.delete(k);
+                continue;
+            }
+            tot += v.tot;
+            rem += v.rem;
+        }
+        progressTotal = tot;
+        progressRemain = rem;
+        updateToolbarProgressChip();
+    }
+
     const btnHistory = el("button", "btn icon");
     btnHistory.title = t("history");
     btnHistory.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12a9 9 0 1 0 3-6.708" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 3v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -2830,7 +3024,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
         }
     }
 
-    toolbarRow.append(btnAcc, btnLang, btnOpen, btnHistory, btnAcid, btnMarker, btnTopToggle, btnSettings, fileChip, spacer, btnClear, btnClose);
+    toolbarRow.append(btnAcc, btnLang, btnOpen, btnHistory, btnAcid, btnMarker, btnTopToggle, btnSettings, fileChip, progressChip, spacer, btnClear, btnClose);
     toolbarScroll.append(toolbarRow);
     const fadeL = el("div", "fade-edge fade-left");
     const fadeR = el("div", "fade-edge fade-right");
@@ -5152,6 +5346,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
 
     async function ensureEditModeAndPick(colorName) {
         try {
+
             if (!isEditModeOpen()) {
                 try {
                     await clickUnderRedWhenReady(4000);
@@ -7607,6 +7802,9 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
             let baseSmallData = null;
             let currentPalette = [];
 
+            let totalPaintablePxForProgress = 0;
+            let remainingPxForProgress = 0;
+
             function updateSelInfo() {
                 selInfo.textContent = t("selectedCount") + selectedCustom.size
             }
@@ -7916,7 +8114,26 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                 stV.textContent = t("vertical") + ": " + dwnH;
                 stT.textContent = t("total") + ": " + paintablePx.toLocaleString("ru-RU");
                 stExport.textContent = `${t("export")}: ${dwnW} × ${dwnH}`
-                stTime.textContent = `${t("timeSpend")}: ${formatDuration(paintablePx * TIME_PER_PIXEL_SECONDS)}`
+                stTime.textContent = `${t("timeSpend")}: ${formatDuration(paintablePx * TIME_PER_PIXEL_SECONDS)}`;
+                totalPaintablePxForProgress = paintablePx | 0;
+                remainingPxForProgress = totalPaintablePxForProgress;
+                try {
+                    if (progressChip && totalPaintablePxForProgress > 0) {
+                        const painted = Math.max(0, totalPaintablePxForProgress - remainingPxForProgress);
+                        const pct = Math.round((painted / totalPaintablePxForProgress) * 100);
+                        progressChip.textContent = `${pct}%`;
+                        let secs = 0;
+                        try {
+                            secs = (remainingPxForProgress | 0) * (TIME_PER_PIXEL_SECONDS | 0);
+                        } catch (_) {
+                            secs = (remainingPxForProgress | 0) * 30;
+                        } {
+                            const div = Math.max(1, (etaAccounts | 0));
+                            secs = Math.floor(secs / div);
+                        }
+                        progressChip.title = `ETA: ${etaFormat(secs)}`;
+                    }
+                } catch (_) {}
             }
 
             function getPaletteForMode() {
@@ -7977,7 +8194,26 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         if (cur.data[i] >= 8) count++;
                     stT.textContent = t("total") + ": " + count.toLocaleString("ru-RU");
                     stTime.textContent = `${t("timeSpend")}: ${formatDuration(count * TIME_PER_PIXEL_SECONDS)}`;
+                    remainingPxForProgress = count | 0;
+                    try {
+                        if (progressChip && totalPaintablePxForProgress > 0) {
+                            const painted = Math.max(0, totalPaintablePxForProgress - remainingPxForProgress);
+                            const pct = Math.round((painted / totalPaintablePxForProgress) * 100);
+                            progressChip.textContent = `${pct}%`;
+                            let secs = 0;
+                            try {
+                                secs = (remainingPxForProgress | 0) * (TIME_PER_PIXEL_SECONDS | 0);
+                            } catch (_) {
+                                secs = (remainingPxForProgress | 0) * 30;
+                            } {
+                                const div = Math.max(1, (etaAccounts | 0));
+                                secs = Math.floor(secs / div);
+                            }
+                            progressChip.title = `ETA: ${etaFormat(secs)}`;
+                        }
+                    } catch (_) {}
                 } catch {}
+
                 stC.textContent = `Colors used: ${used}/${total}`
             }
             let zoom2 = 1,
@@ -10423,6 +10659,7 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                         (async () => {
                             try {
                                 const isPanning = !!(state.mapPan && state.mapPan.active);
+                                if (!isPanning) resetProgressIfOverlayChanged();
 
                                 const fastRect = getIntersectionRectForTile(tileX, tileY);
                                 if (!fastRect) {
@@ -10491,9 +10728,28 @@ input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(12
                                     }
                                 }
 
+
+                                let tileTotal = 0,
+                                    tileRemain = 0;
                                 if (!isPanning) {
+                                    try {
+                                        tileTotal = countAlphaOnCanvas(overlayCanvas, 8) | 0;
+                                    } catch {}
 
                                     maskAlreadyPlacedPixels(ctx, overlayCanvas, fastRect);
+                                    try {
+                                        tileRemain = countAlphaOnCanvas(overlayCanvas, 8) | 0;
+                                    } catch {}
+
+                                    try {
+                                        const key = `${tileX},${tileY},${getDrawMult()}`;
+                                        progressTiles.set(key, {
+                                            tot: tileTotal,
+                                            rem: tileRemain,
+                                            ts: Date.now()
+                                        });
+                                        updateProgressFromTiles();
+                                    } catch {}
                                 }
 
                                 if (state.acidModeEnabled && !isPanning) {
