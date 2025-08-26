@@ -36,7 +36,7 @@
 - Вставьте и выполните:
 ```js
 (async () => {
-  const url = 'https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay.js';
+  const url = 'https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay_new.js';
   const code = await (await fetch(url, { cache: 'no-store' })).text();
   new Function(code)();
 })();
@@ -44,10 +44,12 @@
 
 Если сайт блокирует eval/new Function, используйте способ ниже.
 
+Если есть проблемы или что-то не работает , пробуйте версию ```overlay.js```, вместо ```overlay_new.js```
+
 ## Букмарклет (по желанию)
 Создайте закладку с адресом:
 ```
-javascript:(async()=>{const u='https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay.js';const c=await (await fetch(u,{cache:'no-store'})).text();new Function(c)();})()
+javascript:(async()=>{const u='https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay_new.js';const c=await (await fetch(u,{cache:'no-store'})).text();new Function(c)();})()
 ```
 Клик по закладке — инструмент загрузится на текущую страницу. На сайтах с жёстким CSP может не работать.
 
@@ -61,7 +63,7 @@ javascript:(async()=>{const u='https://raw.githubusercontent.com/MidTano/wplace_
 // @run-at       document-idle
 // ==/UserScript==
 (function() {
-  const url = 'https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay.js';
+  const url = 'https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay_new.js';
   GM_xmlhttpRequest({
     method: 'GET',
     url,
