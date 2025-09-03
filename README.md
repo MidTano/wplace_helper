@@ -57,17 +57,23 @@ javascript:(async()=>{const u='https://raw.githubusercontent.com/MidTano/wplace_
 Надёжно для сайтов с CSP (обходится без eval в странице):
 ```js
 // ==UserScript==
-// @name         WPlace Overlay Helper Loader
+// @name         WPlace Helper
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @run-at       document-idle
 // ==/UserScript==
+
 (function() {
   const url = 'https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay_new.js';
+
   GM_xmlhttpRequest({
     method: 'GET',
     url,
-    onload: r => { new Function(r.responseText)(); }
+    onload: function(response) {
+      const script = document.createElement('script');
+      script.textContent = response.responseText;
+      document.body.appendChild(script);
+    }
   });
 })();
 ```
