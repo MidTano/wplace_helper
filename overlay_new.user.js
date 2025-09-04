@@ -1,6 +1,22 @@
+// ==UserScript==
+// @name         Wplace Helper
+// @namespace    https://github.com/MidTano/wplace_helper
+// @version      0.3.0
+// @author       MidTano
+// @match        https://wplace.live/*
+// @updateURL    https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay_new.user.js
+// @downloadURL  https://raw.githubusercontent.com/MidTano/wplace_helper/main/overlay_new.user.js
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=wplace.live
+// @grant        GM_getResourceText
+// @grant        GM_addStyle
+// @grant        GM.setValue
+// @grant        GM_getValue
+// @grant        GM_xmlhttpRequest
+// @run-at       document-idle
+// ==/UserScript==
+
 (async () => {
     "use strict";
-
 
     try {
         const ALLOWED_ORIGIN = 'https://wplace.live';
