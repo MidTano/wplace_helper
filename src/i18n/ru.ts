@@ -1,0 +1,226 @@
+export type Translations = Record<string, string>;
+
+export const ru: Translations = {
+  'topmenu.toolbar': 'верхнее меню',
+  'topmenu.group.stats': 'Статистика',
+  'topmenu.group.art': 'Арт',
+  'topmenu.group.tools': 'Инструменты',
+  'topmenu.group.settings': 'Настройки',
+  'topmenu.group.close': 'Закрыть',
+
+  'btn.pickImage': 'Выбрать картинку',
+  'btn.clear': 'Очистить',
+  'btn.language': 'Выбор языка',
+  'btn.settings': 'Настройки',
+  'btn.screenAccess': 'Доступ к экрану',
+  'btn.enhancedColors': 'Улучшенные цвета',
+  'btn.history': 'История',
+  'btn.close': 'Закрыть',
+  'btn.move.on': 'Перемещение: вкл',
+  'btn.move.off': 'Перемещение: выкл',
+
+  'btn.autoMode.tooltip': 'Авторежим — ПКМ для настроек',
+  'btn.autoMode.aria': 'Авторежим. ПКМ для настроек',
+
+  'lang.ru': 'Русский',
+  'lang.en': 'English',
+  'lang.title': 'Язык интерфейса',
+
+  
+  'common.ok': 'Понятно',
+  'common.cancel': 'Отмена',
+  'qr.prompt': 'Нажмите место установки арта для генерации кода',
+  'qr.confirm': 'Подтвердить',
+
+  
+  'screen.modal.dialogAria': 'Запрос доступа к экрану',
+  'screen.modal.title': 'Нужен доступ к окну/экрану',
+  'screen.modal.body': 'Чтобы улучшить работу оверлея, может понадобиться доступ к окну (захват экрана). Нажмите «Понятно», и браузер покажет стандартный запрос. Вы можете выбрать окно/вкладку или нажать «Отмена». Скрипт продолжит работу в любом случае.',
+  'screen.modal.requesting': 'Запрос…',
+  'screen.modal.errNoGetDisplayMedia': 'getDisplayMedia недоступен в этом браузере',
+
+  
+  'settings.auto.title': 'Настройки авторежима',
+  'settings.minDist': 'Мин. дистанция (px)',
+  'settings.interClickDelay': 'Пауза между кликами (мс)',
+  'settings.enhancedThresh': 'Порог цвета (enhanced)',
+  'settings.scanStep': 'Шаг сканирования (px)',
+  'settings.tileUpdatedTimeout': 'Таймаут ожидания tileUpdated (сек)',
+  'settings.switchPreWait': 'Пауза перед сменой цвета (сек)',
+  'settings.afterSelectWait': 'Пауза после выбора цвета (сек)',
+  'settings.paintOutWait': 'Ожидание после исчерпания краски (сек)',
+  'settings.antiIdle': 'Анти‑AFK (держать страницу активной)',
+  'settings.hint.enhancedRequired': 'Авторежим работает только при включённых «Улучшенных цветах».',
+
+  
+  'screen.status.on': 'Экран: доступ есть',
+  'screen.status.off': 'Экран: нет доступа',
+
+  
+  'history.empty': 'Пока пусто',
+
+  
+  'btn.copyArt': 'Копировать Арт',
+
+  
+  'units.kb': 'КБ',
+  'units.dayShort': 'д',
+  'units.hourShort': 'ч',
+  'units.minShort': 'м',
+  'units.secShort': 'с',
+
+  
+  'automenu.closeAria': 'Закрыть меню выбора цветов',
+  'automenu.title': 'Меню выбора цветов',
+  'automenu.selectAll': 'Выбрать все',
+  'automenu.clearAll': 'Снять все',
+  'automenu.enableMode': 'Включите режим',
+  'automenu.noColors': 'Нет цветов для покраски',
+  'automenu.lock.title': 'Недоступно',
+  'automenu.count.pixels': 'пикс.',
+  'automenu.icon.enhanced': 'Иконка улучшённых цветов',
+
+  
+  'copyart.modalAria': 'Копировать арт',
+  'copyart.title': 'Копировать Арт',
+  'copyart.center': 'Центр',
+  'copyart.centerHint': 'Центральный тайл не найден. Подвигайте карту в игре, чтобы загрузить тайл, затем нажмите «Обновить центр».',
+  'copyart.updateCenter': 'Обновить центр',
+  'copyart.areaSize': 'Размер области',
+  'copyart.assemble': 'Собрать',
+  'copyart.stop': 'Стоп',
+  'copyart.selection': 'Выделение',
+  'copyart.selection.auto': 'Авто — подстроить по непрозрачным пикселям',
+  'copyart.selection.qrDetect': 'Распознавать QR',
+  'copyart.downloadSpeed': 'Скорость загрузки',
+  'copyart.reqDelay': 'Пауза между запросами (мс):',
+  'copyart.retryDelay': 'Пауза повтора (мс):',
+  'copyart.noPreview': 'Нет предпросмотра — нажмите «Собрать»',
+  'copyart.controlsHint': 'Управление: ЛКМ — выделение; СКМ/ПКМ — перемещение; Колесо — зум',
+  'copyart.clearSelection': 'Сбросить выделение',
+  'copyart.save': 'Сохранить',
+  'copyart.edit': 'Редактировать',
+  
+  'copyart.qr.detectedTitle': 'Найден QR‑код',
+  'copyart.qr.file': 'Файл',
+  'copyart.qr.coords': 'Координаты',
+  'copyart.qr.dim': 'Размер',
+  'copyart.qr.place': 'Поставить арт',
+
+  
+  'stats.title': 'Статистика аккаунта',
+  'stats.hint.wait': 'Ожидаем статистику от сайта… Выполните действие (клик по холсту / отправка пикселя), чтобы игра запросила профиль.',
+  'stats.name': 'Имя',
+  'stats.droplets': 'Капли',
+  'stats.level': 'Уровень',
+  'stats.painted': 'Закрашено пикселей',
+  'stats.charges': 'Заряды',
+  'stats.cooldown': 'Перезарядка',
+  'stats.nextLevel': 'До следующего уровня',
+  'units.sec': 'с',
+
+  
+  'hotkeys.help.closeAria': 'Закрыть справку',
+  'hotkeys.help.dialogAria': 'Справка по режиму редактирования',
+  'hotkeys.help.title': 'Горячие клавиши и инструменты',
+  'hotkeys.group.tools': 'Инструменты',
+  'hotkeys.group.navigation': 'Навигация',
+  'hotkeys.group.shortcuts': 'Горячие клавиши',
+  'hotkeys.tools.brushEraser.label': 'Кисть / Ластик',
+  'hotkeys.tools.brushEraser.wheelResizes': 'меняет размер',
+  'hotkeys.tools.brushEraser.dragUpDown': 'движение вверх/вниз — изменить размер',
+  'hotkeys.tools.selection.label': 'Выделение',
+  'hotkeys.nav.zoom': 'Зум',
+  'hotkeys.nav.zoomWheel': 'колесо мыши',
+  'hotkeys.nav.pan': 'Панорама',
+  'hotkeys.nav.or': 'или',
+  'hotkeys.nav.holdAndDrag': 'зажать и вести',
+  'hotkeys.undo': 'Отменить',
+  'hotkeys.redo': 'Повторить',
+  'hotkeys.deselect': 'Снять выделение',
+  'hotkeys.invert': 'Инвертировать выделение',
+  'hotkeys.common.wheel': 'колесо',
+  'hotkeys.common.rmb': 'ПКМ',
+  'hotkeys.common.mmb': 'СКМ',
+  'hotkeys.common.add': 'добавить',
+  'hotkeys.common.subtract': 'вычесть',
+
+  
+  'editor.stats.total': 'всего',
+  'editor.stats.colors': 'цвета',
+  'editor.stats.time': 'время',
+
+  
+  'editor.palette.group': 'палитра для кисти',
+  'editor.palette.allowed': 'палитра кисти (разрешённые цвета)',
+  'editor.editStage.aria': 'редактирование пикселей',
+  'editor.tool.brush': 'Кисть',
+  'editor.tool.eraser': 'Ластик',
+  'editor.tool.select': 'Выделение',
+  'editor.tool.magic': 'Магическая кисть',
+  'editor.tool.gradient': 'Градиент',
+  'editor.gradient.modes.aria': 'режимы градиента',
+  'editor.gradient.mode.bayer2.title': 'Bayer 2×2',
+  'editor.gradient.mode.bayer4.title': 'Bayer 4×4',
+  'editor.gradient.mode.lines.title': 'Линии',
+  'editor.gradient.mode.noise.title': 'Шум',
+  'editor.gradient.mode.checker.title': 'Шахматка',
+  'editor.gradient.mode.dots.title': 'Точки',
+  'editor.gradient.mode.hatch.title': 'Штриховка',
+  'editor.gradient.mode.radial.title': 'Радиальный',
+  'editor.gradient.mode.rings.title': 'Кольца',
+  'editor.gradient.mode.spiral.title': 'Спираль',
+  'editor.gradient.mode.diamond.title': 'Ромбы',
+  'editor.gradient.mode.ornament.title': 'Орнамент',
+  'editor.placeholder.noImage': 'нет изображения',
+  'editor.busy': 'Обновление…',
+  'editor.saveImage': 'Скачать изображение',
+  'editor.generateCode': 'Сгенерировать код',
+  'editor.reset': 'Сброс',
+  'editor.apply': 'Применить',
+  'editor.unavailable': 'НЕДОСТУПНО',
+  'editor.mode.editPixels': 'Режим редактирования пикселей',
+
+  
+  'editor.panel.title': 'настройки',
+  'editor.panel.method': 'метод',
+  'editor.panel.resultSize': 'итоговый размер',
+
+  'editor.panel.downscale.title': 'уменьшение',
+  'editor.panel.downscale.pixelSize': 'размер пикселя',
+
+  'editor.panel.dither.title': 'дизеринг',
+  'editor.panel.dither.strength': 'сила',
+
+  'editor.panel.palette.title': 'палитра',
+  'editor.panel.palette.set': 'набор цветов',
+  'editor.panel.palette.opt.full': 'полная',
+  'editor.panel.palette.opt.free': 'только бесплатные',
+  'editor.panel.palette.opt.custom': 'пользовательская',
+  'editor.panel.palette.selected': 'Выбрано',
+  'editor.panel.palette.enableAll': 'Вкл все',
+  'editor.panel.palette.disableAll': 'Выкл все',
+  'editor.palette.paid': 'платный',
+
+  'editor.panel.post.title': 'пост‑процессинг',
+  'editor.panel.post.outline': 'увеличить контур',
+  'editor.panel.post.erode': 'уменьшить края',
+
+  
+  'automode.alert.enableEnhanced': 'Включите «Улучшенные цвета», чтобы запустить авторежим.',
+
+  
+  'editor.resample.method.nearest': 'nearest',
+  'editor.resample.method.bilinear': 'bilinear',
+  'editor.resample.method.box': 'box',
+  'editor.resample.method.median': 'median',
+  'editor.resample.method.dominant': 'dominant',
+
+  
+  'editor.dither.method.none': 'none',
+  'editor.dither.method.ordered4': 'ordered 4×4',
+  'editor.dither.method.ordered8': 'ordered 8×8',
+  'editor.dither.method.floyd': 'Floyd–Steinberg',
+  'editor.dither.method.atkinson': 'Atkinson',
+  'editor.dither.method.random': 'random',
+};
