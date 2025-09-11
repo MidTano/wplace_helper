@@ -158,28 +158,15 @@ function installPageFetchInjection() {
         return vis[Math.floor(Math.random() * vis.length)];
       } catch { return document.body; }
     }
-    function dispatchMouseMove() {
-      try {
-        const target = pickRandomTarget() as any;
-        const r = target?.getBoundingClientRect?.() || { left: 0, top: 0, width: innerWidth, height: innerHeight } as any;
-        const x = Math.round(r.left + 4 + Math.random() * Math.max(1, r.width - 8));
-        const y = Math.round(r.top + 4 + Math.random() * Math.max(1, r.height - 8));
-        const baseMouse: MouseEventInit = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0 };
-        const basePointer: any = { bubbles: true, cancelable: true, composed: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: x, clientY: y, pressure: 0 };
-        target.dispatchEvent(new PointerEvent('pointerover', basePointer));
-        target.dispatchEvent(new MouseEvent('mouseover', baseMouse));
-        target.dispatchEvent(new PointerEvent('pointermove', { ...basePointer, pressure: 0 }));
-        target.dispatchEvent(new MouseEvent('mousemove', baseMouse));
-      } catch {}
-    }
+
     function startAntiIdle(ms: number) {
       try { patchVisibilityAPIs(); } catch {}
       __antiIdle.enabled = true;
       __antiIdle.intervalMs = Math.max(2000, Number(ms) || 10000);
       try { if (__antiIdle.timer) clearInterval(__antiIdle.timer); } catch {}
-      try { __antiIdle.timer = setInterval(dispatchMouseMove, __antiIdle.intervalMs); } catch {}
       
-      try { dispatchMouseMove(); } catch {}
+      
+      __antiIdle.timer = null; 
     }
     function stopAntiIdle() {
       __antiIdle.enabled = false;
