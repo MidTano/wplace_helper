@@ -11,7 +11,7 @@ export const MASTER_COLORS: PaletteColor[] = [
   { rgb: [210, 210, 210], name: 'Light Gray', paid: false },
   { rgb: [255, 255, 255], name: 'White', paid: false },
   { rgb: [96, 0, 24], name: 'Deep Red', paid: false },
-  { rgb: [165, 14, 30], name: 'Dark Red', paid: false },
+  { rgb: [165, 14, 30], name: 'Dark Red', paid: true },
   { rgb: [237, 28, 36], name: 'Red', paid: false },
   { rgb: [250, 128, 114], name: 'Light Red', paid: true },
   { rgb: [228, 92, 26], name: 'Dark Orange', paid: true },

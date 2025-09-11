@@ -20,7 +20,16 @@ export default defineConfig({
           '*://*.wplace.*/*',
         ],
         'run-at': 'document-end',
-        grant: [],
+        grant: [
+          'GM_xmlhttpRequest',
+          'GM_download',
+          'GM_setValue', 
+          'GM_getValue'
+        ],
+        connect: [
+          'catbox.moe',
+          'files.catbox.moe',
+        ],
         updateURL: 'https://github.com/MidTano/wplace_helper/releases/latest/download/overlay.user.js',
         downloadURL: 'https://github.com/MidTano/wplace_helper/releases/latest/download/overlay.user.js',
       },
@@ -35,5 +44,3 @@ export default defineConfig({
     target: 'es2018',
   }
 });
-
-
