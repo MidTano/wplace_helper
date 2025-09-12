@@ -223,4 +223,9 @@ export const ru: Translations = {
   'editor.dither.method.floyd': 'Floyd–Steinberg',
   'editor.dither.method.atkinson': 'Atkinson',
   'editor.dither.method.random': 'random',
+  'editor.dither.method.custom': 'custom',
+  'editor.dither.custom.title': '',
+  'editor.dither.custom.apply': 'Применить',
+  'editor.dither.custom.reset': 'Сбросить',
+  'editor.dither.custom.brightness': 'Яркость паттерна',
 };

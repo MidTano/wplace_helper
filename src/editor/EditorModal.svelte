@@ -4,7 +4,7 @@
   import { drawOverlayForTool, paintAtTool, applyGradientOnCanvas, computeMagicRegion, copySelectionRect, writeSelectionRect, applyMagicSelectionOnMask, paintMaskedBlock, applySelectionRectOnMask, buildSelectionAntsCanvas, drawGradientPreviewOverlay, refreshSelectionVisFromMask as refreshSelectionVisFromMaskTool, refreshSelectionVisSubrect } from './tools';
   import { downloadBlob } from './save';
   import { RESAMPLE_METHODS } from './resamplers';
-  import { DITHER_METHODS } from './dithering';
+  import { DITHER_METHODS, setCustomDitherPatternBinary } from './dithering';
   import { MASTER_COLORS, getFreeIndices, getPalette, getPaletteFromIndices } from './palette';
   import HotkeysInfoModal from './components/Info/HotkeysInfoModal.svelte';
   import MainFab from './components/Fab/MainFab.svelte';
@@ -32,6 +32,44 @@
   let customIndices = [];
   let customInitialized = false;
   
+  const makePattern = () => Array.from({length:8},()=>Array(8).fill(0));
+  let customDitherPattern = makePattern(); 
+  let customDitherAppliedKey = ''; 
+  let customDitherStrengthPct = 100; 
+  $: customDitherStrength = Math.max(0, Math.min(100, customDitherStrengthPct|0)) / 100;
+  function flattenPattern(p) { try { return p.flat().map(v=>v?1:0).join(''); } catch { return ''; } }
+  function applyCustomDitherPattern() {
+    try {
+      setCustomDitherPatternBinary(customDitherPattern, customDitherStrength);
+      customDitherAppliedKey = `${flattenPattern(customDitherPattern)}|s:${Math.round(customDitherStrength*100)}`;
+      updatePreview(); 
+    } catch {}
+  }
+  function resetCustomPattern() {
+    customDitherPattern = makePattern();
+  }
+  
+  let isPatternDragging = false;
+  let patternDragValue = 1;
+  function setPatternCell(y, x, val) {
+    const v = val ? 1 : 0;
+    if (customDitherPattern[y][x] !== v) {
+      customDitherPattern[y][x] = v;
+      customDitherPattern = customDitherPattern.slice();
+    }
+  }
+  function startPatternDrag(y, x, e) {
+    try { e.preventDefault(); } catch {}
+    isPatternDragging = true;
+    patternDragValue = customDitherPattern[y][x] ? 0 : 1; 
+    setPatternCell(y, x, patternDragValue);
+  }
+  function movePatternDrag(y, x, e) {
+    if (!isPatternDragging) return;
+    try { e.preventDefault(); } catch {}
+    setPatternCell(y, x, patternDragValue);
+  }
+  
   $: if (paletteMode === 'custom') {
     if (!customInitialized) {
       customIndices = getFreeIndices();
@@ -41,6 +79,7 @@
     customInitialized = false;
   }
   $: customKey = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
+  $: customDitherKey = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
 
   
   function applyGradient(x0, y0, x1, y1) {
@@ -104,13 +143,13 @@
   async function beginQrGeneration() {
     try {
       
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}${ditherMethod==='custom'?`|cp:${customDitherKey}`:''}`;
       const cached = previewCache.get(key);
       
       const getBaseName = () => {
         try { const n = (file && file.name) ? file.name : 'image.png'; const m = String(n); const dot = m.lastIndexOf('.'); return dot > 0 ? m.slice(0, dot) : m; } catch { return 'image'; }
       };
-      const ditherCode = (dm) => { switch (dm) { case 'none': return 'n'; case 'ordered4': return 'o4'; case 'ordered8': return 'o8'; case 'floyd': return 'fs'; case 'atkinson': return 'at'; case 'bayer2': return 'b2'; case 'bayer4': return 'b4'; case 'lines': return 'ln'; case 'random': return 'rnd'; default: return String(dm || 'n'); } };
+      const ditherCode = (dm) => { switch (dm) { case 'none': return 'n'; case 'ordered4': return 'o4'; case 'ordered8': return 'o8'; case 'floyd': return 'fs'; case 'atkinson': return 'at'; case 'bayer2': return 'b2'; case 'bayer4': return 'b4'; case 'lines': return 'ln'; case 'random': return 'rnd'; case 'custom': return 'ct'; default: return String(dm || 'n'); } };
       const paletteCode = (pm) => pm === 'full' ? 'F' : (pm === 'free' ? 'f' : 'C');
       const base = getBaseName();
       const suffix = `${pixelSize}${ditherCode(ditherMethod)}${ditherLevels}${paletteCode(paletteMode)}${outlineThickness}${erodeAmount}`;
@@ -1152,7 +1191,7 @@
   function downloadCurrent() {
     
     try {
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}${ditherMethod==='custom'?`|cp:${customDitherKey}`:''}`;
       const cached = previewCache.get(key);
       
       const getBaseName = () => {
@@ -1168,8 +1207,10 @@
           case 'none': return 'n';
           case 'ordered4': return 'o4';
           case 'ordered8': return 'o8';
-          case 'lines': return 'ln';
+          case 'floyd': return 'fs';
+          case 'atkinson': return 'at';
           case 'random': return 'rnd';
+          case 'custom': return 'ct';
           default: return String(dm || 'n');
         }
       };
@@ -1183,12 +1224,6 @@
         .then((blob) => downloadBlob(blob, filename))
         .catch(() => {});
     } catch {}
-  }
-
-  
-  function clampPan(m) {
-    
-    
   }
 
   function onStageWheel(e) {
@@ -1290,7 +1325,7 @@
     if (working) return; 
     working = true;
     try {
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}${ditherMethod==='custom'?`|cp:${customDitherKey}`:''}`;
       const cached = previewCache.get(key);
       if (cached) {
         
@@ -1331,7 +1366,7 @@
   async function apply() {
     if (!file) { close(); return; }
     try {
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}${ditherMethod==='custom'?`|cp:${customDitherKey}`:''}`;
       const cached = previewCache.get(key);
       const out = cached?.blob || await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices);
       
@@ -1374,11 +1409,15 @@
   }
 
   $: if (open && file && pixelSize && method && ditherMethod && ditherLevels && paletteMode !== undefined) {
-    
+  
+  
+  if (ditherMethod === 'custom') {
+    if (customDitherKey) updatePreview();
+  } else {
     updatePreview();
   }
+}
 
-  
   $: if (file) {
     fileStamp = Date.now();
     
@@ -1412,7 +1451,7 @@
   function onWindowResize() { layoutStage(); }
 </script>
 
-<svelte:window on:resize={onWindowResize} on:wheel={onGlobalWheel} on:mouseup={onWindowMouseUp} on:keydown={onWindowKeyDown} />
+<svelte:window on:resize={onWindowResize} on:wheel={onGlobalWheel} on:mouseup={() => { isPatternDragging = false; onWindowMouseUp(); }} on:keydown={onWindowKeyDown} />
 
 {#if open}
   <div use:appendToBody class="editor-backdrop" bind:this={backdropRef} role="button" tabindex="0" style={`z-index:1000000000000; display:${suspendVisible ? 'none' : 'flex'};`}
@@ -1451,7 +1490,7 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.method')}</div>
               <div class="editor-row">
-                <select bind:value={ditherMethod} on:change={updatePreview} class="editor-select">
+                <select bind:value={ditherMethod} on:change={() => { if (ditherMethod !== 'custom') updatePreview(); }} class="editor-select">
                   {#each DITHER_METHODS as dm}
                     <option value={dm}>{t('editor.dither.method.' + dm)}</option>
                   {/each}
@@ -1461,10 +1500,42 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.dither.strength')}</div>
               <div class="editor-row">
-                <input type="range" min="2" max="20" step="1" bind:value={ditherLevels} on:input={updatePreview} style="--min:2; --max:20; --val:{ditherLevels};" />
+                <input type="range" min="2" max="20" step="1" bind:value={ditherLevels} on:input={() => { if (ditherMethod !== 'custom') updatePreview(); }} style="--min:2; --max:20; --val:{ditherLevels};" />
                 <div class="editor-value">{ditherLevels}</div>
               </div>
             </div>
+            {#if ditherMethod === 'custom'}
+              <div class="custom-dither-panel">
+                {#if t('editor.dither.custom.title')}
+                  <div class="custom-dither-title">{t('editor.dither.custom.title')}</div>
+                {/if}
+                <div class="custom-dither-grid" role="grid" aria-label={t('editor.dither.custom.title')}>
+                  {#each Array(8) as _, y}
+                    <div class="row" role="row">
+                      {#each Array(8) as __, x}
+                        <button class="cell"
+                                aria-pressed={customDitherPattern[y][x]===1}
+                                aria-label={`cell ${y+1},${x+1}`}
+                                class:on={customDitherPattern[y][x]===1}
+                                on:mousedown={(e) => startPatternDrag(y, x, e)}
+                                on:mouseenter={(e) => movePatternDrag(y, x, e)}
+                                on:click|preventDefault={() => {  }}
+                                on:contextmenu|preventDefault>
+                        </button>
+                      {/each}
+                    </div>
+                  {/each}
+                </div>
+                <div class="custom-dither-brightness" style="margin-top:10px; width:100%; display:flex; flex-direction:column; gap:6px;">
+                  <div class="editor-control-title">{t('editor.dither.custom.brightness')}</div>
+                  <input type="range" min="0" max="100" step="1" bind:value={customDitherStrengthPct} style="--min:0; --max:100; --val:{customDitherStrengthPct}; width:100%;" />
+                </div>
+                <div class="custom-dither-actions">
+                  <button class="editor-btn" on:click={resetCustomPattern}>{t('editor.dither.custom.reset')}</button>
+                  <button class="editor-btn editor-primary" on:click={applyCustomDitherPattern}>{t('editor.dither.custom.apply')}</button>
+                </div>
+              </div>
+            {/if}
           </div>
 
           <div class="editor-group">
@@ -2227,6 +2298,15 @@
   
   .gen-fab { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #222; border: 1px solid rgba(0,0,0,0.1); display: grid; place-items: center; box-shadow: 0 8px 22px rgba(0,0,0,0.35); cursor: pointer; transition: transform .25s cubic-bezier(.2,.8,.2,1), opacity .25s ease, filter .15s ease; }
   .gen-fab:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
+  
+  .custom-dither-panel { margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; display: flex; flex-direction: column; align-items: center; }
+  .custom-dither-title { font-size: 12px; opacity: .85; margin-bottom: 6px; text-align: center; }
+  .custom-dither-grid { display: inline-flex; flex-direction: column; gap: 2px; user-select: none; }
+  .custom-dither-grid .row { display: flex; gap: 2px; }
+  .custom-dither-grid .cell { width: 18px; height: 18px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.3); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35); cursor: pointer; }
+  .custom-dither-grid .cell.on { background: #f05123; border-color: rgba(255,255,255,0.3); box-shadow: 0 0 8px rgba(240,81,35,0.6), inset 0 0 0 1px rgba(0,0,0,0.35); }
+  .custom-dither-actions { width: 100%; display: flex; justify-content: center; margin-top: 8px; gap: 12px; }
   .fab-tools.disabled { pointer-events: none; opacity: .45; filter: grayscale(.35); }
   .fab-tools.disabled .fab-tool.active { background: rgba(255,255,255,0.95); color: #222; }
   .header-palette.disabled { pointer-events: none; opacity: .5; filter: grayscale(.2); }

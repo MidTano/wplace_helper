@@ -32,5 +32,9 @@ export function toggleLang() { lang.set(get(lang) === 'ru' ? 'en' : 'ru'); }
 export function t(key: string): string {
   const l = get(lang);
   const dict = DICTS[l] || ru;
-  return (dict && dict[key]) || (ru[key]) || (en[key]) || key;
+  
+  if (Object.prototype.hasOwnProperty.call(dict, key)) return dict[key];
+  if (Object.prototype.hasOwnProperty.call(ru, key)) return ru[key];
+  if (Object.prototype.hasOwnProperty.call(en, key)) return en[key];
+  return key;
 }

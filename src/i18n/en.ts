@@ -188,6 +188,11 @@ export const en: Translations = {
   'editor.dither.method.floyd': 'Floyd–Steinberg',
   'editor.dither.method.atkinson': 'Atkinson',
   'editor.dither.method.random': 'random',
+  'editor.dither.method.custom': 'custom',
+  'editor.dither.custom.title': '',
+  'editor.dither.custom.apply': 'Apply',
+  'editor.dither.custom.reset': 'Reset',
+  'editor.dither.custom.brightness': 'Pattern brightness',
 
   
   'hotkeys.help.closeAria': 'Close help',

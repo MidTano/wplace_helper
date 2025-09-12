@@ -1,5 +1,5 @@
-export type DitherMethod = 'none' | 'ordered4' | 'ordered8' | 'floyd' | 'atkinson' | 'random';
-export const DITHER_METHODS: DitherMethod[] = ['none', 'ordered4', 'ordered8', 'floyd', 'atkinson', 'random'];
+export type DitherMethod = 'none' | 'ordered4' | 'ordered8' | 'floyd' | 'atkinson' | 'random' | 'custom';
+export const DITHER_METHODS: DitherMethod[] = ['none', 'ordered4', 'ordered8', 'floyd', 'atkinson', 'random', 'custom'];
 
 function canvasToImageData(c: OffscreenCanvas): ImageData {
   const cx = c.getContext('2d', { willReadFrequently: true })!;
@@ -43,6 +43,50 @@ const BAYER8 = (() => {
   ];
   return base;
 })();
+
+
+let CUSTOM8: number[][] = BAYER8.map(row => row.slice());
+
+
+export function setCustomDitherMatrix(m: number[][]): void {
+  try {
+    if (!Array.isArray(m) || m.length !== 8 || m.some(r => !Array.isArray(r) || r.length !== 8)) return;
+    
+    const mm = m.map(r => r.slice());
+    CUSTOM8 = mm;
+  } catch {}
+}
+
+
+export function setCustomDitherPatternBinary(p: number[][], strength: number = 1): void {
+  try {
+    if (!Array.isArray(p) || p.length !== 8 || p.some(r => !Array.isArray(r) || r.length !== 8)) return;
+    
+    let minX = 8, minY = 8, maxX = -1, maxY = -1;
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 8; x++) {
+        if (p[y][x]) { if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y; }
+      }
+    }
+    let tw = 1, th = 1;
+    if (maxX >= minX && maxY >= minY) { tw = (maxX - minX + 1) | 0; th = (maxY - minY + 1) | 0; }
+    
+    const tile: number[][] = Array.from({ length: th }, (_, yy) => Array.from({ length: tw }, (_, xx) => {
+      if (maxX < minX || maxY < minY) return 0; 
+      return p[minY + yy][minX + xx] ? 1 : 0;
+    }));
+    
+    const a = Math.max(0, Math.min(1, strength));
+    const denom = tw * th;
+    const low = Math.floor((denom - 1) * (0.5 - 0.5 * a));
+    const high = Math.floor((denom - 1) * (0.5 + 0.5 * a));
+    const out: number[][] = Array.from({ length: th }, () => Array(tw).fill(0));
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) out[y][x] = tile[y][x] ? high : low;
+    }
+    CUSTOM8 = out; 
+  } catch {}
+}
 
 function ditherOrdered(img: ImageData, levels: number, matrix: number[][]): ImageData {
   const w = img.width, h = img.height;
@@ -103,6 +147,8 @@ export function applyDitherToCanvas(canvas: OffscreenCanvas, levels: number, met
       img = ditherOrdered(img, levels, BAYER4); break;
     case 'ordered8':
       img = ditherOrdered(img, levels, BAYER8); break;
+    case 'custom':
+      img = ditherOrdered(img, levels, CUSTOM8); break;
     case 'floyd':
       img = ditherErrorDiffusion(img, levels, [
         {dx: 1, dy: 0, w: 7},
