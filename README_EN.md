@@ -47,7 +47,7 @@ Features:
 
 ---
 
-## Art Assembly (Copy Art)
+## Copy Art
 
 Reconstructs an image from Wplace map tiles; supports:
 - Determining tile center and scale
