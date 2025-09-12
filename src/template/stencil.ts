@@ -108,6 +108,12 @@ export default class stencil {
           }
         }
         
+        
+        let segDots = 0;
+        for (let k = 3; k < data.length; k += 4) {
+          if (data[k] >= 5) segDots++;
+        }
+        this.totalDots += segDots;
         cx.putImageData(img, 0, 0);
 
         const key = `${(this.coords[0] + Math.floor(sx / 1000)).toString().padStart(4, '0')},${(this.coords[1] + Math.floor(sy / 1000)).toString().padStart(4, '0')},${(sx % 1000).toString().padStart(3, '0')},${(sy % 1000).toString().padStart(3, '0')}`;
