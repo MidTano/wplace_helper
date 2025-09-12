@@ -5,7 +5,7 @@
   import { downloadBlob } from './save';
   import { RESAMPLE_METHODS } from './resamplers';
   import { DITHER_METHODS, setCustomDitherPatternBinary } from './dithering';
-  import { MASTER_COLORS, getFreeIndices, getPalette, getPaletteFromIndices } from './palette';
+  import { MASTER_COLORS, getFreeIndices, getPalette, getPaletteFromIndices, PALETTE_PRESETS } from './palette';
   import HotkeysInfoModal from './components/Info/HotkeysInfoModal.svelte';
   import MainFab from './components/Fab/MainFab.svelte';
   import CancelFab from './components/Fab/CancelFab.svelte';
@@ -14,6 +14,84 @@
   import { uploadToCatbox, fileNameFromUrl } from '../utils/catbox';
   import { buildCodeCanvas } from '../utils/codeTileEncoder';
   import { setMoveMode } from '../overlay/state';
+
+  
+  function fitAnts(node) {
+    let ro = null;
+    function update() {
+      try {
+        const host = node.parentElement;
+        if (!host) return;
+        const r = host.getBoundingClientRect();
+        const w = Math.max(0, Math.round(r.width));
+        const h = Math.max(0, Math.round(r.height));
+        node.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        const path = node.querySelector('path');
+        const makeD = (x0, y0, x1, y1, rtlx, rtly, rtrx, rtry, rbrx, rbry, rblx, rbly) => [
+          `M ${x0 + rtlx},${y0}`,
+          `L ${x1 - rtrx},${y0}`,
+          `A ${rtrx} ${rtry} 0 0 1 ${x1} ${y0 + rtry}`,
+          `L ${x1} ${y1 - rbry}`,
+          `A ${rbrx} ${rbry} 0 0 1 ${x1 - rbrx} ${y1}`,
+          `L ${x0 + rblx} ${y1}`,
+          `A ${rblx} ${rbly} 0 0 1 ${x0} ${y1 - rbly}`,
+          `L ${x0} ${y0 + rtly}`,
+          `A ${rtlx} ${rtly} 0 0 1 ${x0 + rtlx} ${y0}`,
+          'Z'
+        ].join(' ');
+        if (path) {
+          const cs = getComputedStyle(host);
+          const parseR = (v) => {
+            const s = String(v).trim().split('/')
+              .map(part => part.trim().split(/\s+/).map(n => parseFloat(n)||0));
+            const a = s[0]; const b = s[1] || a;
+            return { x: a[0] || 0, y: b[0] || a[0] || 0 };
+          };
+          const TL = parseR(cs.borderTopLeftRadius);
+          const TR = parseR(cs.borderTopRightRadius);
+          const BR = parseR(cs.borderBottomRightRadius);
+          const BL = parseR(cs.borderBottomLeftRadius);
+          const bwT = parseFloat(cs.borderTopWidth) || 0;
+          const bwR = parseFloat(cs.borderRightWidth) || 0;
+          const bwB = parseFloat(cs.borderBottomWidth) || 0;
+          const bwL = parseFloat(cs.borderLeftWidth) || 0;
+          const bw = (bwT + bwR + bwB + bwL) / 4;
+          const dpr = (window.devicePixelRatio || 1);
+          const snap = (v) => Math.round(v * dpr) / dpr;
+          const inset = bw / 2;
+          const x0 = snap(Math.max(0, inset));
+          const y0 = snap(Math.max(0, inset));
+          const x1 = snap(Math.max(x0, w - inset));
+          const y1 = snap(Math.max(y0, h - inset));
+          let rtlx = Math.max(0, TL.x - inset), rtly = Math.max(0, TL.y - inset);
+          let rtrx = Math.max(0, TR.x - inset), rtry = Math.max(0, TR.y - inset);
+          let rbrx = Math.max(0, BR.x - inset), rbry = Math.max(0, BR.y - inset);
+          let rblx = Math.max(0, BL.x - inset), rbly = Math.max(0, BL.y - inset);
+          const iw = Math.max(0, x1 - x0);
+          const ih = Math.max(0, y1 - y0);
+          const scaleX = Math.min(1, rtlx + rtrx > 0 ? iw / (rtlx + rtrx) : 1, rblx + rbrx > 0 ? iw / (rblx + rbrx) : 1);
+          const scaleY = Math.min(1, rtly + rbly > 0 ? ih / (rtly + rbly) : 1, rtry + rbry > 0 ? ih / (rtry + rbry) : 1);
+          rtlx *= scaleX; rtrx *= scaleX; rblx *= scaleX; rbrx *= scaleX;
+          rtly *= scaleY; rtry *= scaleY; rbly *= scaleY; rbry *= scaleY;
+          rtlx = snap(rtlx); rtly = snap(rtly);
+          rtrx = snap(rtrx); rtry = snap(rtry);
+          rbrx = snap(rbrx); rbry = snap(rbry);
+          rblx = snap(rblx); rbly = snap(rbly);
+          path.setAttribute('d', makeD(x0, y0, x1, y1, rtlx, rtly, rtrx, rtry, rbrx, rbry, rblx, rbly));
+          let L = 0; try { L = path.getTotalLength(); } catch {}
+          const ideal = 24;
+          const pairs = Math.max(10, Math.round(L / ideal));
+          const dash = L / (pairs * 2);
+          path.style.setProperty('--dash', `${dash.toFixed(2)}px`);
+          const speed = Math.max(0.8, Math.min(1.8, L / 220));
+          path.style.setProperty('--ants-speed', `${speed.toFixed(2)}s`);
+        }
+      } catch {}
+    }
+    try { ro = new ResizeObserver(update); ro.observe(node.parentElement); } catch {}
+    update();
+    return { destroy() { try { ro && ro.disconnect(); } catch {} } };
+  }
 
   export let open = false;
   export let file = null; 
@@ -43,6 +121,107 @@
       setCustomDitherPatternBinary(customDitherPattern, customDitherStrength);
       customDitherAppliedKey = `${flattenPattern(customDitherPattern)}|s:${Math.round(customDitherStrength*100)}`;
       updatePreview(); 
+    } catch {}
+  }
+
+  
+  
+  let tagMinCount = 3;
+  let ALL_PRESET_TAGS = [];
+  let presetQuery = '';
+  let selectedTags = new Set();
+  let onlyFreePresets = false;
+  let onlyFavoritePresets = false;
+  let filteredPresets = PALETTE_PRESETS;
+  const FAVORITES_KEY = 'wph_palette_favs';
+  let favoritePresetIds = new Set();
+
+  function loadFavorites() {
+    try {
+      const raw = localStorage.getItem(FAVORITES_KEY);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) favoritePresetIds = new Set(arr.filter(x => typeof x === 'string'));
+    } catch {}
+  }
+  function saveFavorites() {
+    try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(Array.from(favoritePresetIds))); } catch {}
+  }
+  function toggleFavoritePreset(p) {
+    try {
+      const next = new Set(favoritePresetIds);
+      if (next.has(p.id)) next.delete(p.id); else next.add(p.id);
+      favoritePresetIds = next;
+      saveFavorites();
+    } catch {}
+  }
+  
+  $: {
+    const counts = new Map();
+    for (const p of PALETTE_PRESETS) {
+      for (const tag of (p.tags || [])) {
+        counts.set(tag, (counts.get(tag) || 0) + 1);
+      }
+    }
+    
+    const countAt = (min) => {
+      let k = 0; counts.forEach(v => { if ((v || 0) >= min) k++; }); return k;
+    };
+    
+    let t = 3;
+    if (countAt(3) >= 30) t = 4; 
+    if (countAt(4) >= 30) t = 5; 
+    tagMinCount = t;
+
+    ALL_PRESET_TAGS = Array.from(counts.keys())
+      .filter(tag => (counts.get(tag) || 0) >= tagMinCount)
+      .sort();
+    
+    if (selectedTags && selectedTags.size) {
+      const allow = new Set(ALL_PRESET_TAGS);
+      const nextSel = new Set([...selectedTags].filter(tg => allow.has(tg)));
+      if (nextSel.size !== selectedTags.size) selectedTags = nextSel;
+    }
+  }
+  $: {
+    const q = (presetQuery || '').trim().toLowerCase();
+    filteredPresets = PALETTE_PRESETS.filter(p => {
+      if (q && !String(p.name || '').toLowerCase().includes(q)) return false;
+      if (selectedTags && selectedTags.size > 0) {
+        const tags = p.tags || [];
+        for (const t of selectedTags) { if (!tags.includes(t)) return false; }
+      }
+      if (onlyFreePresets) {
+        if (!p.indices.every(i => MASTER_COLORS[i] && MASTER_COLORS[i].paid === false)) return false;
+      }
+      if (onlyFavoritePresets) {
+        if (!favoritePresetIds.has(p.id)) return false;
+      }
+      return true;
+    }).slice().sort((a, b) => {
+      const af = favoritePresetIds.has(a.id) ? 1 : 0;
+      const bf = favoritePresetIds.has(b.id) ? 1 : 0;
+      if (af !== bf) return bf - af; 
+      return String(a.name||'').localeCompare(String(b.name||''));
+    });
+  }
+  function toggleTag(tag) {
+    const next = new Set(selectedTags);
+    if (next.has(tag)) next.delete(tag); else next.add(tag);
+    selectedTags = next;
+  }
+  function clearPresetFilters() {
+    presetQuery = '';
+    selectedTags = new Set();
+    onlyFreePresets = false;
+    onlyFavoritePresets = false;
+  }
+  onMount(() => { loadFavorites(); });
+  async function applyPreset(p) {
+    try {
+      customIndices = p.indices.slice();
+      await tick();
+      updatePreview();
     } catch {}
   }
   function resetCustomPattern() {
@@ -113,6 +292,7 @@
   let modalRef;
   let backdropRef;
   let panelRef;
+  let panelScrollTop = 0; 
   
   let waitingForCoords = false;
   let qrFileName = '';
@@ -143,7 +323,9 @@
   async function beginQrGeneration() {
     try {
       
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}${ditherMethod==='custom'?`|cp:${customDitherKey}`:''}`;
+      const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
+      const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}`;
       const cached = previewCache.get(key);
       
       const getBaseName = () => {
@@ -305,6 +487,7 @@
     });
   }
   function startPanelLockAnimation() {
+    try { panelScrollTop = panelRef ? (panelRef.scrollTop || 0) : 0; } catch {}
     buildTapeStripes();
     showLock = true;
     showTapes = false;
@@ -1320,12 +1503,15 @@
     } catch {}
   }
 
+  let queuedPreview = false;
   async function updatePreview() {
     if (!open || !file) return;
-    if (working) return; 
+    if (working) { queuedPreview = true; return; }
     working = true;
     try {
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}${ditherMethod==='custom'?`|cp:${customDitherKey}`:''}`;
+      const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
+      const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}`;
       const cached = previewCache.get(key);
       if (cached) {
         
@@ -1351,6 +1537,11 @@
       debugLayout('after-preview');
     } catch {}
     working = false;
+    if (queuedPreview) {
+      queuedPreview = false;
+      await tick();
+      return updatePreview();
+    }
     await tick();
   }
 
@@ -1366,11 +1557,13 @@
   async function apply() {
     if (!file) { close(); return; }
     try {
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}${ditherMethod==='custom'?`|cp:${customDitherKey}`:''}`;
+      const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
+      const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}`;
       const cached = previewCache.get(key);
       const out = cached?.blob || await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices);
       
-      dispatch('apply', { blob: out, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customKey, hadPixelEdits });
+      dispatch('apply', { blob: out, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customKey: customKeyNow, hadPixelEdits });
       
       close();
     } catch {
@@ -1460,7 +1653,8 @@
     <div class="editor-modal" bind:this={modalRef} role="dialog" aria-modal="true" tabindex="-1" style="z-index:1000000000001;">
       <div class="editor-grid">
         
-        <div class="editor-panel" class:locked={editMode} bind:this={panelRef}>
+        <div class="editor-panel" class:locked={editMode} bind:this={panelRef}
+             on:scroll={(e) => { try { panelScrollTop = e.currentTarget.scrollTop || 0; } catch {} }}>
           <div class="editor-panel-title">{t('editor.panel.title')}</div>
 
           <div class="editor-group">
@@ -1572,6 +1766,77 @@
                     </label>
                   {/each}
                 </div>
+                <div class="palette-presets">
+                  <div class="palette-presets-title">{t('editor.panel.palette.presets')}</div>
+                  <div class="preset-filters">
+                    <input class="preset-search" type="text" placeholder={t('editor.presets.search.placeholder')} bind:value={presetQuery} on:input={() => {  }} />
+                    <div class="preset-toggles">
+                      
+                      <button type="button" class="tile {onlyFreePresets ? 'selected' : ''}" aria-pressed={onlyFreePresets} on:click={() => { onlyFreePresets = !onlyFreePresets; }}>
+                        <div class="tile-inner">
+                          <span class="name">{t('editor.presets.freeOnly')}</span>
+                        </div>
+                        <svg class="ants" use:fitAnts aria-hidden="true"><path fill="none" /></svg>
+                      </button>
+                      
+                      <button type="button" class="tile {onlyFavoritePresets ? 'selected' : ''}" aria-pressed={onlyFavoritePresets} on:click={() => { onlyFavoritePresets = !onlyFavoritePresets; }}>
+                        <div class="tile-inner">
+                          <span class="name">{t('editor.presets.favoritesOnly')}</span>
+                        </div>
+                        <svg class="ants" use:fitAnts aria-hidden="true"><path fill="none" /></svg>
+                      </button>
+                      <button class="palette-btn ghost" on:click={clearPresetFilters}>{t('editor.presets.clear')}</button>
+                    </div>
+                    {#if ALL_PRESET_TAGS.length}
+                      <div class="preset-tags">
+                        {#each ALL_PRESET_TAGS as tg}
+                          <button
+                            type="button"
+                            class="tile tag-tile {selectedTags.has(tg) ? 'selected' : ''}"
+                            aria-pressed={selectedTags.has(tg)}
+                            on:click={() => toggleTag(tg)}
+                          >
+                            <div class="tile-inner">
+                              <span class="name">{tg}</span>
+                            </div>
+                            <svg class="ants" use:fitAnts aria-hidden="true"><path fill="none" /></svg>
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                  
+                  <div class="preset-list compact">
+                    {#each filteredPresets as p}
+                      <div class="preset-btn" role="button" tabindex="0" title={p.name}
+                           aria-label={p.name}
+                           on:click={() => applyPreset(p)}
+                           on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); applyPreset(p); } }}>
+                        <button
+                          type="button"
+                          class="preset-star {favoritePresetIds.has(p.id) ? 'active' : ''}"
+                          title={favoritePresetIds.has(p.id) ? t('editor.presets.unstar') : t('editor.presets.star')}
+                          aria-label={favoritePresetIds.has(p.id) ? t('editor.presets.unstar') : t('editor.presets.star')}
+                          aria-pressed={favoritePresetIds.has(p.id)}
+                          on:click|stopPropagation={() => toggleFavoritePreset(p)}
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.18-.61L12 2 9.18 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        </button>
+                        <div class="preset-swatches">
+                          {#each p.indices.slice(0, 8) as idx}
+                            <span class="sw" style={`--c: rgb(${MASTER_COLORS[idx].rgb[0]},${MASTER_COLORS[idx].rgb[1]},${MASTER_COLORS[idx].rgb[2]})`}></span>
+                          {/each}
+                        </div>
+                        <div class="preset-meta">
+                          <span class="preset-name">{p.name}</span>
+                        </div>
+                      </div>
+                    {/each}
+                    {#if filteredPresets.length === 0}
+                      <div class="preset-empty">{t('editor.presets.noResults')}</div>
+                    {/if}
+                  </div>
+                </div>
               {/if}
               
             </div>
@@ -1603,7 +1868,8 @@
           </div>
           {#if editMode}
             
-            <div class="panel-lock" aria-hidden="true" on:wheel|preventDefault on:touchmove|preventDefault>
+            <div class="panel-lock" aria-hidden="true" on:wheel|preventDefault on:touchmove|preventDefault
+                 style={`transform: translateY(${panelScrollTop}px);`}>
               {#if showLock}
                 <div class="panel-lock-icon" aria-hidden="true">
                   <div class="btn-lock"
@@ -2060,7 +2326,20 @@
   :global(.palette-custom::-webkit-scrollbar-button:start:decrement),
   :global(.palette-custom::-webkit-scrollbar-button:end:increment) { display: none; width: 0; height: 0; }
   :global(.palette-custom::-webkit-scrollbar-corner) { background: transparent; }
-  .palette-toolbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; padding: 6px 0; }
+  .palette-toolbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; padding: 6px 0; isolation: isolate; }
+  .palette-toolbar::before {
+    content: "";
+    position: absolute;
+    left: -10px; right: -10px; top: -6px; bottom: -6px;
+    background: linear-gradient(180deg, rgba(24,26,32,0.96), rgba(24,26,32,0.88));
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    z-index: -1;
+    pointer-events: none;
+  }
   .palette-count {
     font-size: 12px; font-weight: 600; opacity: .95;
     display: inline-flex; align-items: center; gap: 6px;
@@ -2084,6 +2363,56 @@
   .palette-btn.ghost { background: rgba(255,255,255,0.04); color: #fff; }
 
   
+  .palette-presets { margin: 2px 0 10px; }
+  .palette-presets-title { font-size: 12px; opacity: .9; margin: 2px 0 6px; }
+  .preset-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  .preset-btn { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 8px 40px 8px 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: inherit; cursor: pointer; text-align: left; transition: filter .12s ease, transform .12s ease, background .12s ease; }
+  .preset-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .preset-star {
+    position: absolute; top: 6px; right: 8px;
+    width: 26px; height: 26px; display: grid; place-items: center;
+    border-radius: 50%; border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08); color: #fff;
+    cursor: pointer; transition: transform .12s ease, filter .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  }
+  .preset-star:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .preset-star.active { background: #f05123; border-color: rgba(255,255,255,0.36); color: #fff; box-shadow: 0 4px 12px rgba(240,81,35,0.45); }
+  .preset-swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; }
+  .preset-swatches .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.45); background: var(--c); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); }
+  .preset-meta { display: flex; align-items: center; justify-content: flex-start; gap: 6px; font-size: 12px; opacity: .92; }
+  .preset-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* color count removed */
+
+  
+  .preset-filters { display: grid; gap: 8px; margin: 6px 0 8px; }
+  .preset-search { height: 32px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); background: rgba(42,45,51,1); color: #fff; font-weight: 600; }
+  .preset-search:focus { outline: none; box-shadow: 0 0 0 3px rgba(240,81,35,0.28); border-color: rgba(255,255,255,0.28); }
+  .preset-toggles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  
+  .tile { position: relative; display: block; padding: 8px 10px; border-radius: 12px; border: none; background: rgba(255,255,255,0.04); color: inherit; cursor: pointer; text-align: left; overflow: hidden; }
+  .tile .tile-inner { display: grid; grid-template-columns: 1fr; align-items: center; gap: 10px; }
+  .tile:hover { background: rgba(255,255,255,0.08); }
+  .tile.selected { border-color: transparent; box-shadow: none; }
+  .tile .name { font-size: 12px; line-height: 1.2; opacity: 0.95; }
+  .ants { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
+  .ants path { stroke: #f3734d; stroke-width: 2; stroke-linecap: butt; stroke-linejoin: round; stroke-dasharray: var(--dash) var(--dash); stroke-dashoffset: 0; filter: drop-shadow(0 0 2px rgba(240,81,35,0.6)); vector-effect: non-scaling-stroke; shape-rendering: geometricPrecision; }
+  .tile.selected .ants { opacity: 1; }
+  @keyframes antsRun { to { stroke-dashoffset: calc(-2 * var(--dash)); } }
+  .tile.selected .ants path { animation: antsRun var(--ants-speed, 1.2s) linear infinite; }
+  .preset-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  
+  .tag-tile { min-height: 32px; padding: 6px 10px; border-radius: 10px; }
+  .tag-tile .tile-inner .name { font-size: 12px; font-weight: 600; }
+  .preset-list.compact .preset-btn { flex-direction: row; align-items: center; gap: 8px; padding: 6px 40px 6px 6px; }
+  .preset-list.compact .preset-swatches { grid-template-columns: repeat(8, 12px); gap: 3px; }
+  .preset-list.compact .preset-swatches .sw { width: 12px; height: 12px; border-radius: 3px; }
+  .preset-list.compact .preset-meta { min-width: 0; }
+  .preset-list.compact .preset-star { top: 50%; right: 8px; transform: translateY(-50%); }
+  .preset-list.compact .preset-star:hover { transform: translateY(calc(-50% - 1px)); }
+  .preset-empty { padding: 10px; text-align: center; opacity: .8; font-size: 12px; }
+
+  
   .panel-lock {
     position: absolute;
     inset: 0;
@@ -2095,7 +2424,6 @@
     overscroll-behavior: contain; 
     user-select: none;
     border-radius: inherit;
-    position: absolute;
   }
   
   .panel-lock::before {
