@@ -11,6 +11,7 @@ export default class stencil {
   
   chunked: Record<string, ImageBitmap> = {};
   tilePrefixes: Set<string> = new Set();
+  totalDots: number = 0; 
 
   constructor({
     displayName = 'My template',
@@ -42,6 +43,7 @@ export default class stencil {
     const bmp = await createImageBitmap(this.file);
     const w = bmp.width;
     const h = bmp.height;
+    this.totalDots = 0; 
 
     const canvas = new OffscreenCanvas(this.tileSize, this.tileSize);
     const cx = canvas.getContext('2d', { willReadFrequently: true })!;
@@ -105,6 +107,7 @@ export default class stencil {
             }
           }
         }
+        
         cx.putImageData(img, 0, 0);
 
         const key = `${(this.coords[0] + Math.floor(sx / 1000)).toString().padStart(4, '0')},${(this.coords[1] + Math.floor(sy / 1000)).toString().padStart(4, '0')},${(sx % 1000).toString().padStart(3, '0')},${(sy % 1000).toString().padStart(3, '0')}`;

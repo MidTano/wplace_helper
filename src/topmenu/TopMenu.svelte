@@ -12,6 +12,7 @@
   import AutoMode from './AutoMode.svelte';
   import Settings from './Settings.svelte';
   import Close from './Close.svelte';
+  import LoadBar from './LoadBar.svelte';
   import { t, lang } from '../i18n';
   const dispatch = createEventDispatcher();
   
@@ -21,13 +22,13 @@
 
 <div class="topmenu-root" role="toolbar" aria-label={t('topmenu.toolbar')}>
   <div class="topmenu-bar">
-    
-    <div class="tm-group" aria-label={t('topmenu.group.stats')}>
+    <div class="tm-row">
+      <div class="tm-group" aria-label={t('topmenu.group.stats')}>
       <AccountStats />
-    </div>
+      </div>
 
     
-    <div class="tm-group" aria-label={t('topmenu.group.art')}>
+      <div class="tm-group" aria-label={t('topmenu.group.art')}>
       <button class="tm-fab tm-primary tm-tip" type="button" on:click={onPick} aria-label={L_pick} data-label={L_pick}>
         <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
           <path d="M19,14a3,3,0,1,0-3-3A3,3,0,0,0,19,14Zm0-4a1,1,0,1,1-1,1A1,1,0,0,1,19,10Z"/>
@@ -44,27 +45,29 @@
           <rect x="12" y="2" width="8" height="2"/>
         </svg>
       </button>
-      <CopyArt on:copy={(e)=>dispatch('copyArt')}/>
-      <History on:load={(e)=>dispatch('historyLoad', e.detail)} />
-    </div>
+        <CopyArt on:copy={(e)=>dispatch('copyArt')}/>
+        <History on:load={(e)=>dispatch('historyLoad', e.detail)} />
+      </div>
 
     
-    <div class="tm-group" aria-label={t('topmenu.group.tools')}>
+      <div class="tm-group" aria-label={t('topmenu.group.tools')}>
       <ScreenAccess />
       <EnhancedColors />
       <AutoMode />
-    </div>
+      </div>
 
     
-    <div class="tm-group" aria-label={t('topmenu.group.settings')}>
+      <div class="tm-group" aria-label={t('topmenu.group.settings')}>
       <Settings />
       <Language />
-    </div>
+      </div>
 
     
-    <div class="tm-group tm-end" aria-label={t('topmenu.group.close')}>
+      <div class="tm-group tm-end" aria-label={t('topmenu.group.close')}>
       <Close />
+      </div>
     </div>
+    <LoadBar inline={true} />
   </div>
 </div>
 
@@ -83,13 +86,18 @@
   }
   .topmenu-bar {
     display: flex;
-    gap: 8px;
-    align-items: center;
+    flex-direction: column;
+    row-gap: 0;
     background: rgba(24,26,32,0.88);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 10px;
-    padding: 6px 10px;
+    padding: 6px 10px 8px 10px;
     box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  }
+  .tm-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
   }
   .tm-group { display: flex; align-items: center; gap: 8px; }
   .tm-group + .tm-group { margin-left: 14px; }

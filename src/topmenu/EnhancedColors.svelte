@@ -8,6 +8,7 @@
     on = !on;
     try {
       getStencilManager().setEnhancedColors(on);
+      try { window.dispatchEvent(new CustomEvent('wplace:enhanced', { detail: { on } })); } catch {}
       log('ui', 'enhancedColors', { on });
     } catch {}
   }

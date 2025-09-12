@@ -1642,7 +1642,7 @@
                       <span class="tool-size-badge">{brushSize}</span>
                     {/if}
                   </button>
-                  <!-- Eraser -->
+                  
                   <button class="fab-tool" class:active={activeTool==='eraser' && !stickerMode} title={t('editor.tool.eraser')} aria-label={t('editor.tool.eraser')} on:click={() => pickTool('eraser')}
                           on:mouseenter={() => hoverEraserBtn = true} on:mouseleave={() => hoverEraserBtn = false}>
                     <svg fill="currentColor" viewBox="0 0 32 32" width="18" height="18" aria-hidden="true">
