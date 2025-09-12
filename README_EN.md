@@ -43,7 +43,7 @@ Features:
 - Post-processing: outline enhancement, edge shrink
 - Code/QR generation and saving the result
 
-![editor](https://github.com/user-attachments/assets/372bf426-14da-48f2-a660-6c2ffea31203)
+https://github.com/user-attachments/assets/8f14afd8-c988-4991-8ff1-a7ac72b3ab7e
 
 ---
 
@@ -57,6 +57,18 @@ Reconstructs an image from Wplace map tiles; supports:
 ![copyart](https://github.com/user-attachments/assets/33e119cd-cf97-4c4e-bdf2-5b47414ae7a1)
 
 ---
+
+ ## QR
+
+The system allows you to quickly help other users by scanning special codes.
+
+
+
+https://github.com/user-attachments/assets/eaa5929e-1532-473f-ac4f-ba2ff1197709
+
+
+
+ ---
 
 ## Build and Development
 
