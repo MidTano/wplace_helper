@@ -43,7 +43,8 @@
  - Пост‑обработка: усиление контура, уменьшение краёв.
  - Генерация кода/QR и сохранение результата.
 
- ![editor](https://github.com/user-attachments/assets/372bf426-14da-48f2-a660-6c2ffea31203)
+https://github.com/user-attachments/assets/8f14afd8-c988-4991-8ff1-a7ac72b3ab7e
+
 
  ---
 
@@ -55,6 +56,18 @@
  - Экспорт в файл и отправку в редактор.
 
  ![copyart](https://github.com/user-attachments/assets/33e119cd-cf97-4c4e-bdf2-5b47414ae7a1)
+
+ ---
+
+ ## QR
+
+Система позволяет быстро помогать другим пользователям , по средствам сканирования специальных кодов
+
+
+
+https://github.com/user-attachments/assets/eaa5929e-1532-473f-ac4f-ba2ff1197709
+
+
 
  ---
 
