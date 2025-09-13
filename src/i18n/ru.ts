@@ -16,6 +16,7 @@ export const ru: Translations = {
   'btn.enhancedColors': 'Улучшенные цвета',
   'btn.history': 'История',
   'btn.close': 'Закрыть',
+  'btn.discord': 'Discord',
   'btn.move.on': 'Перемещение: вкл',
   'btn.move.off': 'Перемещение: выкл',
 

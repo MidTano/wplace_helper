@@ -10,7 +10,7 @@ export default defineConfig({
       userscript: {
         name: 'Wplace Helper',
         namespace: 'https://github.com/MidTano/wplace_helper',
-        version: '0.7.0',
+        version: '0.8.0',
         author: 'MidTano',
         description: 'Overlay and tools for Wplace',
         match: [

@@ -11,6 +11,7 @@
   import ScreenAccess from './ScreenAccess.svelte';
   import AutoMode from './AutoMode.svelte';
   import Settings from './Settings.svelte';
+  import Discord from './Discord.svelte';
   import Close from './Close.svelte';
   import LoadBar from './LoadBar.svelte';
   import { t, lang } from '../i18n';
@@ -60,6 +61,11 @@
       <div class="tm-group" aria-label={t('topmenu.group.settings')}>
       <Settings />
       <Language />
+      </div>
+
+      
+      <div class="tm-group" aria-label="Discord">
+      <Discord />
       </div>
 
     

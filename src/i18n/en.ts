@@ -16,6 +16,7 @@ export const en: Translations = {
   'btn.enhancedColors': 'Enhanced colors',
   'btn.history': 'History',
   'btn.close': 'Close',
+  'btn.discord': 'Discord',
   'btn.move.on': 'Move: on',
   'btn.move.off': 'Move: off',
 
