@@ -211,8 +211,8 @@ function installPageFetchInjection() {
       }
     
       if (data.action === 'pageClick' && typeof data.x === 'number' && typeof data.y === 'number') {
-        const x = Math.round(Number(data.x));
-        const y = Math.round(Number(data.y));
+        const x = Number(data.x);
+        const y = Number(data.y);
         try {
          
           const container = document.querySelector('div.maplibregl-canvas-container') as any;

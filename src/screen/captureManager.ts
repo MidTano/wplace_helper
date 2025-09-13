@@ -99,8 +99,8 @@ export function snapshotToClient(snapshot: NonNullable<Snapshot>, sx: number, sy
   if (vw <= 0 || vh <= 0) return null;
   const scaleX = vw / Math.max(1, window.innerWidth);
   const scaleY = vh / Math.max(1, window.innerHeight);
-  const cx = Math.round(sx / Math.max(1e-6, scaleX));
-  const cy = Math.round(sy / Math.max(1e-6, scaleY));
+  const cx = sx / Math.max(1e-6, scaleX);
+  const cy = sy / Math.max(1e-6, scaleY);
   if (cx < 0 || cy < 0 || cx >= window.innerWidth || cy >= window.innerHeight) return null;
   return [cx, cy];
 }

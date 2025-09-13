@@ -358,7 +358,9 @@ async function scanAndClick(): Promise<number> {
         }
       }
       if (best >= 0 && bestD <= threshSqEff && neighborsOk) {
-        const pt = snapshotToClient(snap, x, y);
+        const targetRGB: [number, number, number] = paletteAllowed[best];
+        const [rx, ry] = refinePointToClusterCenter(snap as any, x, y, targetRGB, threshSqEff);
+        const pt = snapshotToClient(snap, rx, ry);
         if (!pt) continue;
         const [cx, cy] = pt;
         
@@ -440,8 +442,7 @@ async function scanAndClick(): Promise<number> {
 async function synthClick(x: number, y: number) {
   
   try {
-    
-    window.postMessage({ source: 'wplace-svelte', action: 'pageClick', x: Math.round(x), y: Math.round(y) }, '*');
+    window.postMessage({ source: 'wplace-svelte', action: 'pageClick', x, y }, '*');
   } catch {}
 }
 
@@ -462,6 +463,40 @@ function shuffle<T>(a: T[]) {
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function refinePointToClusterCenter(
+  snap: { width: number; height: number; data: ImageData },
+  x: number,
+  y: number,
+  matchRGB: [number, number, number],
+  threshSq: number
+): [number, number] {
+  try {
+    const vw = snap.width, vh = snap.height;
+    const data = snap.data.data;
+    const R = 3; 
+    let sumX = 0, sumY = 0, cnt = 0;
+    const y0 = Math.max(0, y - R);
+    const y1 = Math.min(vh - 1, y + R);
+    const x0 = Math.max(0, x - R);
+    const x1 = Math.min(vw - 1, x + R);
+    for (let ny = y0; ny <= y1; ny++) {
+      const row = ny * vw * 4;
+      for (let nx = x0; nx <= x1; nx++) {
+        const i = row + nx * 4;
+        const a = data[i + 3];
+        if (a < 200) continue; 
+        const dr = data[i] - matchRGB[0];
+        const dg = data[i + 1] - matchRGB[1];
+        const db = data[i + 2] - matchRGB[2];
+        const dd = dr * dr + dg * dg + db * db;
+        if (dd <= threshSq) { sumX += nx; sumY += ny; cnt++; }
+      }
+    }
+    if (cnt > 0) return [sumX / cnt, sumY / cnt];
+  } catch {}
+  return [x, y];
+}
 
 function openPaletteSimple(): boolean {
   const sels = [
