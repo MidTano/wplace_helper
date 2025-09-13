@@ -6,6 +6,10 @@
 
 Template overlays on the map, image editor, art sharing, auto-paint, and helper utilities
 
+<a href="https://discord.gg/8WGkrhXKgX">
+  <img src="https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Project Discord server" />
+</a>
+
 ![intro](https://github.com/user-attachments/assets/b301bd8a-568f-4dfa-842d-18f4530d2401)
 
 </div>
@@ -58,17 +62,13 @@ Reconstructs an image from Wplace map tiles; supports:
 
 ---
 
- ## QR
+## QR
 
 The system allows you to quickly help other users by scanning special codes.
 
-
-
 https://github.com/user-attachments/assets/eaa5929e-1532-473f-ac4f-ba2ff1197709
 
-
-
- ---
+---
 
 ## Build and Development
 
@@ -78,4 +78,3 @@ Commands:
 ```bash
 npm install
 npm run build 
-```
