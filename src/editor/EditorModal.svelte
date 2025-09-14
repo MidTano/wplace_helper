@@ -2382,7 +2382,7 @@
   .preset-swatches .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.45); background: var(--c); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); }
   .preset-meta { display: flex; align-items: center; justify-content: flex-start; gap: 6px; font-size: 12px; opacity: .92; }
   .preset-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* color count removed */
+  
 
   
   .preset-filters { display: grid; gap: 8px; margin: 6px 0 8px; }

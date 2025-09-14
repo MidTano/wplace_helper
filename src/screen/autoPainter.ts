@@ -193,6 +193,8 @@ export function stopAutoPainter() {
   if (tileUpdateListener) { try { window.removeEventListener('message', tileUpdateListener); } catch {} tileUpdateListener = null; }
   
   try { getStencilManager().setAutoSelectedMasterIdx(null as any); } catch {}
+  
+  try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
 }
 
 export function stopAutoPainterManual() {
@@ -261,6 +263,14 @@ async function scanAndClick(): Promise<number> {
     const ok = await ensureEditingMode();
     if (!ok) { stopAutoPainter(); return 0; }
   }
+  
+  
+  try { 
+    await ensureColorMap(); 
+    
+  } catch (e) {
+    console.error('Failed to update color map:', e);
+  }
   const snap = captureScreenSnapshot();
   if (!snap) return 0;
   const vw = snap.width, vh = snap.height;
@@ -285,7 +295,9 @@ async function scanAndClick(): Promise<number> {
   const threshSqEff = exactModeEffective ? 0 : threshSq;
   const detectionBlue: [number, number, number] = [0, 0, 240];
   
-  const allowedIdxs: number[] = (!singleColorMode && masterToButton) ? masterToButton.map((id, idx) => (id != null && id >= 0 ? idx : -1)).filter(i => i >= 0) : [];
+  
+  const allowedIdxs: number[] = (!singleColorMode && masterToButton) ? 
+    masterToButton.map((buttonId, masterIdx) => (buttonId != null && buttonId >= 0 ? masterIdx : -1)).filter(i => i >= 0) : [];
   const paletteAllowed: [number, number, number][] = (!singleColorMode) ? allowedIdxs.map(i => palette[i]) : [detectionBlue];
 
   
@@ -386,7 +398,9 @@ async function scanAndClick(): Promise<number> {
           }
         }
         if (!tooClose) {
-          const btnId = singleColorMode ? (selectedButtonId as number) : mapMasterIndexToButton(allowedIdxs[best]);
+          
+          const masterIdx = singleColorMode ? (selectedMasterIdx as number) : allowedIdxs[best];
+          const btnId = singleColorMode ? (selectedButtonId as number) : mapMasterIndexToButton(masterIdx);
           if (btnId == null || btnId < 0) continue; 
           if (!availableButtonIds.has(btnId)) continue; 
           const arr = buckets.get(btnId);
@@ -421,7 +435,20 @@ async function scanAndClick(): Promise<number> {
       const outEl2 = document.querySelector('body > div:nth-child(1) > section > ol') as HTMLElement | null;
       if (outEl2) { await handlePaintOut(); return clicks; }
     } catch {}
+    
     await selectColor(id);
+    
+    
+    {
+      const cfg = getAutoConfig();
+      try {
+        const tSec = Number((cfg as any)?.tileUpdatedTimeoutSec);
+        const tMs = Number.isFinite(tSec) ? Math.round(tSec * 1000) : 3000;
+        await waitForTileRefresh(tMs);
+      } catch {}
+      const sSec = Number((cfg as any)?.switchPreWaitSec);
+      await sleep(Number.isFinite(sSec) ? Math.max(0, Math.round(sSec * 1000)) : 0);
+    }
     for (let i = 0; i < list.length; i++) {
       if (!running) break;
       
@@ -449,7 +476,7 @@ async function synthClick(x: number, y: number) {
 
 type ColorButton = { id: number; rgb: [number, number, number]; paid: boolean; label?: string };
 let colorButtons: ColorButton[] | null = null;
-let masterToButton: number[] | null = null;    
+let masterToButton: (number | null)[] | null = null;    
 
 const buttonCache = new Map<string, number>();
 
@@ -613,26 +640,41 @@ async function ensureColorMap() {
     const available = colorButtons.filter(b => !b.paid);
     
     try { availableButtonIds = new Set(available.map(b => b.id)); } catch { availableButtonIds = new Set(); }
+    
+    
+    try { buttonCache.clear(); } catch {}
     for (const b of available) {
       const key = `${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`;
-      if (!buttonCache.has(key)) buttonCache.set(key, b.id);
+      buttonCache.set(key, b.id);
     }
   }
   
-  if (buttonCache.size === 0) {
-    masterToButton = MASTER_COLORS.map(() => -1 as any);
-    return;
+  
+  const availableNow = (colorButtons || []).filter(b => !b.paid);
+  if (!availableNow.length) { 
+    masterToButton = MASTER_COLORS.map(() => null); 
+    return; 
   }
-  masterToButton = MASTER_COLORS.map((mc) => {
-    const k = `${mc.rgb[0]},${mc.rgb[1]},${mc.rgb[2]}`;
-    return buttonCache.has(k) ? (buttonCache.get(k) as number) : -1;
+  
+  
+  const rgbToButtonMap = new Map<string, number>();
+  for (const b of availableNow) {
+    const rgbKey = `${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`;
+    rgbToButtonMap.set(rgbKey, b.id);
+  }
+  
+  masterToButton = MASTER_COLORS.map((mc, masterIdx) => {
+    const rgbKey = `${mc.rgb[0]},${mc.rgb[1]},${mc.rgb[2]}`;
+    const buttonId = rgbToButtonMap.get(rgbKey) ?? null;
+    return buttonId;
   });
 }
 
 
 function mapMasterIndexToButton(idx: number): number | null {
   if (!masterToButton || idx < 0 || idx >= masterToButton.length) return null;
-  return masterToButton[idx] ?? -1;
+  const buttonId = masterToButton[idx];
+  return (buttonId != null && buttonId >= 0) ? buttonId : null;
 }
 
 async function selectColor(id: number) {
@@ -663,12 +705,22 @@ async function chooseRandomAvailableColor() {
   const counts = (()=>{ try { return (lastCountsKnown && Array.isArray(lastCountsKnown)) ? lastCountsKnown : getStencilManager().getRemainingCountsTotal(); } catch { return []; } })() as number[];
   const candidates: Array<{ idx: number, btnId: number }>= [];
   for (const b of avail) {
-    const idx = MASTER_COLORS.findIndex(c => c.rgb[0] === b.rgb[0] && c.rgb[1] === b.rgb[1] && c.rgb[2] === b.rgb[2]);
+    
+    let bestIdx = -1; let bestD = Infinity;
+    for (let i = 0; i < MASTER_COLORS.length; i++) {
+      const mr = MASTER_COLORS[i].rgb[0], mg = MASTER_COLORS[i].rgb[1], mb = MASTER_COLORS[i].rgb[2];
+      const dr = (b.rgb[0] | 0) - mr;
+      const dg = (b.rgb[1] | 0) - mg;
+      const db = (b.rgb[2] | 0) - mb;
+      const d = dr*dr + dg*dg + db*db;
+      if (d < bestD) { bestD = d; bestIdx = i; }
+    }
+    const idx = bestIdx;
     if (idx < 0) continue;
     if (allowedSet.size && !allowedSet.has(idx)) continue;
     if (Array.isArray(counts) && counts[idx] <= 0) continue;
-    const btnId = mapMasterIndexToButton(idx) ?? -1;
-    if (btnId < 0) continue;
+    const btnId = b.id;
+    if (btnId == null || btnId < 0) continue;
     candidates.push({ idx, btnId });
   }
   if (!candidates.length) { selectedMasterIdx = null; selectedButtonId = null; return; }
@@ -735,6 +787,8 @@ async function runAutoLoop() {
       const order = await buildRandomColorOrder();
       
       if (!order || order.length === 0) {
+        
+        try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
         await clickCenterBottomButton(1);
         try {
           const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
@@ -744,6 +798,8 @@ async function runAutoLoop() {
         
         try { await showAllColorsAndRefresh(300); } catch {}
         
+        try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
+        
         {
           const cfg = getAutoConfig();
           const sec = Number((cfg as any)?.paintOutWaitSec);
@@ -752,6 +808,8 @@ async function runAutoLoop() {
         }
         continue;
       }
+      
+      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
       for (const c of order) {
         if (!running) break;
         
@@ -790,6 +848,8 @@ async function runAutoLoop() {
       } catch {}
       
       try { await showAllColorsAndRefresh(300); } catch {}
+      
+      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
       
       {
         const cfg = getAutoConfig();
