@@ -95,7 +95,7 @@ async function seedButtonsFromPage() {
       for (const b of btns) {
         if (!b) continue;
         
-        if (!b.paid) {
+        if (!b.paid && b.id > 0) {
           const k = `${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`;
           if (!buttonCache.has(k)) buttonCache.set(k, b.id);
         }
@@ -637,7 +637,8 @@ async function ensureColorMap() {
   }
   
   if (colorButtons && colorButtons.length) {
-    const available = colorButtons.filter(b => !b.paid);
+    
+    const available = colorButtons.filter(b => !b.paid && b.id > 0);
     
     try { availableButtonIds = new Set(available.map(b => b.id)); } catch { availableButtonIds = new Set(); }
     
@@ -650,7 +651,7 @@ async function ensureColorMap() {
   }
   
   
-  const availableNow = (colorButtons || []).filter(b => !b.paid);
+  const availableNow = (colorButtons || []).filter(b => !b.paid && b.id > 0);
   if (!availableNow.length) { 
     masterToButton = MASTER_COLORS.map(() => null); 
     return; 
@@ -689,7 +690,7 @@ async function selectColor(id: number) {
 async function chooseRandomAvailableColor() {
   
   colorButtons = await requestColorButtons();
-  const avail = (colorButtons || []).filter(b => !b.paid);
+  const avail = (colorButtons || []).filter(b => !b.paid && b.id > 0);
   if (!avail.length) { selectedMasterIdx = null; selectedButtonId = null; return; }
   
   let allowed = getAutoAllowedMasters();

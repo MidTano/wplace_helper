@@ -60,6 +60,8 @@
   let lastTileUpdatedTs = 0;
   let pendingEarlyTileUpdate = false;
   const earlyWindowMs = 350; 
+  
+  let tileUpdateArrivedSinceEnd = false;
 
   
   let coalesceHoldUntilTs = 0;
@@ -303,6 +305,11 @@
         visible = enhancedOn;
         return;
       }
+      
+      if (waitingForTileUpdate && !tileDelayActive && !tileUpdateArrivedSinceEnd) {
+        visible = enhancedOn;
+        return;
+      }
 
       
       if (autoPaintingActive) {
@@ -337,7 +344,7 @@
       
       
       let didShowFrozenDeltas = false;
-      if (waitingForTileUpdate && frozenPercent !== null && frozenRemaining !== null) {
+      if (waitingForTileUpdate && tileUpdateArrivedSinceEnd && frozenPercent !== null && frozenRemaining !== null) {
         if (hasRealData && !shouldShowFirstRealData) {
           const dPctF = newPercent - frozenPercent;
           if (Math.abs(dPctF) >= 0.01) { queueDelta('left', 'percent', dPctF); }
@@ -347,6 +354,7 @@
         }
         
         waitingForTileUpdate = false;
+        tileUpdateArrivedSinceEnd = false;
         frozenPercent = null;
         frozenRemaining = null;
         prevPercent = newPercent;
@@ -407,6 +415,8 @@
         }
         
         if (waitingForTileUpdate) {
+          
+          tileUpdateArrivedSinceEnd = true;
           if (tileDelayTimer) { try { clearTimeout(tileDelayTimer); } catch {} }
           tileDelayActive = true;
           
@@ -450,22 +460,27 @@
         pendingEarlyTileUpdate = false;
         lastTileUpdatedTs = 0;
         coalesceHoldUntilTs = 0;
+        tileUpdateArrivedSinceEnd = false;
       } else if (d.action === 'autoPaintCycleEnd') {
         
         autoPaintingActive = false;
         waitingForTileUpdate = true;
+        tileUpdateArrivedSinceEnd = false;
         
         if (unfreezeTimer) { try { clearTimeout(unfreezeTimer); } catch {} }
-        unfreezeTimer = setTimeout(() => {
-          if (waitingForTileUpdate) {
-            waitingForTileUpdate = false;
-            pendingSilentUnfreeze = true;
-            tileDelayActive = false;
-            if (tileDelayTimer) { try { clearTimeout(tileDelayTimer); } catch {} tileDelayTimer = null; }
-            calcPercent();
-          }
-          unfreezeTimer = null;
-        }, 1500);
+        const scheduleUnfreezeCheck = (ms) => {
+          unfreezeTimer = setTimeout(() => {
+            if (!waitingForTileUpdate) { unfreezeTimer = null; return; }
+            if (!tileUpdateArrivedSinceEnd) {
+              
+              scheduleUnfreezeCheck(Math.max(800, Math.min(2000, getDeltaCoalesceWindowMs())));
+              return;
+            }
+            
+            unfreezeTimer = null;
+          }, ms);
+        };
+        scheduleUnfreezeCheck(1500);
 
         
         try {
@@ -481,6 +496,7 @@
           if (unfreezeTimer) { try { clearTimeout(unfreezeTimer); } catch {} unfreezeTimer = null; }
           if (tileDelayTimer) { try { clearTimeout(tileDelayTimer); } catch {} }
           tileDelayActive = true;
+          tileUpdateArrivedSinceEnd = true; 
           tileDelayTimer = setTimeout(() => {
             tileDelayActive = false;
             try { requestAnimationFrame(() => { try { calcPercent(); } catch {} }); } catch { calcPercent(); }

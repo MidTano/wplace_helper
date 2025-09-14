@@ -261,6 +261,8 @@ function installPageFetchInjection() {
             try {
               const idStr = String(btn.id || '').replace(/[^0-9]/g, '');
               const idNum = Number(idStr) || 0;
+              
+              if (idNum === 0) continue;
             
               let rgb: [number, number, number] = [0,0,0];
               const inline = (btn.getAttribute('style') || '').toLowerCase();
