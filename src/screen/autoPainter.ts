@@ -83,6 +83,51 @@ function waitForTileRefresh(timeoutMs = 2000): Promise<boolean> {
   });
 }
 
+
+function waitForFirstTileTwice(totalTimeoutMs = 5000): Promise<boolean> {
+  return new Promise((resolve) => {
+    let done = false;
+    let firstKey: string | null = null;
+    let count = 0;
+    const cleanup = () => {
+      try { window.removeEventListener('message', onMsg); } catch {}
+      try { if (to) clearTimeout(to as any); } catch {}
+      try { if (raf != null) cancelAnimationFrame(raf); } catch {}
+    };
+    const keyOf = (d: any): string => {
+      try {
+        if (Array.isArray(d?.tileXY)) {
+          const x = Number(d.tileXY[0]);
+          const y = Number(d.tileXY[1]);
+          if (Number.isFinite(x) && Number.isFinite(y)) return `${x},${y}`;
+        }
+      } catch {}
+      return String(d?.endpoint || '');
+    };
+    const onMsg = (ev: MessageEvent) => {
+      const d: any = (ev as any)?.data;
+      if (!d || d.source !== 'wplace-svelte') return;
+      if (d.action === 'tileUpdated') {
+        const k = keyOf(d);
+        if (!firstKey) {
+          firstKey = k; count = 1;
+        } else if (k === firstKey) {
+          count++;
+          if (count >= 2 && !done) { done = true; cleanup(); resolve(true); }
+        }
+      }
+    };
+    let raf: number | null = null;
+    const tick = () => {
+      if (!running && !done) { done = true; cleanup(); resolve(false); return; }
+      raf = requestAnimationFrame(tick);
+    };
+    try { window.addEventListener('message', onMsg); } catch {}
+    raf = requestAnimationFrame(tick);
+    const to = setTimeout(() => { if (!done) { done = true; cleanup(); resolve(false); } }, Math.max(400, totalTimeoutMs));
+  });
+}
+
 async function seedButtonsFromPage() {
   try {
     
@@ -437,14 +482,13 @@ async function scanAndClick(): Promise<number> {
     } catch {}
     
     await selectColor(id);
-    
-    
     {
       const cfg = getAutoConfig();
       try {
         const tSec = Number((cfg as any)?.tileUpdatedTimeoutSec);
         const tMs = Number.isFinite(tSec) ? Math.round(tSec * 1000) : 3000;
-        await waitForTileRefresh(tMs);
+        const total = Math.min(12000, Math.max(800, 2 * tMs + 1000));
+        await waitForFirstTileTwice(total);
       } catch {}
       const sSec = Number((cfg as any)?.switchPreWaitSec);
       await sleep(Number.isFinite(sSec) ? Math.max(0, Math.round(sSec * 1000)) : 0);
@@ -825,7 +869,8 @@ async function runAutoLoop() {
           try {
             const tSec = Number((cfg as any)?.tileUpdatedTimeoutSec);
             const tMs = Number.isFinite(tSec) ? Math.round(tSec * 1000) : 3000;
-            await waitForTileRefresh(tMs);
+            const total = Math.min(12000, Math.max(800, 2 * tMs + 1000));
+            await waitForFirstTileTwice(total);
           } catch {}
           const sSec = Number((cfg as any)?.switchPreWaitSec);
           await sleep(Number.isFinite(sSec) ? Math.max(0, Math.round(sSec * 1000)) : 0);
@@ -866,6 +911,7 @@ async function showAllColorsAndRefresh(waitMs = 300) {
   try {
     try { getStencilManager().setAutoSelectedMasterIdx(null as any); } catch {}
     
+    try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintShowAllStart' }, '*'); } catch {}
     try { window.postMessage({ source: 'wplace-svelte', action: 'reloadTiles' }, '*'); } catch {}
     await ensureEditingMode();
     
@@ -878,5 +924,6 @@ async function showAllColorsAndRefresh(waitMs = 300) {
     await ensureColorMap();
     
     try { lastCountsKnown = getStencilManager().getRemainingCountsTotal()?.slice?.() || lastCountsKnown; } catch {}
+    try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintShowAllEnd' }, '*'); } catch {}
   } catch {}
 }

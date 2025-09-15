@@ -64,6 +64,14 @@
   let tileUpdateArrivedSinceEnd = false;
 
   
+  let showAllPhaseActive = false;
+  let showAllTrackedTileKey = null; 
+  let showAllTrackedCount = 0;
+  let showAllBaselinePercent = null;
+  let showAllBaselineRemaining = null;
+  let showAllFinalizePending = false;
+
+  
   let coalesceHoldUntilTs = 0;
   const coalesceHoldBaseMs = 1600; 
 
@@ -206,6 +214,54 @@
           }
         }
       }, delayMs);
+    } catch {}
+  }
+
+  function finalizeShowAllNow() {
+    try {
+      if (!showAllFinalizePending) return;
+      const sm = getStencilManager();
+      const cur = sm && sm.current;
+      if (!cur) {
+        
+        showAllFinalizePending = false; showAllPhaseActive = false;
+        showAllTrackedTileKey = null; showAllTrackedCount = 0;
+        showAllBaselinePercent = null; showAllBaselineRemaining = null;
+        waitingForTileUpdate = false; tileUpdateArrivedSinceEnd = false;
+        try { if (tileDelayTimer) clearTimeout(tileDelayTimer); } catch {}
+        tileDelayTimer = null; tileDelayActive = false;
+        return;
+      }
+      const newTotalDots = Number(cur.totalDots) || 0;
+      const remainingArr = sm.getRemainingCountsTotal?.() || [];
+      const newRemaining = Array.isArray(remainingArr) ? remainingArr.reduce((a,b)=>a + (b|0), 0) : 0;
+      const newDone = Math.max(0, newTotalDots - newRemaining);
+      const p = newTotalDots > 0 ? (newDone / newTotalDots) * 100 : 0;
+      const newPercent = Math.max(0, Math.min(100, p));
+
+      const basePct = Number(showAllBaselinePercent != null ? showAllBaselinePercent : (frozenPercent != null ? frozenPercent : percent));
+      const baseRem = Number(showAllBaselineRemaining != null ? showAllBaselineRemaining : (frozenRemaining != null ? frozenRemaining : remaining));
+      const dPct = newPercent - basePct;
+      const dPx = baseRem - newRemaining;
+
+      if (Math.abs(dPct) >= 0.01) { queueDelta('left', 'percent', dPct); }
+      if (dPx !== 0) { queueDelta('right', 'pixels', dPx); }
+
+      totalDots = newTotalDots;
+      remaining = newRemaining;
+      done = newDone;
+      percent = newPercent;
+      prevPercent = newPercent;
+      prevRemaining = newRemaining;
+      visible = !!sm?.enhanced;
+
+      showAllFinalizePending = false; showAllPhaseActive = false;
+      showAllTrackedTileKey = null; showAllTrackedCount = 0;
+      showAllBaselinePercent = null; showAllBaselineRemaining = null;
+      waitingForTileUpdate = false;
+      tileUpdateArrivedSinceEnd = false;
+      try { if (tileDelayTimer) clearTimeout(tileDelayTimer); } catch {}
+      tileDelayTimer = null; tileDelayActive = false;
     } catch {}
   }
 
@@ -407,23 +463,36 @@
       const d = ev?.data;
       if (!d || d.source !== 'wplace-svelte') return;
       if (d.action === 'tileUpdated') {
-
         try { lastTileUpdatedTs = Date.now(); } catch {}
-        if (!waitingForTileUpdate) {
         
+        if (showAllPhaseActive) {
+          try {
+            const xy = Array.isArray(d.tileXY) ? d.tileXY : null;
+            const key = xy ? `${xy[0]},${xy[1]}` : String(d.endpoint || '');
+            if (!showAllTrackedTileKey) {
+              showAllTrackedTileKey = key;
+              showAllTrackedCount = 1;
+            } else if (showAllTrackedTileKey === key) {
+              showAllTrackedCount++;
+              if (showAllTrackedCount >= 2) {
+                showAllFinalizePending = true;
+                
+                if (!autoPaintingActive) { finalizeShowAllNow(); }
+              }
+            }
+          } catch {}
+          return;
+        }
+        if (!waitingForTileUpdate) {
           pendingEarlyTileUpdate = true;
         }
-        
         if (waitingForTileUpdate) {
-          
           tileUpdateArrivedSinceEnd = true;
           if (tileDelayTimer) { try { clearTimeout(tileDelayTimer); } catch {} }
           tileDelayActive = true;
-          
           try { coalesceHoldUntilTs = Math.max(coalesceHoldUntilTs || 0, Date.now() + getDeltaCoalesceWindowMs()); } catch {}
           tileDelayTimer = setTimeout(() => {
             tileDelayActive = false;
-            
             try { requestAnimationFrame(() => { try { calcPercent(); } catch {} }); } catch { calcPercent(); }
           }, tileUpdateDelayMs);
         } else {
@@ -464,6 +533,10 @@
       } else if (d.action === 'autoPaintCycleEnd') {
         
         autoPaintingActive = false;
+        if (showAllFinalizePending) {
+          finalizeShowAllNow();
+          return;
+        }
         waitingForTileUpdate = true;
         tileUpdateArrivedSinceEnd = false;
         
@@ -502,6 +575,40 @@
             try { requestAnimationFrame(() => { try { calcPercent(); } catch {} }); } catch { calcPercent(); }
           }, tileUpdateDelayMs);
         }
+      } else if (d.action === 'autoPaintShowAllStart') {
+        
+        try {
+          const sm = getStencilManager();
+          const cur = sm?.current;
+          if (cur) {
+            const total = Number(cur.totalDots) || 0;
+            const arr = sm.getRemainingCountsTotal?.() || [];
+            const rem = Array.isArray(arr) ? arr.reduce((a,b)=>a + (b|0), 0) : 0;
+            const done0 = Math.max(0, total - rem);
+            const p = total > 0 ? (done0 / total) * 100 : 0;
+            showAllBaselinePercent = Math.max(0, Math.min(100, p));
+            showAllBaselineRemaining = rem;
+          } else {
+            showAllBaselinePercent = percent;
+            showAllBaselineRemaining = remaining;
+          }
+        } catch {
+          showAllBaselinePercent = percent;
+          showAllBaselineRemaining = remaining;
+        }
+        showAllPhaseActive = true;
+        showAllTrackedTileKey = null;
+        showAllTrackedCount = 0;
+        showAllFinalizePending = false;
+        
+        waitingForTileUpdate = true;
+        tileUpdateArrivedSinceEnd = false;
+        tileDelayActive = false;
+        if (tileDelayTimer) { try { clearTimeout(tileDelayTimer); } catch {} tileDelayTimer = null; }
+        if (unfreezeTimer) { try { clearTimeout(unfreezeTimer); } catch {} unfreezeTimer = null; }
+        resetDeltaBuf();
+      } else if (d.action === 'autoPaintShowAllEnd') {
+        
       }
     } catch {}
   }
