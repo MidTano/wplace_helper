@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher, onMount, tick } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { resampleImage, blobToObjectUrl, resampleAndDither } from './imageOps';
   import { drawOverlayForTool, paintAtTool, applyGradientOnCanvas, computeMagicRegion, copySelectionRect, writeSelectionRect, applyMagicSelectionOnMask, paintMaskedBlock, applySelectionRectOnMask, buildSelectionAntsCanvas, drawGradientPreviewOverlay, refreshSelectionVisFromMask as refreshSelectionVisFromMaskTool, refreshSelectionVisSubrect } from './tools';
   import { downloadBlob } from './save';
@@ -120,7 +120,7 @@
     try {
       setCustomDitherPatternBinary(customDitherPattern, customDitherStrength);
       customDitherAppliedKey = `${flattenPattern(customDitherPattern)}|s:${Math.round(customDitherStrength*100)}`;
-      updatePreview(); 
+      schedulePreviewUpdate(); 
     } catch {}
   }
 
@@ -221,7 +221,7 @@
     try {
       customIndices = p.indices.slice();
       await tick();
-      updatePreview();
+      schedulePreviewUpdate();
     } catch {}
   }
   function resetCustomPattern() {
@@ -1504,6 +1504,17 @@
   }
 
   let queuedPreview = false;
+  let updateDebounceTimer = null;
+  function schedulePreviewUpdate(delay = 280) {
+    try {
+      if (!open || !file) return;
+      if (updateDebounceTimer) { clearTimeout(updateDebounceTimer); updateDebounceTimer = null; }
+      updateDebounceTimer = setTimeout(() => {
+        updateDebounceTimer = null;
+        updatePreview();
+      }, Math.max(0, delay|0));
+    } catch {}
+  }
   async function updatePreview() {
     if (!open || !file) return;
     if (working) { queuedPreview = true; return; }
@@ -1551,6 +1562,8 @@
     previewCache.clear();
     previewUrl = '';
     outW = outH = opaqueCount = colorCount = 0;
+    try { if (updateDebounceTimer) { clearTimeout(updateDebounceTimer); updateDebounceTimer = null; } } catch {}
+    working = false;
     dispatch('close');
   }
 
@@ -1573,7 +1586,7 @@
 
   function reset() {
     pixelSize = 1;
-    updatePreview();
+    schedulePreviewUpdate();
   }
 
   
@@ -1605,9 +1618,9 @@
   
   
   if (ditherMethod === 'custom') {
-    if (customDitherKey) updatePreview();
+    if (customDitherKey) schedulePreviewUpdate();
   } else {
-    updatePreview();
+    schedulePreviewUpdate();
   }
 }
 
@@ -1630,6 +1643,9 @@
 
   onMount(() => {
     debugLayout('mount');
+  });
+  onDestroy(() => {
+    try { if (updateDebounceTimer) { clearTimeout(updateDebounceTimer); updateDebounceTimer = null; } } catch {}
   });
 
   $: if (open) {
@@ -1662,7 +1678,7 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.method')}</div>
               <div class="editor-row">
-                <select bind:value={method} on:change={updatePreview} class="editor-select">
+                <select bind:value={method} on:change={() => schedulePreviewUpdate()} class="editor-select">
                   {#each RESAMPLE_METHODS as m}
                     <option value={m}>{t('editor.resample.method.' + m)}</option>
                   {/each}
@@ -1672,7 +1688,7 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.downscale.pixelSize')}</div>
               <div class="editor-row">
-                <input type="range" min="1" max="20" step="1" bind:value={pixelSize} on:input={updatePreview} style="--min:1; --max:20; --val:{pixelSize};" />
+                <input type="range" min="1" max="20" step="1" bind:value={pixelSize} on:input={() => schedulePreviewUpdate()} style="--min:1; --max:20; --val:{pixelSize};" />
                 <div class="editor-value">×{pixelSize}</div>
               </div>
               <div class="editor-hint">{t('editor.panel.resultSize')}: {Math.max(1, Math.floor(originalDims.w / pixelSize))} × {Math.max(1, Math.floor(originalDims.h / pixelSize))}</div>
@@ -1684,7 +1700,7 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.method')}</div>
               <div class="editor-row">
-                <select bind:value={ditherMethod} on:change={() => { if (ditherMethod !== 'custom') updatePreview(); }} class="editor-select">
+                <select bind:value={ditherMethod} on:change={() => { if (ditherMethod !== 'custom') schedulePreviewUpdate(); }} class="editor-select">
                   {#each DITHER_METHODS as dm}
                     <option value={dm}>{t('editor.dither.method.' + dm)}</option>
                   {/each}
@@ -1694,7 +1710,7 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.dither.strength')}</div>
               <div class="editor-row">
-                <input type="range" min="2" max="20" step="1" bind:value={ditherLevels} on:input={() => { if (ditherMethod !== 'custom') updatePreview(); }} style="--min:2; --max:20; --val:{ditherLevels};" />
+                <input type="range" min="2" max="20" step="1" bind:value={ditherLevels} on:input={() => { if (ditherMethod !== 'custom') schedulePreviewUpdate(); }} style="--min:2; --max:20; --val:{ditherLevels};" />
                 <div class="editor-value">{ditherLevels}</div>
               </div>
             </div>
@@ -1737,7 +1753,7 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.palette.set')}</div>
               <div class="editor-row">
-                <select bind:value={paletteMode} on:change={updatePreview} class="editor-select">
+                <select bind:value={paletteMode} on:change={() => schedulePreviewUpdate()} class="editor-select">
                   <option value="full">{t('editor.panel.palette.opt.full')}</option>
                   <option value="free">{t('editor.panel.palette.opt.free')}</option>
                   <option value="custom">{t('editor.panel.palette.opt.custom')}</option>
@@ -1747,8 +1763,8 @@
                 <div class="palette-toolbar">
                   <div class="palette-count">{t('editor.panel.palette.selected')}: {customIndices.length}</div>
                   <div class="palette-actions">
-                    <button class="palette-btn primary" on:click={() => { customIndices = Array.from({length: MASTER_COLORS.length}, (_,i)=>i); updatePreview(); }}>{t('editor.panel.palette.enableAll')}</button>
-                    <button class="palette-btn ghost" on:click={() => { customIndices = []; updatePreview(); }}>{t('editor.panel.palette.disableAll')}</button>
+                    <button class="palette-btn primary" on:click={() => { customIndices = Array.from({length: MASTER_COLORS.length}, (_,i)=>i); schedulePreviewUpdate(); }}>{t('editor.panel.palette.enableAll')}</button>
+                    <button class="palette-btn ghost" on:click={() => { customIndices = []; schedulePreviewUpdate(); }}>{t('editor.panel.palette.disableAll')}</button>
                   </div>
                 </div>
                 <div class="palette-custom">
@@ -1758,7 +1774,7 @@
                         const set = new Set(customIndices);
                         if (e.currentTarget.checked) set.add(i); else set.delete(i);
                         customIndices = Array.from(set).sort((a,b)=>a-b);
-                        updatePreview();
+                        schedulePreviewUpdate();
                       }}/>
                       <span class="sw" style={`--c: rgb(${c.rgb[0]},${c.rgb[1]},${c.rgb[2]})`}></span>
                       <span class="nm">{c.name}</span>
@@ -1847,14 +1863,14 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.post.outline')}</div>
               <div class="editor-row">
-                <input type="range" min="0" max="8" step="1" bind:value={outlineThickness} on:input={updatePreview} style="--min:0; --max:8; --val:{outlineThickness};" />
+                <input type="range" min="0" max="8" step="1" bind:value={outlineThickness} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:8; --val:{outlineThickness};" />
                 <div class="editor-value">{outlineThickness}</div>
               </div>
             </div>
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.post.erode')}</div>
               <div class="editor-row">
-                <input type="range" min="0" max="8" step="1" bind:value={erodeAmount} on:input={updatePreview} style="--min:0; --max:8; --val:{erodeAmount};" />
+                <input type="range" min="0" max="8" step="1" bind:value={erodeAmount} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:8; --val:{erodeAmount};" />
                 <div class="editor-value">{erodeAmount}</div>
               </div>
             </div>
@@ -1960,7 +1976,10 @@
               <div class="editor-placeholder">{t('editor.placeholder.noImage')}</div>
             {/if}
             {#if working}
-              <div class="editor-busy">{t('editor.busy')}</div>
+              <div class="editor-busy" role="status" aria-live="polite">
+                <span class="busy-spinner" aria-hidden="true"></span>
+                <span class="busy-text">{t('editor.busy')}</span>
+              </div>
             {/if}
           
             <div class="fab-container" class:editing={editMode}>
@@ -2612,13 +2631,29 @@
     transform: translateX(-50%);
     font-size: 12px;
     background: rgba(0,0,0,.55);
-    padding: 4px 10px;
-    border-radius: 8px;
+    padding: 6px 10px;
+    border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.18);
     box-shadow: 0 6px 18px rgba(0,0,0,0.24);
     backdrop-filter: blur(3px);
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
   }
+  .editor-busy .busy-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.22);
+    border-top-color: #f05123;
+    border-right-color: #f05123;
+    animation: eb-spin .8s linear infinite;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.25) inset, 0 0 10px rgba(240,81,35,0.25);
+  }
+  .editor-busy .busy-text { opacity: .95; }
+  @keyframes eb-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .fab-container { position: absolute; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 8px; z-index: 2; padding-top: 60px; }
   .fab-tools { display: flex; align-items: center; gap: 8px; opacity: 0; transform: translateX(8px) scale(0.98); pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
   .fab-tools.open { opacity: 1; transform: translateX(0) scale(1); pointer-events: auto; }

@@ -42,7 +42,7 @@ export function paintMaskedBlock(
   return changed;
 }
 
-/** Скопировать участок selectionMask в компактный буфер w*h (0/1) */
+
 export function copySelectionRect(
   selectionMask: Uint8Array,
   outW: number,
@@ -61,7 +61,7 @@ export function copySelectionRect(
   return out;
 }
 
-/** Записать участок в selectionMask и вернуть изменение счётчика (delta) */
+
 export function writeSelectionRect(
   selectionMask: Uint8Array,
   outW: number,
@@ -129,25 +129,25 @@ export function applyMagicSelectionOnMask(
     }
   }
   const tiles: Array<{ x: number; y: number; w: number; h: number; before: Uint8Array; after: Uint8Array }> = [];
-  // BEFORE
+  
   for (const t of changedTiles.values()) {
     const before = copySelectionRect(selectionMask, outW, outH, t.x, t.y, t.w, t.h);
     tiles.push({ ...t, before, after: new Uint8Array(t.w * t.h) });
   }
-  // Apply op to selectionMask and compute delta
+  
   let delta = 0;
   if (op === 'replace') {
-    // determine delta = newCount - oldCount
+    
     let newCount = 0; let oldCount = 0;
     for (let i = 0; i < N; i++) { if (selectionMask[i]) oldCount++; selectionMask[i] = 0; }
     for (let i = 0; i < N; i++) { if (region[i]) { selectionMask[i] = 1; newCount++; } }
     delta = newCount - oldCount;
   } else if (op === 'sub') {
     for (let i = 0; i < N; i++) { if (region[i] && selectionMask[i]) { selectionMask[i] = 0; delta--; } }
-  } else { // add
+  } else { 
     for (let i = 0; i < N; i++) { if (region[i] && !selectionMask[i]) { selectionMask[i] = 1; delta++; } }
   }
-  // AFTER
+  
   for (const t of tiles) {
     t.after = copySelectionRect(selectionMask, outW, outH, t.x, t.y, t.w, t.h);
   }
@@ -230,14 +230,14 @@ export function drawOverlayForTool(
   if (activeTool === 'brush' || activeTool === 'eraser' || activeTool === 'select') {
     const r = Math.max(1, Math.round(size || 3));
     const half = Math.floor(r / 2);
-    // Один большой квадрат r×r вокруг (px, py)
+    
     const x = (px - half) * s;
     const y = (py - half) * s;
     const w = Math.ceil(r * s) - 1;
     const h = Math.ceil(r * s) - 1;
     ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, w, h);
   } else {
-    // Сетка 3×3 (поведение по умолчанию)
+    
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         const x = (px + dx) * s;
@@ -250,7 +250,7 @@ export function drawOverlayForTool(
   ctx.restore();
 }
 
-/** Перерисовать визуализацию selectionVisCanvas из selectionMask */
+
 export function refreshSelectionVisFromMask(
   selectionVisCtx: CanvasRenderingContext2D | null,
   selectionMask: Uint8Array,
@@ -268,7 +268,7 @@ export function refreshSelectionVisFromMask(
   }
 }
 
-/** Быстрая перерисовка только подпрямоугольника визуализации выделения */
+
 export function refreshSelectionVisSubrect(
   selectionVisCtx: CanvasRenderingContext2D | null,
   selectionMask: Uint8Array,
@@ -287,21 +287,21 @@ export function refreshSelectionVisSubrect(
   const w = Math.max(0, X1 - X0);
   const h = Math.max(0, Y1 - Y0);
   if (w === 0 || h === 0) return;
-  // Сформировать ImageData подпрямоугольника и поставить его одним вызовом
+  
   const img = selectionVisCtx.createImageData(w, h);
-  const data = img.data; // RGBA
+  const data = img.data; 
   let p = 0;
   for (let yy = Y0; yy < Y1; yy++) {
     const row = yy * outW;
     for (let xx = X0; xx < X1; xx++) {
       const set = selectionMask[row + xx] ? 1 : 0;
       if (set) {
-        data[p] = 0x55;      // R
-        data[p + 1] = 0xaa;  // G
-        data[p + 2] = 0xff;  // B
-        data[p + 3] = 0xff;  // A
+        data[p] = 0x55;      
+        data[p + 1] = 0xaa;  
+        data[p + 2] = 0xff;  
+        data[p + 3] = 0xff;  
       } else {
-        // прозрачный
+        
         data[p] = 0; data[p+1] = 0; data[p+2] = 0; data[p+3] = 0;
       }
       p += 4;
@@ -310,7 +310,7 @@ export function refreshSelectionVisSubrect(
   selectionVisCtx.putImageData(img, X0, Y0);
 }
 
-/** Построить канвас со статичным контуром ("marching ants") на границе selectionMask */
+
 export function buildSelectionAntsCanvas(
   selectionMask: Uint8Array,
   outW: number,
@@ -342,7 +342,7 @@ export function buildSelectionAntsCanvas(
   return canvas;
 }
 
-/** Отрисовать предпросмотр линии градиента на overlay-контексте */
+
 export function drawGradientPreviewOverlay(
   ctx: CanvasRenderingContext2D,
   scale: number,
@@ -415,7 +415,7 @@ export function paintAtTool(
     ctx.fillStyle = color || '#000';
     ctx.fillRect(x0, y0, w, h);
   } else {
-    // заглушки для select/magic — пока не рисуют
+    
   }
 }
 
@@ -455,12 +455,12 @@ export function computeMagicRegion(
     const md = Math.max(dr, dg, db);
     if (md <= tol) {
       region[idx] = 1;
-      // 4-соседство
+      
       if (x > 0) { qx[qe] = x - 1; qy[qe] = y; qe++; }
       if (x + 1 < outW) { qx[qe] = x + 1; qy[qe] = y; qe++; }
       if (y > 0) { qx[qe] = x; qy[qe] = y - 1; qe++; }
       if (y + 1 < outH) { qx[qe] = x; qy[qe] = y + 1; qe++; }
-      // 8-соседство (если включено)
+      
       if (neighbors8) {
         if (x > 0 && y > 0) { qx[qe] = x - 1; qy[qe] = y - 1; qe++; }
         if (x + 1 < outW && y > 0) { qx[qe] = x + 1; qy[qe] = y - 1; qe++; }
