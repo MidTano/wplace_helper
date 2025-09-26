@@ -127,6 +127,7 @@ export const ru: Translations = {
   'hotkeys.group.tools': 'Инструменты',
   'hotkeys.group.navigation': 'Навигация',
   'hotkeys.group.shortcuts': 'Горячие клавиши',
+  'hotkeys.group.toolShortcuts': 'Шорткаты инструментов',
   'hotkeys.tools.brushEraser.label': 'Кисть / Ластик',
   'hotkeys.tools.brushEraser.wheelResizes': 'меняет размер',
   'hotkeys.tools.brushEraser.dragUpDown': 'движение вверх/вниз — изменить размер',
@@ -160,6 +161,7 @@ export const ru: Translations = {
   'editor.tool.select': 'Выделение',
   'editor.tool.magic': 'Магическая кисть',
   'editor.tool.gradient': 'Градиент',
+  'editor.tool.eyedropper': 'Пипетка',
   'editor.gradient.modes.aria': 'режимы градиента',
   'editor.gradient.mode.bayer2.title': 'Bayer 2×2',
   'editor.gradient.mode.bayer4.title': 'Bayer 4×4',
@@ -183,6 +185,10 @@ export const ru: Translations = {
   'editor.mode.editPixels': 'Режим редактирования пикселей',
 
   
+  'editor.zoom.controls.aria': 'Управление масштабом',
+  'editor.zoom.fit': 'Уместить',
+
+  
   'editor.panel.title': 'настройки',
   'editor.panel.method': 'метод',
   'editor.panel.resultSize': 'итоговый размер',
@@ -192,6 +198,7 @@ export const ru: Translations = {
 
   'editor.panel.dither.title': 'дизеринг',
   'editor.panel.dither.strength': 'сила',
+  'editor.panel.dither.strengthUnavailable': 'Этот алгоритм использует фиксированную силу',
 
   'editor.panel.palette.title': 'палитра',
   'editor.panel.palette.set': 'набор цветов',
@@ -211,6 +218,11 @@ export const ru: Translations = {
   'editor.panel.palette.enableAll': 'Вкл все',
   'editor.panel.palette.disableAll': 'Выкл все',
   'editor.palette.paid': 'платный',
+  
+  'editor.palette.hint.single': 'ЛКМ — выбрать цвет',
+  'editor.palette.hint.gradient': 'ЛКМ — задать A • ПКМ — задать B',
+  'editor.palette.chipA.title': 'ЛКМ — A',
+  'editor.palette.chipB.title': 'ПКМ — B',
 
   'editor.panel.post.title': 'пост‑процессинг',
   'editor.panel.post.outline': 'увеличить контур',
@@ -227,13 +239,21 @@ export const ru: Translations = {
   'editor.resample.method.dominant': 'dominant',
 
   
-  'editor.dither.method.none': 'none',
-  'editor.dither.method.ordered4': 'ordered 4×4',
-  'editor.dither.method.ordered8': 'ordered 8×8',
+  'editor.dither.method.none': 'Нет',
+  'editor.dither.method.bayer2': 'Bayer 2×2',
+  'editor.dither.method.bayer4': 'Bayer 4×4',
+  'editor.dither.method.bayer8': 'Bayer 8×8',
   'editor.dither.method.floyd': 'Floyd–Steinberg',
+  'editor.dither.method.falsefloydsteinberg': 'False Floyd–Steinberg',
+  'editor.dither.method.burkes': 'Burkes',
+  'editor.dither.method.jarvis': 'Jarvis–Judice–Ninke',
+  'editor.dither.method.stucki': 'Stucki',
+  'editor.dither.method.sierra': 'Sierra',
+  'editor.dither.method.twosierra': 'Sierra (двухрядный)',
+  'editor.dither.method.sierralite': 'Sierra Lite',
   'editor.dither.method.atkinson': 'Atkinson',
-  'editor.dither.method.random': 'random',
-  'editor.dither.method.custom': 'custom',
+  'editor.dither.method.random': 'Случайный',
+  'editor.dither.method.custom': 'Своя матрица',
   'editor.dither.custom.title': '',
   'editor.dither.custom.apply': 'Применить',
   'editor.dither.custom.reset': 'Сбросить',

@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import { t, lang } from '../../../i18n';
+  import { TOOL_SHORTCUT_LIST } from '../../modal/shortcuts';
   const dispatch = createEventDispatcher();
   function close() { dispatch('close'); }
   
@@ -11,14 +12,14 @@
      on:mousedown|stopPropagation
      on:mouseup|stopPropagation
      on:mousemove|stopPropagation
-     on:wheel|preventDefault|stopPropagation
+     on:wheel|stopPropagation
      on:contextmenu|preventDefault>
   <button type="button" class="info-backdrop" aria-label={t('hotkeys.help.closeAria')}
           on:click={close}
           on:keydown={(e)=> (e.key==='Enter'||e.key===' ') && close()}
-          on:wheel|preventDefault|stopPropagation></button>
+          on:wheel|stopPropagation></button>
   <div class="info-modal" role="dialog" aria-modal="true" aria-label={t('hotkeys.help.dialogAria')}
-       on:wheel|preventDefault|stopPropagation>
+       on:wheel|stopPropagation>
     <div class="info-header">
       <div class="info-title">{t('hotkeys.help.title')}</div>
       <button class="info-close" on:click={close} aria-label={t('btn.close')}>
@@ -31,6 +32,14 @@
         <ul class="info-list">
           <li><span class="info-label">{t('hotkeys.tools.brushEraser.label')}</span> — <kbd>Alt</kbd> + {t('hotkeys.common.wheel')} {t('hotkeys.tools.brushEraser.wheelResizes')}; <kbd>Alt</kbd> + <kbd>{t('hotkeys.common.rmb')}</kbd> + {t('hotkeys.tools.brushEraser.dragUpDown')}</li>
           <li><span class="info-label">{t('hotkeys.tools.selection.label')}</span> — <kbd>Shift</kbd> {t('hotkeys.common.add')}, <kbd>Alt</kbd> {t('hotkeys.common.subtract')}</li>
+        </ul>
+      </div>
+      <div class="info-group">
+        <div class="info-group-title">{t('hotkeys.group.toolShortcuts')}</div>
+        <ul class="info-list">
+          {#each TOOL_SHORTCUT_LIST as entry}
+            <li><span class="info-label">{t(entry.labelI18nKey)}</span> — <kbd class="k">{entry.key.toUpperCase()}</kbd></li>
+          {/each}
         </ul>
       </div>
       <div class="info-group">

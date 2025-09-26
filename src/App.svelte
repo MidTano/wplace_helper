@@ -161,7 +161,6 @@
         switch (dm) {
           case 'none': return 'n';
           case 'ordered4': return 'o4';
-          case 'ordered8': return 'o8';
           case 'lines': return 'ln';
           case 'random': return 'rnd';
           default: return String(dm || 'n');

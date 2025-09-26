@@ -128,6 +128,7 @@ export const en: Translations = {
   'editor.tool.select': 'Selection',
   'editor.tool.magic': 'Magic brush',
   'editor.tool.gradient': 'Gradient',
+  'editor.tool.eyedropper': 'Eyedropper',
   'editor.gradient.modes.aria': 'gradient modes',
   'editor.gradient.mode.bayer2.title': 'Bayer 2×2',
   'editor.gradient.mode.bayer4.title': 'Bayer 4×4',
@@ -149,6 +150,10 @@ export const en: Translations = {
   'editor.apply': 'Apply',
   'editor.unavailable': 'UNAVAILABLE',
   'editor.mode.editPixels': 'Pixel editing mode',
+
+  
+  'editor.zoom.controls.aria': 'Zoom controls',
+  'editor.zoom.fit': 'Fit',
 
   
   'editor.panel.title': 'settings',
@@ -179,6 +184,11 @@ export const en: Translations = {
   'editor.panel.palette.enableAll': 'Enable all',
   'editor.panel.palette.disableAll': 'Disable all',
   'editor.palette.paid': 'paid',
+  
+  'editor.palette.hint.single': 'LMB — pick color',
+  'editor.palette.hint.gradient': 'LMB — set A • RMB — set B',
+  'editor.palette.chipA.title': 'LMB — A',
+  'editor.palette.chipB.title': 'RMB — B',
 
   'editor.panel.post.title': 'post‑processing',
   'editor.panel.post.outline': 'increase outline',
@@ -189,13 +199,22 @@ export const en: Translations = {
   'editor.resample.method.bilinear': 'bilinear',
   'editor.resample.method.box': 'box',
   'editor.resample.method.median': 'median',
+  
+  'hotkeys.group.toolShortcuts': 'Tool shortcuts',
   'editor.resample.method.dominant': 'dominant',
 
   
   'editor.dither.method.none': 'none',
   'editor.dither.method.ordered4': 'ordered 4×4',
-  'editor.dither.method.ordered8': 'ordered 8×8',
   'editor.dither.method.floyd': 'Floyd–Steinberg',
+  'editor.dither.method.falsefloydsteinberg': 'False Floyd–Steinberg',
+  'editor.dither.method.burkes': 'Burkes',
+  'editor.dither.method.jarvis': 'Jarvis–Judice–Ninke',
+  'editor.dither.method.stucki': 'Stucki',
+  'editor.dither.method.sierra': 'Sierra',
+  'editor.dither.method.twosierra': 'Sierra two-row',
+  'editor.dither.method.sierralite': 'Sierra Lite',
+  'editor.dither.method.riemersma': 'Riemersma',
   'editor.dither.method.atkinson': 'Atkinson',
   'editor.dither.method.random': 'random',
   'editor.dither.method.custom': 'custom',
