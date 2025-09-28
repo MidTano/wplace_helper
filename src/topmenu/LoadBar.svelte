@@ -357,20 +357,16 @@
       const isRealData = !(newPercent === 100 && newRemaining === 0) && newTotalDots > 0;
 
       
-      if (waitingForTileUpdate && tileDelayActive) {
+      if (false) {
         visible = enhancedOn;
-        return;
       }
       
-      if (waitingForTileUpdate && !tileDelayActive && !tileUpdateArrivedSinceEnd) {
+      if (false) {
         visible = enhancedOn;
-        return;
       }
 
-      
-      if (autoPaintingActive) {
+      if (false) {
         visible = enhancedOn;
-        return;
       }
 
       
@@ -387,39 +383,15 @@
       }
       
       
-      if (pendingSilentUnfreeze) {
-        pendingSilentUnfreeze = false;
-        prevPercent = newPercent;
-        prevRemaining = newRemaining;
-        percent = newPercent;
-        remaining = newRemaining;
-        visible = enhancedOn;
-        return;
+      if (false) {
       }
 
       
       
-      let didShowFrozenDeltas = false;
-      if (waitingForTileUpdate && tileUpdateArrivedSinceEnd && frozenPercent !== null && frozenRemaining !== null) {
-        if (hasRealData && !shouldShowFirstRealData) {
-          const dPctF = newPercent - frozenPercent;
-          if (Math.abs(dPctF) >= 0.01) { queueDelta('left', 'percent', dPctF); }
-          const dPxF = frozenRemaining - newRemaining; 
-          if (dPxF !== 0) { queueDelta('right', 'pixels', dPxF); }
-          didShowFrozenDeltas = true;
-        }
-        
-        waitingForTileUpdate = false;
-        tileUpdateArrivedSinceEnd = false;
-        frozenPercent = null;
-        frozenRemaining = null;
-        prevPercent = newPercent;
-        prevRemaining = newRemaining;
-      }
+      const didShowFrozenDeltas = false;
 
       
-      const shouldShowDeltas = !didShowFrozenDeltas && prevPercent !== null && prevRemaining !== null && 
-                              !firstEnhancedEntry && hasRealData && !shouldShowFirstRealData;
+      const shouldShowDeltas = prevPercent !== null && prevRemaining !== null;
       
       if (shouldShowDeltas) {
         const dPct = newPercent - prevPercent;
@@ -499,82 +471,17 @@
           calcPercent();
         }
       } else if (d.action === 'autoPaintCycleStart') {
-        
-        try {
-          const sm = getStencilManager();
-          const cur = sm?.current;
-          if (cur) {
-            const total = Number(cur.totalDots) || 0;
-            const arr = sm.getRemainingCountsTotal?.() || [];
-            const rem = Array.isArray(arr) ? arr.reduce((a,b)=>a + (b|0), 0) : 0;
-            const done = Math.max(0, total - rem);
-            const p = total > 0 ? (done / total) * 100 : 0;
-            frozenPercent = Math.max(0, Math.min(100, p));
-            frozenRemaining = rem;
-          } else {
-            frozenPercent = percent;
-            frozenRemaining = remaining;
-          }
-        } catch {
-          frozenPercent = percent;
-          frozenRemaining = remaining;
-        }
-        autoPaintingActive = true;
+        autoPaintingActive = false;
         waitingForTileUpdate = false;
         tileDelayActive = false;
-        if (tileDelayTimer) { try { clearTimeout(tileDelayTimer); } catch {} tileDelayTimer = null; }
-        if (unfreezeTimer) { try { clearTimeout(unfreezeTimer); } catch {} unfreezeTimer = null; }
-        
-        resetDeltaBuf();
         pendingEarlyTileUpdate = false;
-        lastTileUpdatedTs = 0;
-        coalesceHoldUntilTs = 0;
-        tileUpdateArrivedSinceEnd = false;
+        calcPercent();
       } else if (d.action === 'autoPaintCycleEnd') {
-        
         autoPaintingActive = false;
-        if (showAllFinalizePending) {
-          finalizeShowAllNow();
-          return;
-        }
-        waitingForTileUpdate = true;
-        tileUpdateArrivedSinceEnd = false;
-        
-        if (unfreezeTimer) { try { clearTimeout(unfreezeTimer); } catch {} }
-        const scheduleUnfreezeCheck = (ms) => {
-          unfreezeTimer = setTimeout(() => {
-            if (!waitingForTileUpdate) { unfreezeTimer = null; return; }
-            if (!tileUpdateArrivedSinceEnd) {
-              
-              scheduleUnfreezeCheck(Math.max(800, Math.min(2000, getDeltaCoalesceWindowMs())));
-              return;
-            }
-            
-            unfreezeTimer = null;
-          }, ms);
-        };
-        scheduleUnfreezeCheck(1500);
-
-        
-        try {
-          const hold = Math.max(getDeltaCoalesceWindowMs(), coalesceHoldBaseMs);
-          coalesceHoldUntilTs = Date.now() + hold;
-        } catch {}
-
-    
-        const dt = Date.now() - (lastTileUpdatedTs || 0);
-        if (pendingEarlyTileUpdate && dt >= 0 && dt <= Math.max(tileUpdateDelayMs, earlyWindowMs)) {
-          pendingEarlyTileUpdate = false;
-          
-          if (unfreezeTimer) { try { clearTimeout(unfreezeTimer); } catch {} unfreezeTimer = null; }
-          if (tileDelayTimer) { try { clearTimeout(tileDelayTimer); } catch {} }
-          tileDelayActive = true;
-          tileUpdateArrivedSinceEnd = true; 
-          tileDelayTimer = setTimeout(() => {
-            tileDelayActive = false;
-            try { requestAnimationFrame(() => { try { calcPercent(); } catch {} }); } catch { calcPercent(); }
-          }, tileUpdateDelayMs);
-        }
+        waitingForTileUpdate = false;
+        tileDelayActive = false;
+        pendingEarlyTileUpdate = false;
+        calcPercent();
       } else if (d.action === 'autoPaintShowAllStart') {
         
         try {

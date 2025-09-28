@@ -522,8 +522,7 @@ async function runAutoLoop() {
       }
       
       try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
-      let placedNow = false;
-      placedNow = await placeAllColorsDirect();
+      await placeAllColorsDirect();
       if (!running) break;
 
       
@@ -531,9 +530,7 @@ async function runAutoLoop() {
       {
         const cfg = getAutoConfig();
         const secSeries = Number((cfg as any)?.seriesWaitSec);
-        const waitMs = placedNow
-          ? Math.max(0, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000)
-          : Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
+        const waitMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
         await sleep(waitMs);
       }
     }
