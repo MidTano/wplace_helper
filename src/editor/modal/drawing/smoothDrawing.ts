@@ -354,9 +354,32 @@ export function addPointToStroke(
   state.hasBufferedChanges = true;
 }
 
+function buildSelectionMaskCanvas(mask: Uint8Array, w: number, h: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  const img = ctx.createImageData(w, h);
+  const data = img.data;
+  let p = 0;
+  const N = w * h;
+  for (let i = 0; i < N; i++) {
+    data[p] = 0;
+    data[p + 1] = 0;
+    data[p + 2] = 0;
+    data[p + 3] = mask[i] ? 255 : 0;
+    p += 4;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
 export function finishStroke(
   state: SmoothDrawingState,
-  mainCanvas: HTMLCanvasElement
+  mainCanvas: HTMLCanvasElement,
+  selectionMask?: Uint8Array | null,
+  outW?: number,
+  outH?: number
 ): void {
   if (!state.isDrawing) return;
   
@@ -364,18 +387,54 @@ export function finishStroke(
   if (!mainCtx) return;
   
   if (state.tool === 'eraser') {
-    
     if (state.eraserMaskCanvas) {
-      mainCtx.save();
-      const prev = mainCtx.globalCompositeOperation;
-      mainCtx.globalCompositeOperation = 'destination-out';
-      mainCtx.drawImage(state.eraserMaskCanvas, 0, 0);
-      mainCtx.globalCompositeOperation = prev;
-      mainCtx.restore();
+      if (selectionMask && outW && outH) {
+        const tmp = document.createElement('canvas');
+        tmp.width = outW;
+        tmp.height = outH;
+        const tctx = tmp.getContext('2d', { willReadFrequently: true })!;
+        tctx.clearRect(0, 0, outW, outH);
+        tctx.drawImage(state.eraserMaskCanvas, 0, 0);
+        const sm = buildSelectionMaskCanvas(selectionMask, outW, outH);
+        tctx.globalCompositeOperation = 'destination-in';
+        tctx.drawImage(sm, 0, 0);
+        mainCtx.save();
+        const prev = mainCtx.globalCompositeOperation;
+        mainCtx.globalCompositeOperation = 'destination-out';
+        mainCtx.drawImage(tmp, 0, 0);
+        mainCtx.globalCompositeOperation = prev;
+        mainCtx.restore();
+      } else {
+        mainCtx.save();
+        const prev = mainCtx.globalCompositeOperation;
+        mainCtx.globalCompositeOperation = 'destination-out';
+        mainCtx.drawImage(state.eraserMaskCanvas, 0, 0);
+        mainCtx.globalCompositeOperation = prev;
+        mainCtx.restore();
+      }
     }
   } else {
-    
-    copyBufferToMain(state, mainCanvas);
+    const buf = state.bufferCanvas;
+    if (buf) {
+      if (selectionMask && outW && outH) {
+        const tmp = document.createElement('canvas');
+        tmp.width = outW;
+        tmp.height = outH;
+        const tctx = tmp.getContext('2d', { willReadFrequently: true })!;
+        tctx.clearRect(0, 0, outW, outH);
+        tctx.drawImage(buf, 0, 0);
+        const sm = buildSelectionMaskCanvas(selectionMask, outW, outH);
+        tctx.globalCompositeOperation = 'destination-in';
+        tctx.drawImage(sm, 0, 0);
+        mainCtx.save();
+        mainCtx.globalCompositeOperation = 'source-over';
+        mainCtx.imageSmoothingEnabled = false;
+        mainCtx.drawImage(tmp, 0, 0);
+        mainCtx.restore();
+      } else {
+        copyBufferToMain(state, mainCanvas);
+      }
+    }
   }
   
   

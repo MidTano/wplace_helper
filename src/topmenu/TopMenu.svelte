@@ -8,7 +8,6 @@
   import CopyArt from './CopyArt.svelte';
   import MoveToggle from './MoveToggle.svelte';
   import EnhancedColors from './EnhancedColors.svelte';
-  import ScreenAccess from './ScreenAccess.svelte';
   import AutoMode from './AutoMode.svelte';
   import Settings from './Settings.svelte';
   import Discord from './Discord.svelte';
@@ -52,7 +51,6 @@
 
     
       <div class="tm-group" aria-label={t('topmenu.group.tools')}>
-      <ScreenAccess />
       <EnhancedColors />
       <AutoMode />
       </div>

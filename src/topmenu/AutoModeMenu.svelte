@@ -298,7 +298,7 @@
         <path d="M3.2 3.2l9.6 9.6M12.8 3.2L3.2 12.8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </button>
-    {#if enhanced && items.length > 0}
+    {#if items.length > 0}
       <div class="amenu-header">
         <div class="actions">
           <button class="chip" type="button" on:click={selectAll}>{t('automenu.selectAll')}</button>
@@ -307,14 +307,7 @@
       </div>
     {/if}
     <div class="amenu-list">
-      {#if !enhanced}
-        <div class="empty">
-          <kbd class="kbd" aria-label={t('automenu.icon.enhanced')}>
-            <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor"><rect x="2" y="27.0049" width="27.9985" height="2"></rect><path d="M16,20a4.0045,4.0045,0,0,1,4,4h2a6,6,0,0,0-12,0h2A4.0045,4.0045,0,0,1,16,20Z"></path><rect x="25" y="22.0049" width="5" height="2"></rect><rect x="21.6675" y="14.8536" width="4.958" height="1.9998" transform="rotate(-45 24.1465 15.8535)"></rect><polygon points="19.59 9.595 17 12.175 17 4.005 15 4.005 15 12.175 12.41 9.595 11 11.005 16 16.005 21 11.005 19.59 9.595"></polygon><rect x="6.8536" y="13.3745" width="1.9998" height="4.958" transform="rotate(-45 7.853 15.854)"></rect><rect x="2" y="22.0049" width="5" height="2"></rect></svg>
-          </kbd>
-          <div class="hint-text">{t('automenu.enableMode')} <b class="accent">{t('btn.enhancedColors')}</b></div>
-        </div>
-      {:else if items.length === 0}
+      {#if items.length === 0}
         <div class="empty">{t('automenu.noColors')}</div>
       {:else}
         <div class="tiles">
@@ -385,9 +378,6 @@
   .name { font-size: 12px; line-height: 1.2; opacity: 0.95; }
   .count { font-size: 12px; line-height: 1.2; opacity: 0.8; }
   .empty { padding: 14px; text-align: center; opacity: 0.8; }
-  .empty .hint-text { margin-top: 6px; }
-  .empty .kbd { display: inline-block; padding: 4px 8px; border-radius: 8px; background: rgba(240,81,35,0.12); color: #fff; border: 1px solid rgba(240,81,35,0.55); font-size: 12px; font-family: inherit; }
-  .empty .accent { color: #f79b7f; }
   .close-x { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: #e53935; color: #fff; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 2px 8px rgba(0,0,0,0.35); cursor: pointer; }
   .close-x:hover { filter: brightness(1.05); }
   .close-x { z-index: 2; pointer-events: auto; }

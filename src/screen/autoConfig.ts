@@ -14,12 +14,16 @@ export type AutoConfig = {
   
   afterSelectWaitSec: number;
   
-  paintOutWaitSec: number;
-  
   antiIdleEnabled: boolean;
+  useDirectPlacement: boolean;
+  bmMode: 'scan' | 'random';
+  bmSelectedMasterIdx: number | null;
+  bmOnlySelected: boolean;
+  bmBatchLimit: number;
+  seriesWaitSec: number;
 };
 
-const LS_KEY = 'wplace:auto-config:v3';
+const LS_KEY = 'wplace:auto-config:v4';
 
 const defaults: AutoConfig = {
   minDist: 5,
@@ -30,8 +34,13 @@ const defaults: AutoConfig = {
   tileUpdatedTimeoutSec: 60,
   switchPreWaitSec: 1,
   afterSelectWaitSec: 1,
-  paintOutWaitSec: 500,
   antiIdleEnabled: true,
+  useDirectPlacement: true,
+  bmMode: 'random',
+  bmSelectedMasterIdx: null,
+  bmOnlySelected: false,
+  bmBatchLimit: 0,
+  seriesWaitSec: 90,
 };
 
 let current: AutoConfig = { ...defaults };
@@ -46,7 +55,6 @@ function load(): void {
       tileUpdatedTimeoutSec: (parsed.tileUpdatedTimeoutSec != null) ? Number(parsed.tileUpdatedTimeoutSec) : (parsed.tileUpdatedTimeoutMs != null ? Math.max(0, Math.round(Number(parsed.tileUpdatedTimeoutMs) / 1000)) : undefined),
       switchPreWaitSec:     (parsed.switchPreWaitSec     != null) ? Number(parsed.switchPreWaitSec)     : (parsed.switchPreWaitMs     != null ? Math.max(0, Math.round(Number(parsed.switchPreWaitMs)     / 1000)) : undefined),
       afterSelectWaitSec:   (parsed.afterSelectWaitSec   != null) ? Number(parsed.afterSelectWaitSec)   : (parsed.afterSelectWaitMs   != null ? Math.max(0, Math.round(Number(parsed.afterSelectWaitMs)   / 1000)) : undefined),
-      paintOutWaitSec:      (parsed.paintOutWaitSec      != null) ? Number(parsed.paintOutWaitSec)      : (parsed.paintOutWaitMs      != null ? Math.max(0, Math.round(Number(parsed.paintOutWaitMs)      / 1000)) : undefined),
     };
     current = { ...defaults, ...parsed, ...cleanUndefined(fromLegacy) } as any;
   } catch {}

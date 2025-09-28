@@ -3,7 +3,6 @@
   import { log } from './overlay/log';
   import EditorModal from './editor/EditorModal.svelte';
   import TopMenu from './topmenu/TopMenu.svelte';
-  import ScreenAccessModal from './screen/ScreenAccessModal.svelte';
   import { addOrUpdate, getList, getBlob } from './topmenu/historyStore';
   import { getOriginCoords } from './overlay/state';
   import { onMount } from 'svelte';
@@ -14,7 +13,7 @@
   let imgBitmap = null;
   let editorOpen = false;
   let currentFile = null; 
-  let screenModalOpen = true; 
+  
   let copyArtOpen = false;
 
   function cleanupEditorBackdrops() {
@@ -127,7 +126,7 @@
   } catch {}
 }} on:copyArt={()=>{ copyArtOpen = true; }} />
 
-<ScreenAccessModal open={screenModalOpen} on:close={() => { screenModalOpen = false; }} />
+
 
 <CopyArtModal open={copyArtOpen} on:close={()=>{ copyArtOpen = false; }} on:sendToEditor={(e)=>{
   try {

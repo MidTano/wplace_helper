@@ -535,7 +535,7 @@ export function generateWorkerCode(): string {
         if (msg.type === 'preview') {
           var jid = msg.jobId;
           try {
-            var bl = msg.blob; var px = (msg.pixelSize|0) || 1; var key = msg.key || '';
+            var bl = msg.blob; var px = Math.max(1, Number(msg.pixelSize) || 1); var key = msg.key || '';
             var method = msg.method || 'nearest'; var ditherMethod = msg.ditherMethod || 'none'; var ditherLevels = (typeof msg.ditherLevels==='number'? msg.ditherLevels : 2);
             var outlineThickness = (msg.outlineThickness|0) || 0; var erodeAmount = (msg.erodeAmount|0) || 0; var palette = Array.isArray(msg.palette) ? msg.palette : [];
             currentPreviewJob = jid;
@@ -551,7 +551,7 @@ export function generateWorkerCode(): string {
               var w = bmp.width|0, h = bmp.height|0;
               var cap = 1024;
               var scaleCap = Math.max(1, Math.ceil(Math.max(w, h) / cap));
-              var ps = Math.max(1, (px|0), scaleCap);
+              var ps = Math.max(1, Number(px) || 1, scaleCap);
               var wOut = Math.max(1, Math.floor(w / ps));
               var hOut = Math.max(1, Math.floor(h / ps));
               try {
@@ -583,7 +583,7 @@ export function generateWorkerCode(): string {
                   try {
                     if (cancelled.has(jid)) { dbg('preview-cancelled-before-final', { jobId: jid }); try { bmp && bmp.close && bmp.close(); } catch(_){}; return; }
                     if (jid !== currentPreviewJob) { dbg('preview-race-before-final', { jobId: jid, current: currentPreviewJob }); try { bmp && bmp.close && bmp.close(); } catch(_){}; return; }
-                    var factor = Math.max(1, px|0);
+                    var factor = Math.max(1, Number(px) || 1);
                     var dstW = Math.max(1, Math.floor(w / factor));
                     var dstH = Math.max(1, Math.floor(h / factor));
                     

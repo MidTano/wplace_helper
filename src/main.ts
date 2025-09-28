@@ -11,20 +11,17 @@ function mount() {
   container.id = rootId;
   container.style.position = 'fixed';
   container.style.zIndex = '1000000';
-  container.style.inset = '0 auto auto 0';
   container.style.pointerEvents = 'none';
   document.body.appendChild(container);
 
   
   try { applyDarkTheme(); } catch {}
-
+  
   try { installInterceptors(); } catch {}
   try {
     setLoggingEnabled(false);
-    log('boot', 'mounted', { enabled: getLoggingEnabled() });
     (window as any).wplaceSetLogs = setLoggingEnabled;
   } catch {}
-  try { initAntiIdle(); } catch {}
 
   new App({ target: container });
 }

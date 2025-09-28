@@ -31,8 +31,9 @@
   $: cooldownMs = (stats?.charges && typeof stats.charges === 'object') ? stats.charges.cooldownMs : (stats?.cooldownMs ?? null);
   $: nextLevel = computeNextLevelPixels(level, pixelsPainted);
 
-  
-
+  $: levelInt = level != null ? Math.floor(Number(level)) : null;
+  $: chargesCountInt = chargesCount != null ? Math.floor(Number(chargesCount)) : null;
+  $: chargesMaxInt = chargesMax != null ? Math.floor(Number(chargesMax)) : null;
   
   function onMessage(e) {
     const data = e?.data;
@@ -104,9 +105,9 @@
       <div class="bm-lines">
         <div class="line">{t('stats.name')}: <b>{name}</b></div>
         <div class="line">{t('stats.droplets')}: <b>{droplets != null ? droplets.toLocaleString('ru-RU') : '—'}</b></div>
-        <div class="line">{t('stats.level')}: <b>{level != null ? String(level) : '—'}</b></div>
+        <div class="line">{t('stats.level')}: <b>{levelInt != null ? levelInt.toLocaleString('ru-RU') : '—'}</b></div>
         <div class="line">{t('stats.painted')}: <b>{pixelsPainted != null ? pixelsPainted.toLocaleString('ru-RU') : '—'}</b></div>
-        <div class="line">{t('stats.charges')}: <b>{(chargesCount != null || chargesMax != null) ? `${chargesCount ?? '—'} / ${chargesMax ?? '—'}` : '—'}</b></div>
+        <div class="line">{t('stats.charges')}: <b>{(chargesCountInt != null || chargesMaxInt != null) ? `${chargesCountInt != null ? chargesCountInt.toLocaleString('ru-RU') : '—'} / ${chargesMaxInt != null ? chargesMaxInt.toLocaleString('ru-RU') : '—'}` : '—'}</b></div>
         {#if cooldownMs != null}
           <div class="line">{t('stats.cooldown')}: <b>{Math.round((Number(cooldownMs)||0)/1000)} {t('units.sec')}</b></div>
         {/if}

@@ -38,9 +38,13 @@ export const en: Translations = {
   'settings.tileUpdatedTimeout': 'tileUpdated wait timeout (sec)',
   'settings.switchPreWait': 'Pause before color switch (sec)',
   'settings.afterSelectWait': 'Pause after color select (sec)',
-  'settings.paintOutWait': 'Wait after paint-out (sec)',
   'settings.antiIdle': 'Anti-idle (keep page active)',
   'settings.hint.enhancedRequired': 'Auto mode works only with Enhanced Colors enabled.',
+  'settings.bm.mode': 'Placement mode',
+  'settings.bm.mode.scan': 'Scan',
+  'settings.bm.mode.random': 'Random',
+  'settings.bm.batchLimit': 'Batch limit (0 — auto)',
+  'settings.bm.colorsHint': 'Colors are taken from the RMB auto-mode color menu',
 
   
   'screen.status.on': 'Screen: access granted',
@@ -95,7 +99,7 @@ export const en: Translations = {
 
   
   'stats.title': 'Account stats',
-  'stats.hint.wait': 'Waiting stats from the site… Perform an action (click canvas / send a pixel) so the game requests the profile.',
+  'stats.hint.wait': 'Waiting stats from the site… Perform an action (click canvas / send a pixel) so the site requests the profile.',
   'stats.name': 'Name',
   'stats.droplets': 'Droplets',
   'stats.level': 'Level',

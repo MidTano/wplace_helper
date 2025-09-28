@@ -49,9 +49,14 @@ export const ru: Translations = {
   'settings.tileUpdatedTimeout': 'Таймаут ожидания tileUpdated (сек)',
   'settings.switchPreWait': 'Пауза перед сменой цвета (сек)',
   'settings.afterSelectWait': 'Пауза после выбора цвета (сек)',
-  'settings.paintOutWait': 'Ожидание после исчерпания краски (сек)',
   'settings.antiIdle': 'Анти‑AFK (держать страницу активной)',
   'settings.hint.enhancedRequired': 'Авторежим работает только при включённых «Улучшенных цветах».',
+  'settings.bm.mode': 'Режим установки',
+  'settings.bm.mode.scan': 'Скан',
+  'settings.bm.mode.random': 'Рандом',
+  'settings.bm.batchLimit': 'Лимит порции (0 — авто)',
+  'settings.bm.colorsHint': 'Цвета берутся из меню выбора цветов (ПКМ по кнопке авторежима)',
+  'settings.seriesWait': 'Пауза между сериями (сек)',
 
   
   'screen.status.on': 'Экран: доступ есть',
@@ -110,7 +115,7 @@ export const ru: Translations = {
 
   
   'stats.title': 'Статистика аккаунта',
-  'stats.hint.wait': 'Ожидаем статистику от сайта… Выполните действие (клик по холсту / отправка пикселя), чтобы игра запросила профиль.',
+  'stats.hint.wait': 'Ожидаем статистику от сайта… Выполните действие (клик по холсту / отправка пикселя), чтобы сайт запросила профиль.',
   'stats.name': 'Имя',
   'stats.droplets': 'Капли',
   'stats.level': 'Уровень',

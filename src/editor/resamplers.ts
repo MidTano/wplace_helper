@@ -149,20 +149,32 @@ function resampleDominant(src: ImageBitmap, dstW: number, dstH: number, factor: 
 }
 
 export function resampleBitmapToCanvas(src: ImageBitmap, factor: number, method: ResampleMethod): OffscreenCanvas {
-  const dstW = Math.max(1, Math.floor(src.width / factor));
-  const dstH = Math.max(1, Math.floor(src.height / factor));
+  const f = Math.max(1, Number(factor) || 1);
+  const dstW = Math.max(1, Math.floor(src.width / f));
+  const dstH = Math.max(1, Math.floor(src.height / f));
+  const isInteger = Math.abs(f - Math.round(f)) < 1e-6;
   let canvas: OffscreenCanvas;
+  if (!isInteger) {
+    switch (method) {
+      case 'bilinear':
+        canvas = resampleBilinear(src, dstW, dstH); break;
+      default:
+        canvas = resampleNearest(src, dstW, dstH); break;
+    }
+    return canvas;
+  }
+  const intF = Math.max(1, Math.round(f));
   switch (method) {
     case 'nearest':
       canvas = resampleNearest(src, dstW, dstH); break;
     case 'bilinear':
       canvas = resampleBilinear(src, dstW, dstH); break;
     case 'box':
-      canvas = resampleBox(src, dstW, dstH, factor); break;
+      canvas = resampleBox(src, dstW, dstH, intF); break;
     case 'median':
-      canvas = resampleMedian(src, dstW, dstH, factor); break;
+      canvas = resampleMedian(src, dstW, dstH, intF); break;
     case 'dominant':
-      canvas = resampleDominant(src, dstW, dstH, factor); break;
+      canvas = resampleDominant(src, dstW, dstH, intF); break;
     default:
       canvas = resampleNearest(src, dstW, dstH); break;
   }

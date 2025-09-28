@@ -25,6 +25,10 @@
       try { setAntiIdleEnabled(v, 10000); } catch {}
     }
   }
+  function onChangeString(key, ev) {
+    const v = String(ev?.currentTarget?.value ?? ev?.target?.value ?? '');
+    cfg = updateAutoConfig({ [key]: v });
+  }
   function onReset() {
     cfg = resetAutoConfig();
     try { setAntiIdleEnabled(!!cfg.antiIdleEnabled, 10000); } catch {}
@@ -52,6 +56,7 @@
 
   onMount(() => {
     cfg = getAutoConfig();
+    try { setAntiIdleEnabled(!!cfg.antiIdleEnabled, 10000); } catch {}
     try { window.addEventListener('resize', updatePosition); } catch {}
     return () => { try { window.removeEventListener('resize', updatePosition); } catch {} };
   });
@@ -72,37 +77,10 @@
 {#if open}
   <div use:portal bind:this={popEl} id="tm-settings-popover" class="tm-settings-popover" role="dialog" aria-label={t('settings.auto.title')} style={`left:${posX}px; top:${posY}px`}>
     <div class="title">{t('settings.auto.title')}</div>
+    
     <div class="row">
-      <label for="cfg-minDist">{t('settings.minDist')}</label>
-      <input id="cfg-minDist" type="number" min="0" step="1" bind:value={cfg.minDist} on:change={(e)=>onChangeNumber('minDist', e)} />
-    </div>
-    <div class="row">
-      <label for="cfg-delay">{t('settings.interClickDelay')}</label>
-      <input id="cfg-delay" type="number" min="0" step="1" bind:value={cfg.interClickDelayMs} on:change={(e)=>onChangeNumber('interClickDelayMs', e)} />
-    </div>
-    <div class="row">
-      <label for="cfg-thresh">{t('settings.enhancedThresh')}</label>
-      <input id="cfg-thresh" type="number" min="0" step="1" bind:value={cfg.enhancedThresh} on:change={(e)=>onChangeNumber('enhancedThresh', e)} />
-    </div>
-    <div class="row">
-      <label for="cfg-step">{t('settings.scanStep')}</label>
-      <input id="cfg-step" type="number" min="1" step="1" bind:value={cfg.scanStep} on:change={(e)=>onChangeNumber('scanStep', e)} />
-    </div>
-    <div class="row">
-      <label for="cfg-tile-timeout">{t('settings.tileUpdatedTimeout')}</label>
-      <input id="cfg-tile-timeout" type="number" min="0" step="1" bind:value={cfg.tileUpdatedTimeoutSec} on:change={(e)=>onChangeNumber('tileUpdatedTimeoutSec', e)} />
-    </div>
-    <div class="row">
-      <label for="cfg-switch-pre">{t('settings.switchPreWait')}</label>
-      <input id="cfg-switch-pre" type="number" min="0" step="1" bind:value={cfg.switchPreWaitSec} on:change={(e)=>onChangeNumber('switchPreWaitSec', e)} />
-    </div>
-    <div class="row">
-      <label for="cfg-after-select">{t('settings.afterSelectWait')}</label>
-      <input id="cfg-after-select" type="number" min="0" step="1" bind:value={cfg.afterSelectWaitSec} on:change={(e)=>onChangeNumber('afterSelectWaitSec', e)} />
-    </div>
-    <div class="row">
-      <label for="cfg-paintout-wait">{t('settings.paintOutWait')}</label>
-      <input id="cfg-paintout-wait" type="number" min="1" step="1" bind:value={cfg.paintOutWaitSec} on:change={(e)=>onChangeNumber('paintOutWaitSec', e)} />
+      <label for="cfg-series-wait">{t('settings.seriesWait')}</label>
+      <input id="cfg-series-wait" type="number" min="0" step="1" bind:value={cfg.seriesWaitSec} on:input={(e)=>onChangeNumber('seriesWaitSec', e)} />
     </div>
     <div class="row">
       <label for="cfg-anti-idle">{t('settings.antiIdle')}</label>
@@ -111,6 +89,18 @@
         <span class="slider" aria-hidden="true"></span>
       </label>
     </div>
+    <div class="row">
+      <label for="cfg-bm-mode">{t('settings.bm.mode')}</label>
+      <select id="cfg-bm-mode" bind:value={cfg.bmMode} on:change={(e)=>onChangeString('bmMode', e)}>
+        <option value="scan">{t('settings.bm.mode.scan')}</option>
+        <option value="random">{t('settings.bm.mode.random')}</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="cfg-bm-batch">{t('settings.bm.batchLimit')}</label>
+      <input id="cfg-bm-batch" type="number" min="0" step="1" bind:value={cfg.bmBatchLimit} on:input={(e)=>onChangeNumber('bmBatchLimit', e)} />
+    </div>
+    <div class="hint">{t('settings.bm.colorsHint')}</div>
     <div class="row" style="justify-content:end">
       <button class="btn btn-primary" on:click={onReset}>{t('editor.reset')}</button>
     </div>

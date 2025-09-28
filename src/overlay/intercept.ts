@@ -85,6 +85,10 @@ function installPageFetchInjection() {
       intervalMs: 10000,
       patched: false,
     };
+    let __bm_interceptActive = false;
+    let __bm_cachedContext: any = null;
+    let __bm_ctxTs = 0;
+    let __bm_pendingIntercept: any = null;
     function patchVisibilityAPIs() {
       if (__antiIdle.patched) return;
       try {
@@ -112,10 +116,10 @@ function installPageFetchInjection() {
         } catch {}
         
         const origAdd = Document.prototype.addEventListener;
-        (Document.prototype as any).addEventListener = function(type: any, listener: any, options: any) {
+        (Document.prototype as any).addEventListener = function(this: any, type: any, listener: any, options: any) {
           try {
             if (String(type).toLowerCase() === 'visibilitychange' && typeof listener === 'function') {
-              const wrapped = function(ev: any) {
+              const wrapped = function(this: any, ev: any) {
                 try { (document as any).visibilityState = 'visible'; (document as any).hidden = false; } catch {}
                 try { return listener.call(this, ev); } catch {}
               };
@@ -173,6 +177,62 @@ function installPageFetchInjection() {
       try { if (__antiIdle.timer) clearInterval(__antiIdle.timer); } catch {}
       __antiIdle.timer = null;
     }
+    function findOpenPaintButton(): HTMLButtonElement | null {
+      try {
+        const sel1 = 'button.btn.btn-primary.btn-lg.sm\\:btn-xl.relative.z-30';
+        let btn = document.querySelector(sel1) as HTMLButtonElement | null;
+        if (btn && !btn.disabled) return btn;
+        const sel2 = 'div.absolute.bottom-3.left-1\\/2.z-30.-translate-x-1\\/2 > button.btn.btn-primary';
+        btn = document.querySelector(sel2) as HTMLButtonElement | null;
+        if (btn && !btn.disabled) return btn;
+        const list = Array.from(document.querySelectorAll('button.btn.btn-primary')) as HTMLButtonElement[];
+        for (const b of list) {
+          const txt = (b.textContent || '').toLowerCase();
+          if (!b.disabled && txt.includes('paint')) return b;
+        }
+      } catch {}
+      return null;
+    }
+    function isEditModeOpen(): boolean {
+      try {
+        const el1 = document.querySelector('div.tooltip[data-tip="Transparent"] button#color-0') as HTMLButtonElement | null;
+        if (el1) return true;
+        const el2 = document.querySelector('button#color-0[aria-label="Transparent"]') as HTMLButtonElement | null;
+        if (el2) return true;
+      } catch {}
+      return false;
+    }
+    function findConfirmButton(): HTMLButtonElement | null {
+      try {
+        const dialog = document.querySelector('div[role="dialog"]') as HTMLElement | null;
+        if (dialog) {
+          const btn = dialog.querySelector('button.btn.btn-primary:not([disabled])') as HTMLButtonElement | null;
+          if (btn) return btn;
+        }
+        const modal = document.querySelector('.relative.px-3') as HTMLElement | null;
+        if (modal) {
+          const btn2 = modal.querySelector('button.btn.btn-primary:not([disabled])') as HTMLButtonElement | null;
+          if (btn2) return btn2;
+        }
+      } catch {}
+      return null;
+    }
+    function getCanvasCenter(): { x: number; y: number } | null {
+      try {
+        const canvas = document.querySelector('canvas.maplibregl-canvas') as HTMLCanvasElement | null;
+        if (!canvas) return null;
+        const r = canvas.getBoundingClientRect();
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      } catch { return null; }
+    }
+    async function waitForEditUI(timeoutMs = 2000): Promise<boolean> {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        if (isEditModeOpen()) return true;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      return isEditModeOpen();
+    }
     window.addEventListener('message', (event) => {
       const data = event?.data;
       if (!data || data.source !== 'wplace-svelte') return;
@@ -208,6 +268,92 @@ function installPageFetchInjection() {
       }
       if (data.action === 'antiIdle:stop') {
         try { stopAntiIdle(); } catch {}
+      }
+      if (data.action === 'bm:interceptStart') {
+        __bm_interceptActive = true;
+        try { window.postMessage({ source: 'wplace-svelte', action: 'bm:interceptArmed' }, '*'); } catch {}
+      }
+      if (data.action === 'bm:triggerPaint') {
+        (async () => {
+          try {
+            await new Promise(r => setTimeout(r, 100));
+            const openBtn = findOpenPaintButton();
+            if (openBtn && !openBtn.disabled) {
+              openBtn.focus();
+              await new Promise(r => setTimeout(r, 80));
+              openBtn.click();
+              await new Promise(r => setTimeout(r, 120));
+              const ok = await waitForEditUI(2000);
+            } else {
+            }
+          } catch {}
+        })();
+      }
+      if (data.action === 'bm:clearContext') {
+        try { __bm_cachedContext = null; } catch {}
+        try { __bm_ctxTs = 0; } catch {}
+        try { (window as any).__bmRequestContext = null; } catch {}
+      }
+      if (data.action === 'bm:placeIntercept' && data && typeof data.chunkX === 'number' && typeof data.chunkY === 'number' && Array.isArray(data.coords) && Array.isArray(data.colors)) {
+        (async () => {
+          try {
+            __bm_interceptActive = true;
+            __bm_pendingIntercept = { chunkX: Number(data.chunkX)||0, chunkY: Number(data.chunkY)||0, coords: data.coords.slice(), colors: data.colors.slice() };
+            await new Promise(r => setTimeout(r, 120));
+            let editOk = isEditModeOpen();
+            if (!editOk) {
+              const openBtn2 = findOpenPaintButton();
+              if (openBtn2 && !openBtn2.disabled) {
+                openBtn2.focus();
+                await new Promise(r => setTimeout(r, 80));
+                openBtn2.click();
+                await new Promise(r => setTimeout(r, 200));
+              }
+              editOk = await waitForEditUI(2000);
+            }
+            if (editOk) {
+              const center = getCanvasCenter();
+              if (center) {
+                try { window.postMessage({ source: 'wplace-svelte', action: 'pageClick', x: center.x, y: center.y }, '*'); } catch {}
+                await new Promise(r => setTimeout(r, 200));
+              }
+              let finalBtn = findConfirmButton();
+              if (!finalBtn) { await new Promise(r => setTimeout(r, 200)); finalBtn = findConfirmButton(); }
+              if (finalBtn && !finalBtn.disabled) {
+                finalBtn.focus();
+                await new Promise(r => setTimeout(r, 80));
+                finalBtn.click();
+                await new Promise(r => setTimeout(r, 120));
+              } else {
+              }
+            } else {
+            }
+          } catch {}
+        })();
+      }
+      if (data.action === 'bm:place' && data && typeof data.chunkX === 'number' && typeof data.chunkY === 'number' && Array.isArray(data.coords) && Array.isArray(data.colors)) {
+        (async () => {
+          try {
+            if (!__bm_cachedContext || !__bm_ctxTs || (Date.now() - __bm_ctxTs) > 10000) {
+              window.postMessage({ source: 'wplace-svelte', action: 'bm:placed', ok: false, status: 0, reason: 'noctx' }, '*');
+              return;
+            }
+            const opts = JSON.parse(JSON.stringify(__bm_cachedContext.requestOptions || {}));
+            const body = { 
+              colors: data.colors.slice(), 
+              coords: data.coords.slice(), 
+              t: __bm_cachedContext.token 
+            };
+            opts.method = 'POST';
+            opts.body = JSON.stringify(body);
+            const url = `https://backend.wplace.live/s0/pixel/${Number(data.chunkX)||0}/${Number(data.chunkY)||0}`;
+            const resp = await fetch(url, opts);
+            const ok = resp && (resp.status >= 200 && resp.status < 300);
+            window.postMessage({ source: 'wplace-svelte', action: 'bm:placed', ok, status: resp.status }, '*');
+          } catch (e) {
+            window.postMessage({ source: 'wplace-svelte', action: 'bm:placed', ok: false, status: 0 }, '*');
+          }
+        })();
       }
     
       if (data.action === 'pageClick' && typeof data.x === 'number' && typeof data.y === 'number') {
@@ -327,6 +473,38 @@ function installPageFetchInjection() {
         
           return new Response('', { status: 204, statusText: 'No Content' });
         }
+        
+        const url = args[0];
+        const options = args[1] || {};
+        const method = (options.method || 'GET').toUpperCase();
+        
+        if (__bm_interceptActive && method === 'POST' && typeof url === 'string' && url.includes('/pixel/')) {
+          try {
+            const originalBody = JSON.parse(String(options.body || '{}'));
+            const token = originalBody['t'];
+            if (!token) {
+              throw new Error("Could not find security token 't'");
+            }
+            const baseOpts = { method: 'POST', headers: options.headers || {} } as any;
+            __bm_cachedContext = { token, originalBody: options.body, requestOptions: baseOpts };
+            __bm_ctxTs = Date.now();
+            try { (window as any).__bmRequestContext = { token, originalBody: String(options.body||''), requestOptions: baseOpts, timestamp: __bm_ctxTs }; } catch {}
+            if (__bm_pendingIntercept && Array.isArray(__bm_pendingIntercept.coords) && Array.isArray(__bm_pendingIntercept.colors)) {
+              const body = { colors: __bm_pendingIntercept.colors.slice(), coords: __bm_pendingIntercept.coords.slice(), t: token } as any;
+              const newUrl = `https://backend.wplace.live/s0/pixel/${Number(__bm_pendingIntercept.chunkX)||0}/${Number(__bm_pendingIntercept.chunkY)||0}`;
+              const newOptions = { ...options, body: JSON.stringify(body) } as any;
+              __bm_interceptActive = false;
+              const resp = await (originalFetch as any).call(window, newUrl, newOptions);
+              try { window.postMessage({ source: 'wplace-svelte', action: 'bm:context', ok: true }, '*'); } catch {}
+              try { window.postMessage({ source: 'wplace-svelte', action: 'bm:placed', ok: resp && resp.status >= 200 && resp.status < 300, status: resp.status }, '*'); } catch {}
+              __bm_pendingIntercept = null;
+              return resp;
+            } else {
+              __bm_interceptActive = false;
+              try { window.postMessage({ source: 'wplace-svelte', action: 'bm:context', ok: true }, '*'); } catch {}
+            }
+          } catch (e) {}
+        }
       } catch {}
       const response = await originalFetch.apply(this, args);
       try {
@@ -355,7 +533,7 @@ function installPageFetchInjection() {
           const blob = await cloned.blob();
           return new Promise((resolve) => {
             const id = (crypto && 'randomUUID' in crypto) ? crypto.randomUUID() : String(Math.random()).slice(2);
-            fetchedBlobQueue.set(id, (processed) => {
+            fetchedBlobQueue.set(id, (processed: any) => {
               resolve(new Response(processed, { headers: cloned.headers, status: cloned.status, statusText: cloned.statusText }));
             });
             window.postMessage({ source: 'wplace-svelte', endpoint: String(endpoint), blobID: id, blobData: blob, blink, status: cloned.status, ok: (cloned as any).ok === true }, '*');
@@ -376,9 +554,9 @@ function installPageXHRInjection() {
         try { (this as any).__wplace_svelte_endpoint = args?.[1]; } catch {}
         return (originalOpen as any).apply(this, args);
       };
-      (XMLHttpRequest.prototype as any).send = function(...args: any[]) {
+      (XMLHttpRequest.prototype as any).send = function(this: any, ...args: any[]) {
         try {
-          this.addEventListener('loadend', function() {
+          this.addEventListener('loadend', function(this: any) {
             try {
               const endpoint = (this as any).__wplace_svelte_endpoint || '';
               const ct = String(this.getResponseHeader('content-type') || '').toLowerCase();

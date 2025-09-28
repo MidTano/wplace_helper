@@ -13,6 +13,29 @@ export function setLoggingEnabled(value: boolean) {
   enabled = !!value;
   try { localStorage.setItem('wplace:log', enabled ? '1' : '0'); } catch {}
   try { (window as any).wplaceLogEnabled = enabled; } catch {}
+  try {
+    const w: any = window as any;
+    if (!enabled) {
+      if (!w.__wplace_orig_console) {
+        w.__wplace_orig_console = { log: console.log, warn: console.warn, error: console.error, info: console.info, debug: console.debug };
+      }
+      const noop = function(){} as any;
+      console.log = noop as any;
+      console.warn = noop as any;
+      console.error = noop as any;
+      console.info = noop as any;
+      console.debug = noop as any;
+    } else {
+      const o = w.__wplace_orig_console;
+      if (o) {
+        console.log = o.log;
+        console.warn = o.warn;
+        console.error = o.error;
+        console.info = o.info;
+        console.debug = o.debug;
+      }
+    }
+  } catch {}
 }
 
 export function getLoggingEnabled(): boolean {

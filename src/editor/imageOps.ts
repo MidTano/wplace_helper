@@ -4,7 +4,7 @@ import { getPalette, quantizeCanvasToPalette, type PaletteMode, getPaletteFromIn
 import { drawBlackOutline, erodeInward } from './morphology';
 
 export async function resampleImage(file: Blob, pixelSize: number, method: ResampleMethod): Promise<Blob> {
-  const factor = Math.max(1, Math.floor(pixelSize || 1));
+  const factor = Math.max(1, Number(pixelSize) || 1);
   const src = await createImageBitmap(file);
   const out = await resampleBitmapToBlob(src, factor, method);
   try { src.close && src.close(); } catch {}
@@ -46,7 +46,7 @@ export async function resampleAndDither(
   saturation?: number,
   hue?: number,
 ): Promise<Blob> {
-  const factor = Math.max(1, Math.floor(pixelSize || 1));
+  const factor = Math.max(1, Number(pixelSize) || 1);
   const src = await createImageBitmap(file);
   try {
     let canvas = resampleBitmapToCanvas(src, factor, method);

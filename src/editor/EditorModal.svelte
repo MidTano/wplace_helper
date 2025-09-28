@@ -76,6 +76,16 @@
   let customDitherStrengthPct = 100; 
   $: customDitherStrength = Math.max(0, Math.min(100, customDitherStrengthPct|0)) / 100;
   function flattenPattern(p) { try { return p.flat().map(v=>v?1:0).join(''); } catch { return ''; } }
+  function clampStep(n, min, max, step) {
+    let x = Number(n);
+    if (!isFinite(x)) x = Number(min);
+    x = Math.min(Number(max), Math.max(Number(min), x));
+    if (step && step > 0) {
+      x = Math.round(x / step) * step;
+      x = Number(x.toFixed(6));
+    }
+    return x;
+  }
   function applyCustomDitherPattern() {
     try {
       setCustomDitherPatternBinary(customDitherPattern, customDitherStrength);
@@ -88,7 +98,7 @@
     try {
       const s = img?.metadata?.settings || {};
       
-      if (typeof s.pixelSize === 'number') pixelSize = Math.max(1, s.pixelSize|0);
+      if (typeof s.pixelSize === 'number') pixelSize = Math.max(1, Number(s.pixelSize) || 1);
       if (typeof s.method === 'string') method = s.method;
       if (typeof s.ditherMethod === 'string') ditherMethod = s.ditherMethod;
       if (typeof s.ditherLevels === 'number') ditherLevels = s.ditherLevels;
@@ -1531,17 +1541,46 @@
       try { ctx.drawImage(canvas, 0, 0, outW, outH, imgLeft, imgTop, displayW, displayH); } catch {}
       ctx.restore();
     }
+    function drawImageMappedMasked(canvas, maskCanvas) {
+      if (!canvas || !maskCanvas) return;
+      const off = document.createElement('canvas');
+      off.width = Math.max(1, Math.floor(displayW));
+      off.height = Math.max(1, Math.floor(displayH));
+      const octx = off.getContext('2d', { willReadFrequently: true });
+      if (!octx) { drawImageMapped(canvas, 1); return; }
+      octx.imageSmoothingEnabled = false;
+      try { octx.drawImage(canvas, 0, 0, outW, outH, 0, 0, displayW, displayH); } catch {}
+      octx.globalCompositeOperation = 'destination-in';
+      try { octx.drawImage(maskCanvas, 0, 0, outW, outH, 0, 0, displayW, displayH); } catch {}
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.imageSmoothingEnabled = false;
+      try { ctx.drawImage(off, Math.round(imgLeft), Math.round(imgTop)); } catch {}
+      ctx.restore();
+    }
     
     
     if (activeTool === 'brush' && hasActiveStroke(smoothDrawingState) && hasBufferedChanges(smoothDrawingState)) {
       const bufferCanvas = getBufferCanvas(smoothDrawingState);
-      if (bufferCanvas && outW && outH) drawImageMapped(bufferCanvas, 1);
+      if (bufferCanvas && outW && outH) {
+        if (selectionCount > 0 && selectionVisCanvas) {
+          drawImageMappedMasked(bufferCanvas, selectionVisCanvas);
+        } else {
+          drawImageMapped(bufferCanvas, 1);
+        }
+      }
     }
     
     
     if (activeTool === 'eraser' && hasActiveStroke(smoothDrawingState)) {
       const ghostCanvas = getEraserGhostCanvas(smoothDrawingState);
-      if (ghostCanvas && outW && outH) drawImageMapped(ghostCanvas, 1);
+      if (ghostCanvas && outW && outH) {
+        if (selectionCount > 0 && selectionVisCanvas) {
+          drawImageMappedMasked(ghostCanvas, selectionVisCanvas);
+        } else {
+          drawImageMapped(ghostCanvas, 1);
+        }
+      }
     }
     
     if (stickerMode && stickerCanvas && outW && outH) {
@@ -1687,7 +1726,13 @@
     if (!hasActiveStroke(smoothDrawingState) || !editCanvas) return;
     
     
-    finishStroke(smoothDrawingState, editCanvas);
+    finishStroke(
+      smoothDrawingState,
+      editCanvas,
+      (selectionMask && selectionCount > 0) ? selectionMask : null,
+      outW,
+      outH
+    );
     
     
     finalizeStrokeForUndo();
@@ -2204,7 +2249,7 @@
         erodeAmount: erodeAmount
       };
       for (const p of parts) {
-        if (p.startsWith('ps:')) out.pixelSize = Math.max(1, parseInt(p.slice(3)) || 1);
+        if (p.startsWith('ps:')) out.pixelSize = Math.max(1, parseFloat(p.slice(3)) || 1);
         else if (p.startsWith('m:')) out.method = p.slice(2);
         else if (p.startsWith('dm:')) out.ditherMethod = p.slice(3);
         else if (p.startsWith('dl:')) {
@@ -2238,6 +2283,13 @@
     }
     working = true;
     try {
+      try {
+        const f = Math.max(1, Number(pixelSize) || 1);
+        if (originalDims && originalDims.w && originalDims.h) {
+          outW = Math.max(1, Math.floor(originalDims.w / f));
+          outH = Math.max(1, Math.floor(originalDims.h / f));
+        }
+      } catch {}
       const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
       const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
       const ccKey5 = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
@@ -2578,7 +2630,7 @@
               <div class="editor-control-title">{t('editor.panel.downscale.pixelSize')}</div>
               <div class="editor-row">
                 <input type="range" min="1" max="20" step="0.1" bind:value={pixelSize} on:input={() => schedulePreviewUpdate()} style="--min:1; --max:20; --val:{pixelSize};" />
-                <input type="number" min="1" max="20" step="0.1" bind:value={pixelSize} on:change={() => schedulePreviewUpdate()} class="editor-number" />
+                <input type="number" min="1" max="20" step="0.1" inputmode="decimal" bind:value={pixelSize} on:change={() => { pixelSize = clampStep(pixelSize, 1, 20, 0.1); schedulePreviewUpdate(); }} on:blur={() => { pixelSize = clampStep(pixelSize, 1, 20, 0.1); }} class="editor-number" />
               </div>
               <div class="editor-hint">{t('editor.panel.resultSize')}: {Math.max(1, Math.floor(originalDims.w / pixelSize))} × {Math.max(1, Math.floor(originalDims.h / pixelSize))}</div>
             </div>
@@ -2609,7 +2661,7 @@
                     on:input={() => { if (ditherMethod !== 'custom') schedulePreviewUpdate(); }}
                     style="--min:2; --max:10; --val:{ditherLevels};"
                   />
-                  <div class="editor-value">{ditherLevels}</div>
+                  <input type="number" min="2" max="10" step="0.5" inputmode="decimal" bind:value={ditherLevels} on:change={() => { ditherLevels = clampStep(ditherLevels, 2, 10, 0.5); if (ditherMethod !== 'custom') schedulePreviewUpdate(); }} on:blur={() => { ditherLevels = clampStep(ditherLevels, 2, 10, 0.5); }} class="editor-number" />
                 </div>
               </div>
             {:else}
@@ -2765,14 +2817,14 @@
               <div class="editor-control-title">{t('editor.panel.post.outline')}</div>
               <div class="editor-row">
                 <input type="range" min="0" max="8" step="1" bind:value={outlineThickness} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:8; --val:{outlineThickness};" />
-                <div class="editor-value">{outlineThickness}</div>
+                <input type="number" min="0" max="8" step="1" inputmode="numeric" bind:value={outlineThickness} on:change={() => { outlineThickness = clampStep(outlineThickness, 0, 8, 1); schedulePreviewUpdate(); }} on:blur={() => { outlineThickness = clampStep(outlineThickness, 0, 8, 1); }} class="editor-number" />
               </div>
             </div>
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.post.erode')}</div>
               <div class="editor-row">
                 <input type="range" min="0" max="8" step="1" bind:value={erodeAmount} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:8; --val:{erodeAmount};" />
-                <div class="editor-value">{erodeAmount}</div>
+                <input type="number" min="0" max="8" step="1" inputmode="numeric" bind:value={erodeAmount} on:change={() => { erodeAmount = clampStep(erodeAmount, 0, 8, 1); schedulePreviewUpdate(); }} on:blur={() => { erodeAmount = clampStep(erodeAmount, 0, 8, 1); }} class="editor-number" />
               </div>
             </div>
           </div>
@@ -2792,11 +2844,11 @@
                 <div class="editor-control-title">Яркость</div>
                 <div class="editor-row">
                   <input type="range" min="-100" max="100" step="1" bind:value={brightness} on:input={() => schedulePreviewUpdate()} style="--min:-100; --max:100; --val:{brightness};" />
+                  <input type="number" min="-100" max="100" step="1" inputmode="numeric" bind:value={brightness} on:change={() => { brightness = clampStep(brightness, -100, 100, 1); schedulePreviewUpdate(); }} on:blur={() => { brightness = clampStep(brightness, -100, 100, 1); }} class="editor-number" />
                   <span class="reset-dot" role="button" tabindex="0" title="Сбросить до 0"
                         aria-label="Сбросить яркость"
                         on:click={() => { brightness = 0; schedulePreviewUpdate(); }}
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); brightness = 0; schedulePreviewUpdate(); } }} />
-                  <div class="editor-value">{brightness > 0 ? '+' : ''}{brightness}</div>
                 </div>
               </div>
               
@@ -2804,11 +2856,11 @@
                 <div class="editor-control-title">Контраст</div>
                 <div class="editor-row">
                   <input type="range" min="-100" max="100" step="1" bind:value={contrast} on:input={() => schedulePreviewUpdate()} style="--min:-100; --max:100; --val:{contrast};" />
+                  <input type="number" min="-100" max="100" step="1" inputmode="numeric" bind:value={contrast} on:change={() => { contrast = clampStep(contrast, -100, 100, 1); schedulePreviewUpdate(); }} on:blur={() => { contrast = clampStep(contrast, -100, 100, 1); }} class="editor-number" />
                   <span class="reset-dot" role="button" tabindex="0" title="Сбросить до 0"
                         aria-label="Сбросить контраст"
                         on:click={() => { contrast = 0; schedulePreviewUpdate(); }}
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); contrast = 0; schedulePreviewUpdate(); } }} />
-                  <div class="editor-value">{contrast > 0 ? '+' : ''}{contrast}</div>
                 </div>
               </div>
               
@@ -2816,11 +2868,11 @@
                 <div class="editor-control-title">Насыщенность</div>
                 <div class="editor-row">
                   <input type="range" min="-100" max="100" step="1" bind:value={saturation} on:input={() => schedulePreviewUpdate()} style="--min:-100; --max:100; --val:{saturation};" />
+                  <input type="number" min="-100" max="100" step="1" inputmode="numeric" bind:value={saturation} on:change={() => { saturation = clampStep(saturation, -100, 100, 1); schedulePreviewUpdate(); }} on:blur={() => { saturation = clampStep(saturation, -100, 100, 1); }} class="editor-number" />
                   <span class="reset-dot" role="button" tabindex="0" title="Сбросить до 0"
                         aria-label="Сбросить насыщенность"
                         on:click={() => { saturation = 0; schedulePreviewUpdate(); }}
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); saturation = 0; schedulePreviewUpdate(); } }} />
-                  <div class="editor-value">{saturation > 0 ? '+' : ''}{saturation}</div>
                 </div>
               </div>
               
@@ -2828,11 +2880,11 @@
                 <div class="editor-control-title">Оттенок</div>
                 <div class="editor-row">
                   <input type="range" min="-180" max="180" step="1" bind:value={hue} on:input={() => schedulePreviewUpdate()} style="--min:-180; --max:180; --val:{hue};" />
+                  <input type="number" min="-180" max="180" step="1" inputmode="numeric" bind:value={hue} on:change={() => { hue = clampStep(hue, -180, 180, 1); schedulePreviewUpdate(); }} on:blur={() => { hue = clampStep(hue, -180, 180, 1); }} class="editor-number" />
                   <span class="reset-dot" role="button" tabindex="0" title="Сбросить до 0"
                         aria-label="Сбросить оттенок"
                         on:click={() => { hue = 0; schedulePreviewUpdate(); }}
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); hue = 0; schedulePreviewUpdate(); } }} />
-                  <div class="editor-value">{hue > 0 ? '+' : ''}{hue}°</div>
                 </div>
               </div>
             {/if}
@@ -3387,8 +3439,28 @@
   :global(input[type="range"]:active::-moz-range-thumb) {
     opacity: 1; transform: scale(1);
   }
-  .editor-value { width: 44px; text-align: right; opacity: .9; }
   .editor-hint { font-size: 12px; opacity: .7; }
+  .editor-number {
+    width: 60px;
+    height: 32px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(42,45,51,1);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  .editor-number:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(240,81,35,0.28);
+    border-color: rgba(255,255,255,0.28);
+  }
+  .editor-number:hover {
+    border-color: rgba(255,255,255,0.25);
+  }
   .editor-select {
     flex: 1;
     height: 36px;
