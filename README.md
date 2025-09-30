@@ -24,6 +24,9 @@
 
 [![Установить скрипт](https://img.shields.io/badge/Cкрипт-Установить-brightgreen?style=for-the-badge&logo=javascript)](https://github.com/MidTano/wplace_helper/releases/latest/download/overlay.user.js)
 
+если есть проблемы с установкой изучите инструкцию от [bluemarble](https://github.com/SwingTheVine/Wplace-BlueMarble?tab=readme-ov-file#installation-instructions) (мне лень писать свою)
+
+
 ---
 
  ## Быстрый старт
@@ -35,6 +38,17 @@
  ### Видео-Инструкция
  Скоро...
 
+  ---
+
+ ## Авто-заливка
+
+Позволяет за один клик установить все пиксели на нужном вам шаблоне , можно выбирать цвета , выбирать режим установки (случайный и сверху вниз)
+
+
+https://github.com/user-attachments/assets/02dbf54d-b364-47ad-850e-bed0d3a4a3d3
+
+
+ 
  ---
 
  ## Редактор изображения
@@ -47,9 +61,32 @@
  - Пост‑обработка: усиление контура, уменьшение краёв.
  - Генерация кода/QR и сохранение результата.
 
-https://github.com/user-attachments/assets/8f14afd8-c988-4991-8ff1-a7ac72b3ab7e
+https://github.com/user-attachments/assets/c657524d-906d-4489-b20f-30117f0dd6ce
 
 
+ ---
+ 
+ ## Режим сравнения
+
+В этом режиме можно удобно сравнить разницу между разными режимами дизеренга и другими параметрами
+
+
+https://github.com/user-attachments/assets/acb5c710-c359-4060-a539-664343f2f950
+
+
+ 
+ ---
+
+ 
+ ## Режим улучшенных цветов
+
+В этом режиме можно быстро и легко найти не закращеные пиксели в вашем шаблоне
+
+
+https://github.com/user-attachments/assets/4669a7e9-3c8b-483b-9c25-73b851c2be58
+
+
+ 
  ---
 
  ## Сборка арта
@@ -59,7 +96,12 @@ https://github.com/user-attachments/assets/8f14afd8-c988-4991-8ff1-a7ac72b3ab7e
  - Автовыделение непустой области / распознавание QR.
  - Экспорт в файл и отправку в редактор.
 
- ![copyart](https://github.com/user-attachments/assets/33e119cd-cf97-4c4e-bdf2-5b47414ae7a1)
+
+
+https://github.com/user-attachments/assets/bf8f70e6-5cab-4b9e-a3f8-d68db9eb2220
+
+
+
 
  ---
 
@@ -74,6 +116,22 @@ https://github.com/user-attachments/assets/eaa5929e-1532-473f-ac4f-ba2ff1197709
 
 
  ---
+
+ ## ALT+C\V
+
+Система позволяет быстро помогать другим пользователям , по средствам спец. сообщений. Так же удобно передавать данные с одного браузера в другой
+Передается сам арт и место куда он установлен , расположение и зум камеры .
+
+
+
+https://github.com/user-attachments/assets/e5082686-f096-405b-a8c6-bd5cebcb5fbd
+
+
+
+
+ ---
+
+ 
 
  ## Сборка и разработка
 
