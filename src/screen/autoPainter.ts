@@ -169,78 +169,117 @@ async function placeAllColorsDirect(): Promise<boolean> {
   try { getStencilManager().setPendingColorIdx(null as any); } catch {}
   const chunks = collectPendingChunksMulti();
   if (!chunks.length) return false;
+  if (!running) return false;
+  
   let remaining = Math.floor(Number((await fetchCharges())?.count) || 0);
   let placed = false;
+  
   for (let gi = 0; gi < chunks.length && running; gi++) {
+    if (!running) break;
+    
     const group = chunks[gi];
     let idx = 0;
+    
     while (idx < group[1].length && running) {
+      if (!running) break;
+      
       if (remaining <= 0) {
-        remaining = await waitForChargesDirect(1, 120000);
-        if (remaining <= 0) break;
+        break;
       }
+      
       const cfg = getAutoConfig();
       const batchLimit = Math.max(0, Number((cfg as any)?.bmBatchLimit || 0));
       const cap = batchLimit > 0 ? batchLimit : (group[1].length - idx);
       const take = Math.min(remaining, cap, group[1].length - idx);
       const coordsFlat: number[] = [];
       const colorsArr: number[] = [];
+      
       for (let k = 0; k < take; k++) {
         const p = group[1][idx + k];
         coordsFlat.push(p[0], p[1]);
         colorsArr.push(p[2]);
       }
+      
       let result: any = null;
+      let status = 0;
+      
       try {
         result = await placeWithCachedContext(group[0][0], group[0][1], coordsFlat, colorsArr);
+        status = Number((result as any)?.status || 0);
       } catch (e) {
-        const first = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
-        result = first;
-      }
-      try {
-        let sTry = Number((result as any)?.status || 0);
-        if (sTry === 0) {
-          const second = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
-          result = second;
+        if (!running) break;
+        try {
+          result = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
+          status = Number((result as any)?.status || 0);
+        } catch {
+          status = 0;
         }
-      } catch {}
-      try {
-      } catch (e) {
-        try { clearBmRequestContext(); } catch {}
-        throw e;
       }
-      let status = Number((result as any)?.status || 0);
+      
+      if (!running) break;
+      
+      if (status === 0) {
+        try {
+          result = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
+          status = Number((result as any)?.status || 0);
+        } catch {}
+      }
+      
+      if (!running) break;
+      
       if (status === 429) {
-        await sleep(30000);
+        const continued = await sleepInterruptible(30000);
+        if (!continued || !running) break;
         continue;
       }
+      
       if (status === 401 || status === 403) {
         clearBmRequestContext();
         try {
           const retry = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
           const st = Number((retry as any)?.status || 0);
           if (st >= 200 && st < 300) {
-            result = retry;
-            status = st as any;
+            status = st;
           } else {
-            remaining = 0;
             break;
           }
         } catch {
-          remaining = 0;
           break;
         }
       }
-      remaining -= take;
-      idx += take;
-      placed = true;
-      try { window.postMessage({ source: 'wplace-svelte', action: 'reloadTiles' }, '*'); } catch {}
-      try {
-        const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
-        const tw = Math.max(200, Math.min(3000, Number.isFinite(cfgT) ? Math.round(cfgT * 1000) : 2000));
-        await waitForTileRefresh(tw);
-      } catch {}
-      await sleep(200);
+      
+      if (status >= 200 && status < 300) {
+        try {
+          const freshCharges = await fetchCharges();
+          if (freshCharges) {
+            remaining = Math.floor(Number(freshCharges.count) || 0);
+          } else {
+            remaining -= take;
+          }
+        } catch {
+          remaining -= take;
+        }
+        
+        idx += take;
+        placed = true;
+        
+        try { window.postMessage({ source: 'wplace-svelte', action: 'reloadTiles' }, '*'); } catch {}
+        
+        if (!running) break;
+        
+        try {
+          const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
+          const tw = Math.max(200, Math.min(3000, Number.isFinite(cfgT) ? Math.round(cfgT * 1000) : 2000));
+          await waitForTileRefresh(tw);
+        } catch {}
+        
+        if (!running) break;
+        
+        const continued = await sleepInterruptible(200);
+        if (!continued || !running) break;
+      } else {
+        idx += take;
+      }
     }
   }
   return placed;
@@ -258,26 +297,6 @@ export function isAutoRunning() { return running; }
 
 
 
-async function buildRandomColorOrder(): Promise<Array<{ idx: number, btnId: number }>> {
-  await ensureColorMap();
-  const counts = (()=>{ try { return (lastCountsKnown && Array.isArray(lastCountsKnown)) ? lastCountsKnown : getStencilManager().getRemainingCountsTotal(); } catch { return []; } })() as number[];
-  let allowed = getAutoAllowedMasters();
-  if (!allowed.length) {
-    allowed = (counts || []).map((v, i) => v > 0 ? i : -1).filter(i => i >= 0);
-  }
-  const allowedSet = new Set(allowed);
-  const out: Array<{ idx: number, btnId: number }> = [];
-  for (let i = 0; i < MASTER_COLORS.length; i++) {
-    if (!allowedSet.has(i)) continue;
-    if (Array.isArray(counts) && counts[i] <= 0) continue;
-    const btnId = mapMasterIndexToButton(i) ?? -1;
-    if (btnId < 0 || !availableButtonIds.has(btnId)) continue;
-    out.push({ idx: i, btnId });
-  }
-  
-  for (let k = out.length - 1; k > 0; k--) { const j = (Math.random() * (k + 1)) | 0; const t = out[k]; out[k] = out[j]; out[j] = t; }
-  return out;
-}
 
 export function getAutoSavedCounts(): number[] | null {
   try { return lastCountsKnown ? lastCountsKnown.slice() : null; } catch { return null; }
@@ -387,8 +406,6 @@ let masterToButton: (number | null)[] | null = null;
 
 const buttonCache = new Map<string, number>();
 
-let availableButtonIds = new Set<number>();
-
 function shuffle<T>(a: T[]) {
   for (let i = a.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
@@ -396,7 +413,23 @@ function shuffle<T>(a: T[]) {
   }
 }
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+function sleepInterruptible(ms: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const check = () => {
+      if (!running) {
+        resolve(false);
+        return;
+      }
+      if (Date.now() - start >= ms) {
+        resolve(true);
+        return;
+      }
+      setTimeout(check, Math.min(500, ms));
+    };
+    check();
+  });
+}
 
 async function fetchCharges(): Promise<{ count: number; max: number; rechargeTime: number } | null> {
   try {
@@ -406,18 +439,6 @@ async function fetchCharges(): Promise<{ count: number; max: number; rechargeTim
     const c = (data && data.charges) || {};
     return { count: Math.floor(Number(c.count) || 0), max: Math.floor(Number(c.max) || 0), rechargeTime: Math.floor(Number(c.rechargeTime) || 0) };
   } catch { return null; }
-}
-
-async function waitForChargesDirect(minNeeded = 1, maxWaitMs = 90000): Promise<number> {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    const ch = await fetchCharges();
-    const cnt = Math.floor(Number(ch?.count) || 0);
-    if (cnt >= minNeeded) return cnt;
-    await sleep(1000);
-  }
-  const ch2 = await fetchCharges();
-  return Math.floor(Number(ch2?.count) || 0);
 }
 
  
@@ -458,11 +479,7 @@ async function ensureColorMap() {
   }
   
   if (colorButtons && colorButtons.length) {
-    
     const available = colorButtons.filter(b => !b.paid && b.id > 0);
-    
-    try { availableButtonIds = new Set(available.map(b => b.id)); } catch { availableButtonIds = new Set(); }
-    
     
     try { buttonCache.clear(); } catch {}
     for (const b of available) {
@@ -503,36 +520,42 @@ function mapMasterIndexToButton(idx: number): number | null {
 
 async function runAutoLoop() {
   try {
+    await ensureColorMap();
     while (running) {
-      const order = await buildRandomColorOrder();
+      if (!running) break;
       
-      if (!order || order.length === 0) {
-        
+      const chunks = collectPendingChunksMulti();
+      
+      if (!chunks || chunks.length === 0) {
         try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
-        
         try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
         
-        {
-          const cfg = getAutoConfig();
-          const secSeries = Number((cfg as any)?.seriesWaitSec);
-          const waitMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
-          await sleep(waitMs);
-        }
-        continue;
-      }
-      
-      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
-      await placeAllColorsDirect();
-      if (!running) break;
-
-      
-      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
-      {
         const cfg = getAutoConfig();
         const secSeries = Number((cfg as any)?.seriesWaitSec);
         const waitMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
-        await sleep(waitMs);
+        const continued = await sleepInterruptible(waitMs);
+        if (!continued || !running) break;
+        continue;
       }
+      
+      if (!running) break;
+      
+      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
+      
+      if (!isBmContextValid(10000)) {
+        await armBlueMarbleContext();
+      }
+      
+      await placeAllColorsDirect();
+      if (!running) break;
+      
+      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
+      
+      const cfg = getAutoConfig();
+      const secSeries = Number((cfg as any)?.seriesWaitSec);
+      const waitMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
+      const continued = await sleepInterruptible(waitMs);
+      if (!continued || !running) break;
     }
   } catch {}
 }

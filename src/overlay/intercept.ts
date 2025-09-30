@@ -14,6 +14,9 @@ function canonicalizeTileUrl(url: string): string | null {
     if (parts[0] === 'files' && /^s\d+$/i.test(parts[1] || '')) {
       segs.push('files', parts[1]);
       i = 2;
+    } else if (/^s\d+$/i.test(parts[0] || '')) {
+      segs.push('files', parts[0]);
+      i = 1;
     }
     
     const x = parts[tilesIdx + 1];
@@ -78,105 +81,13 @@ function inject(callback: () => void) {
 function installPageFetchInjection() {
   inject(() => {
     const fetchedBlobQueue = new Map();
-    
-    let __antiIdle = {
-      enabled: false,
-      timer: null as any,
-      intervalMs: 10000,
-      patched: false,
-    };
     let __bm_interceptActive = false;
     let __bm_cachedContext: any = null;
     let __bm_ctxTs = 0;
     let __bm_pendingIntercept: any = null;
-    function patchVisibilityAPIs() {
-      if (__antiIdle.patched) return;
-      try {
-        const docP = (Document.prototype as any);
-        try { Object.defineProperty(docP, 'hidden', { get: () => false }); } catch {}
-        try { Object.defineProperty(docP, 'visibilityState', { get: () => 'visible' }); } catch {}
-        try { (Document.prototype as any).hasFocus = function() { return true; }; } catch {}
-      } catch {}
-      try {
-        window.addEventListener('blur', () => setTimeout(() => { try { window.dispatchEvent(new Event('focus')); } catch {} }, 50), true);
-        document.addEventListener('visibilitychange', () => {
-          try { (document as any).visibilityState = 'visible'; (document as any).hidden = false; } catch {}
-        }, true);
-        window.addEventListener('pagehide', (e) => { try { (e as any).preventDefault && (e as any).preventDefault(); } catch {} }, true);
-        
-        try {
-          const origBeacon = (navigator as any).sendBeacon ? (navigator as any).sendBeacon.bind(navigator) : null;
-          (navigator as any).sendBeacon = function(url: any, data?: any) {
-            try {
-              const u = String(url || '');
-              if (/sentry\.io/i.test(u) || /\/envelope\b/i.test(u)) return true;
-            } catch {}
-            return origBeacon ? origBeacon(url, data) : false;
-          };
-        } catch {}
-        
-        const origAdd = Document.prototype.addEventListener;
-        (Document.prototype as any).addEventListener = function(this: any, type: any, listener: any, options: any) {
-          try {
-            if (String(type).toLowerCase() === 'visibilitychange' && typeof listener === 'function') {
-              const wrapped = function(this: any, ev: any) {
-                try { (document as any).visibilityState = 'visible'; (document as any).hidden = false; } catch {}
-                try { return listener.call(this, ev); } catch {}
-              };
-              return (origAdd as any).call(this, type, wrapped, options);
-            }
-          } catch {}
-          return (origAdd as any).call(this, type, listener, options);
-        };
-        
-        try {
-          Object.defineProperty(document, 'onvisibilitychange', {
-            configurable: true,
-            enumerable: true,
-            get() { return (document as any).__wplace_vis_handler || null; },
-            set(fn: any) {
-              try {
-                const h = (e: any) => { try { (document as any).visibilityState = 'visible'; (document as any).hidden = false; } catch {}; try { fn && fn.call(document, e); } catch {} };
-                (document as any).__wplace_vis_handler = h;
-                
-                document.removeEventListener('visibilitychange', (document as any).__wplace_vis_handler);
-                document.addEventListener('visibilitychange', h, true);
-              } catch {}
-            }
-          } as any);
-        } catch {}
-      } catch {}
-      __antiIdle.patched = true;
-    }
-    function pickRandomTarget(): Element | null {
-      try {
-        const candidates = Array.from(document.querySelectorAll('button, a, [role], input, textarea, select, div')) as Element[];
-        const vis = candidates.filter(el => {
-          const r = (el as HTMLElement).getBoundingClientRect?.();
-          if (!r) return false;
-          const inView = r.width > 6 && r.height > 6 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
-          const cs = getComputedStyle(el as Element as HTMLElement);
-          return inView && cs.visibility !== 'hidden' && cs.display !== 'none';
-        });
-        if (vis.length === 0) return document.body;
-        return vis[Math.floor(Math.random() * vis.length)];
-      } catch { return document.body; }
-    }
+    
 
-    function startAntiIdle(ms: number) {
-      try { patchVisibilityAPIs(); } catch {}
-      __antiIdle.enabled = true;
-      __antiIdle.intervalMs = Math.max(2000, Number(ms) || 10000);
-      try { if (__antiIdle.timer) clearInterval(__antiIdle.timer); } catch {}
-      
-      
-      __antiIdle.timer = null; 
-    }
-    function stopAntiIdle() {
-      __antiIdle.enabled = false;
-      try { if (__antiIdle.timer) clearInterval(__antiIdle.timer); } catch {}
-      __antiIdle.timer = null;
-    }
+    
     function findOpenPaintButton(): HTMLButtonElement | null {
       try {
         const sel1 = 'button.btn.btn-primary.btn-lg.sm\\:btn-xl.relative.z-30';
@@ -263,12 +174,7 @@ function installPageFetchInjection() {
         fetchedBlobQueue.delete(data.blobID);
       }
 
-      if (data.action === 'antiIdle:start') {
-        try { startAntiIdle(Number(data.intervalMs) || 10000); } catch {}
-      }
-      if (data.action === 'antiIdle:stop') {
-        try { stopAntiIdle(); } catch {}
-      }
+      
       if (data.action === 'bm:interceptStart') {
         __bm_interceptActive = true;
         try { window.postMessage({ source: 'wplace-svelte', action: 'bm:interceptArmed' }, '*'); } catch {}
@@ -465,6 +371,7 @@ function installPageFetchInjection() {
     });
 
     const originalFetch = window.fetch;
+    try { (window as any).__wplace_rawFetch = originalFetch; } catch {}
     window.fetch = async function(...args) {
       try {
         const endpoint0: any = (args && args[0]) || '';

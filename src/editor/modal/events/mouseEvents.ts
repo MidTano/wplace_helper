@@ -279,14 +279,20 @@ export function createStageMouseMoveHandler(params: MouseEventHandlersParams) {
       return;
     }
     
-    
     if (params.activeTool !== 'brush' && params.activeTool !== 'eraser') return;
     const { px, py } = params.screenToPixelLocal(e.clientX, e.clientY);
     params.setState({ hoverPx: px, hoverPy: py });
     
-    
-    if (params.isDrawing && px >= 0 && py >= 0 && params.hasActiveStroke()) {
-      params.addSmoothPoint(px, py);
+    if (params.isDrawing && params.hasActiveStroke()) {
+      let cx = px;
+      let cy = py;
+      if (params.outW > 0 && params.outH > 0) {
+        cx = Math.max(0, Math.min(params.outW - 1, cx));
+        cy = Math.max(0, Math.min(params.outH - 1, cy));
+      }
+      if (cx >= 0 && cy >= 0 && cx < params.outW && cy < params.outH) {
+        params.addSmoothPoint(cx, cy);
+      }
     }
     
     params.drawOverlay(px, py);
@@ -295,15 +301,9 @@ export function createStageMouseMoveHandler(params: MouseEventHandlersParams) {
 
 export function createStageMouseLeaveHandler(params: MouseEventHandlersParams) {
   return function onStageMouseLeave() {
-    
-    if (params.hasActiveStroke()) {
-      params.cancelSmoothStroke();
-    }
-    
     params.setState({
       hoverPx: -1,
       hoverPy: -1,
-      isDrawing: false,
       isPanning: false,
       isSelecting: false
     });

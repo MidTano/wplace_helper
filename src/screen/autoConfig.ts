@@ -13,14 +13,13 @@ export type AutoConfig = {
   switchPreWaitSec: number;
   
   afterSelectWaitSec: number;
-  
-  antiIdleEnabled: boolean;
   useDirectPlacement: boolean;
   bmMode: 'scan' | 'random';
   bmSelectedMasterIdx: number | null;
   bmOnlySelected: boolean;
   bmBatchLimit: number;
   seriesWaitSec: number;
+  enhancedBackgroundColor: string;
 };
 
 const LS_KEY = 'wplace:auto-config:v4';
@@ -34,13 +33,13 @@ const defaults: AutoConfig = {
   tileUpdatedTimeoutSec: 60,
   switchPreWaitSec: 1,
   afterSelectWaitSec: 1,
-  antiIdleEnabled: true,
   useDirectPlacement: true,
   bmMode: 'random',
   bmSelectedMasterIdx: null,
   bmOnlySelected: false,
   bmBatchLimit: 0,
   seriesWaitSec: 90,
+  enhancedBackgroundColor: '#080808',
 };
 
 let current: AutoConfig = { ...defaults };

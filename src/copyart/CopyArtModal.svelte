@@ -78,6 +78,7 @@
     return { destroy() { try { ro && ro.disconnect(); } catch {} } };
   }
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
+  import { fade, fly, scale } from 'svelte/transition';
   import { lastTileStore, initCopyArtListeners, getLastTile } from './lastTile';
   import { tileUrlFrom, fetchImageBitmap, drawSource } from './tiles';
   import { downloadBlob } from '../editor/save';
@@ -99,8 +100,8 @@
   let isCustomMode = false;
   const sizes = [1, 3, 5, 7, 9];
   
-  let reqDelayMs = 1000;   
-  let retryDelayMs = 10000;
+  let reqDelayMs = 200;   
+  let retryDelayMs = 62000;
   let maxConcurrent = 8;
 
 
@@ -117,9 +118,22 @@
   let accelGrid = 3;
   let loadedCount = 0;
   let saveProgress = 0;
+  let saveEstimatedProgress = 0;
   let saveStage = '';
   let saveStartMs = 0;
   let saveEtaText = '—';
+  let saveTotalEstimatedMs = 0;
+  let savePartsProgress = 0;
+  let saveCurrentPart = 0;
+  let saveTotalParts = 0;
+  let saveCycleStartTime = 0;
+  let saveCompletedTiles = 0;
+  let saveLastCycleSuccessCount = 161;
+  let saveCycleCount = 0;
+  let saveInCooldown = false;
+  let saveCooldownStartTime = 0;
+  let saveLastCycleTime = 0;
+  let saveAvgCycleTime = 90000;
   let assemblingProgress = 0;
   let assemblingStartMs = 0;
   let assembleEtaText = '—';
@@ -146,10 +160,19 @@
 
   let qrDetect = true;
 
+  let memoryEcoMode = true;
+  let compressionSupported = false;
+
   let qrDialogOpen = false;
   let qrCandidate = null; 
   let qrPreviewUrl = '';
-  let assembleToken = 0; 
+  let assembleToken = 0;
+  let saveToken = 0;
+
+  let confirmDialogOpen = false;
+  let confirmMessage = '';
+  let confirmEstimate = { time: 0, fileSize: 0 };
+  let confirmCallback = null; 
 
   
   $: _i18n_copyartmodal_lang = $lang;
@@ -436,19 +459,7 @@
         );
       } catch {}
     }
-    if (tileStore && tileStore.size > 0) {
-      for (let i = 0; i < currentQueue.length; i++) {
-        const it = currentQueue[i];
-        const key = `${it.dx},${it.dy}`;
-        const px = (it.dx + halfCache) * tileW;
-        const py = (it.dy + halfCache) * tileH;
-        if (px > vw2 || py > vh2 || (px + tileW) < vx2 || (py + tileH) < vy2) continue;
-        const img = tileStore.get(key);
-        if (img) {
-          try { prevCtx.drawImage(img, px, py, tileW, tileH); } catch {}
-        }
-      }
-    }
+    
 
     drawGridOverlay(prevCtx);
 
@@ -569,7 +580,7 @@
     if (!selectionRect) return;
     const sourceCanvas = composedCanvas || createCanvasFromTiles();
     if (!sourceCanvas) {
-      alert('Нет данных для отправки в редактор. Сначала загрузите хотя бы один тайл.');
+      alert(t('copyart.alert.noData'));
       return;
     }
     try {
@@ -846,6 +857,59 @@
   }
 
   function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+  function calculateMemoryUsage(size) {
+    const totalTiles = size * size;
+    const stripeHeight = 256;
+    const tilesInStripe = size;
+    const bytesPerStripe = size * 1000 * stripeHeight * 4;
+    const mbPerStripe = bytesPerStripe / (1024 * 1024);
+    const overheadFactor = 1.5;
+    const totalMB = Math.ceil(mbPerStripe * overheadFactor);
+    return totalMB;
+  }
+
+  function estimateFileSize(size) {
+    const totalPixels = size * 1000 * size * 1000;
+    const bytesPerPixel = 4;
+    const fillRate = 0.4;
+    const compressionRatio = 0.18;
+    const estimatedBytes = totalPixels * bytesPerPixel * fillRate * compressionRatio;
+    return estimatedBytes;
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' ' + t('copyart.units.kb');
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' ' + t('copyart.units.mb');
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' ' + t('copyart.units.gb');
+  }
+
+  function estimateTime(tilesCount) {
+    const avgResponseTime = 81;
+    const avgDelay = reqDelayMs;
+    const avgTimePerTile = avgResponseTime + avgDelay;
+    const parallel = Math.max(1, maxConcurrent);
+    
+    const tilesPerCycle = saveLastCycleSuccessCount;
+    const cyclesNeeded = Math.ceil(tilesCount / tilesPerCycle);
+    const cooldownTime = (cyclesNeeded - 1) * 60000;
+    
+    const baseTime = (tilesCount * avgTimePerTile) / parallel;
+    const totalMs = baseTime + cooldownTime;
+    
+    return totalMs;
+  }
+
+  function formatEstimateTime(ms) {
+    const seconds = Math.ceil(ms / 1000);
+    if (seconds < 60) return `${seconds} ${t('copyart.units.sec')}`;
+    const minutes = Math.ceil(seconds / 60);
+    if (minutes < 60) return `${minutes} ${t('copyart.units.min')}`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return t('copyart.units.hourMin').replace('{0}', hours).replace('{1}', mins);
+  }
   function nextFrame() { return new Promise(res => requestAnimationFrame(() => res(null))); }
   function formatEta(ms) {
     try {
@@ -857,14 +921,67 @@
       return `${m}:${String(s).padStart(2,'0')}`;
     } catch { return '—'; }
   }
+  let smoothProgressRaf = 0;
+  
+  function smoothProgressUpdate() {
+    if (!saving) {
+      if (smoothProgressRaf) cancelAnimationFrame(smoothProgressRaf);
+      smoothProgressRaf = 0;
+      return;
+    }
+    
+    try {
+      const elapsed = Date.now() - saveStartMs;
+      const totalTiles = gridSize * gridSize;
+      
+      let targetProgress;
+      
+      if (saveInCooldown) {
+        const cooldownElapsed = Date.now() - saveCooldownStartTime;
+        const cooldownProgress = Math.min(1, cooldownElapsed / retryDelayMs);
+        const progressBeforeCooldown = (saveCompletedTiles / totalTiles) * 100;
+        const tilesPerCycle = Math.min(saveLastCycleSuccessCount, totalTiles - saveCompletedTiles);
+        const progressAfterCooldown = Math.min(99, ((saveCompletedTiles + tilesPerCycle) / totalTiles) * 100);
+        targetProgress = progressBeforeCooldown + (progressAfterCooldown - progressBeforeCooldown) * cooldownProgress;
+      } else {
+        targetProgress = saveProgress;
+      }
+      
+      const smoothSpeed = saveInCooldown ? 0.08 : 0.2;
+      saveEstimatedProgress = saveEstimatedProgress + (targetProgress - saveEstimatedProgress) * smoothSpeed;
+      
+      if (Math.abs(targetProgress - saveEstimatedProgress) < 0.1) {
+        saveEstimatedProgress = targetProgress;
+      }
+      
+      if (saveTotalEstimatedMs > 0) {
+        const remaining = Math.max(0, saveTotalEstimatedMs - elapsed);
+        saveEtaText = formatEta(remaining);
+      }
+    } catch {}
+    
+    smoothProgressRaf = requestAnimationFrame(smoothProgressUpdate);
+  }
+  
   function updateEta() {
     try {
-      const p = Math.max(0.001, Math.min(0.999, (saveProgress || 0) / 100));
-      const elapsed = Math.max(0, Date.now() - (saveStartMs || Date.now()));
-      const total = elapsed / p;
-      const left = Math.max(0, total - elapsed);
-      saveEtaText = formatEta(left);
-    } catch { saveEtaText = '—'; }
+      if (!saving) { 
+        saveEtaText = '—'; 
+        saveEstimatedProgress = 0;
+        if (smoothProgressRaf) {
+          cancelAnimationFrame(smoothProgressRaf);
+          smoothProgressRaf = 0;
+        }
+        return; 
+      }
+      
+      if (!smoothProgressRaf) {
+        smoothProgressUpdate();
+      }
+    } catch { 
+      saveEtaText = '—'; 
+      saveEstimatedProgress = 0; 
+    }
   }
   function updateAssembleEta() {
     try {
@@ -891,7 +1008,15 @@
     try {
       try { netAbort && netAbort.abort(); } catch {}
       try { netAbort = new AbortController(); } catch { netAbort = null; }
-      if (!center) { assembleErr = 'Центральный тайл не найден. Сделайте так, чтобы сайт загрузила любой тайл (подвигайте карту), затем нажмите Обновить.'; return; }
+      if (!center) { assembleErr = t('copyart.alert.centerNotFound'); return; }
+      
+      const useEcoMode = memoryEcoMode && isCustomMode;
+      if (useEcoMode) {
+        assembleErr = '';
+        assembling = false;
+        assemblingProgress = 100;
+        return;
+      }
       const half = Math.floor((gridSize - 1) / 2);
       const queue = [];
       for (let dy = -half; dy <= half; dy++) {
@@ -977,7 +1102,7 @@
       const pool = Array.from({ length: workers }, () => worker());
       await Promise.all(pool);
     } catch (e) {
-      assembleErr = String(e?.message || e) || 'Ошибка сборки';
+      assembleErr = String(e?.message || e) || t('copyart.error.assembly');
     } finally {
       assembling = false;
       assemblingProgress = 100; assembleEtaText = '0:00';
@@ -1019,6 +1144,8 @@
       return out;
     } catch { return null; }
   }
+
+  async function createZipWorker(files) { return null; }
 
   async function createZip(files) {
     try {
@@ -1115,6 +1242,185 @@
     } catch { return new Uint8Array(0); }
   }
 
+  async function createPngStreamingDirect(minDx, minDy, maxDx, maxDy) {
+    try {
+      if (typeof CompressionStream === 'undefined') return null;
+      let tw = tileW || 1000;
+      let th = tileH || 1000;
+      let first = await fetchImageBitmap(tileUrlFrom(center, center.x, center.y), netAbort?.signal);
+      if (!first) {
+        const offs = [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+        for (let i = 0; i < offs.length && !first; i++) {
+          const ox = offs[i][0], oy = offs[i][1];
+          const u = tileUrlFrom(center, center.x + ox, center.y + oy);
+          const im = await fetchImageBitmap(u, netAbort?.signal);
+          if (im) { first = im; break; }
+        }
+      }
+      if (!first) return null;
+      {
+        const iw = (first && (first.width || first.naturalWidth)) || tw;
+        const ih = (first && (first.height || first.naturalHeight)) || th;
+        tw = iw; th = ih;
+      }
+      const tilesW = (maxDx - minDx + 1);
+      const tilesH = (maxDy - minDy + 1);
+      const W = tilesW * tw;
+      const H = tilesH * th;
+
+      const sig = new Uint8Array([137,80,78,71,13,10,26,10]);
+      const ihdr = new Uint8Array(13);
+      const dv = new DataView(ihdr.buffer);
+      dv.setUint32(0, W >>> 0, false);
+      dv.setUint32(4, H >>> 0, false);
+      ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+
+      const comp = new CompressionStream('deflate');
+      const w = comp.writable.getWriter();
+      const reader = comp.readable.getReader();
+      const idatParts = [];
+      let collecting = true;
+      const collect = (async ()=>{ try { while (true) { const r = await reader.read(); if (r.done) break; if (r.value && r.value.length) idatParts.push(new Uint8Array(r.value)); } } catch {} finally { collecting = false; } })();
+
+      const maxStripeBytes = 32 * 1024 * 1024;
+      let stripeH = Math.floor(maxStripeBytes / Math.max(1, W * 4));
+      stripeH = Math.max(8, Math.min(th, stripeH || 8, 256));
+      const tileStripeCanvas = document.createElement('canvas');
+      tileStripeCanvas.width = tw; tileStripeCanvas.height = stripeH;
+      const tileStripeCtx = tileStripeCanvas.getContext('2d', { willReadFrequently: true });
+      try { tileStripeCtx.imageSmoothingEnabled = false; } catch {}
+
+      saveStage = t('copyart.stage.loading');
+      saveProgress = 0;
+      saveCycleStartTime = Date.now();
+      saveCompletedTiles = 0;
+      saveCycleCount = 0;
+      saveInCooldown = false;
+      saveCooldownStartTime = 0;
+      saveLastCycleTime = Date.now();
+      saveAvgCycleTime = 90000;
+      let cycleSuccessTiles = 0;
+      
+      
+      updateEta();
+
+      for (let tileRow = 0; tileRow < tilesH; tileRow++) {
+        const dy = minDy + tileRow;
+        const rowImgs = new Array(tilesW).fill(null);
+        const colsPerBatchLoad = Math.max(1, Math.min(tilesW, Math.floor(maxConcurrent)));
+        for (let groupStart = 0; groupStart < tilesW; groupStart += colsPerBatchLoad) {
+          const groupEnd = Math.min(tilesW, groupStart + colsPerBatchLoad);
+          const results = await Promise.all(Array.from({ length: groupEnd - groupStart }, async (_, k) => {
+            if (reqDelayMs > 0 && k > 0) {
+              await sleep(Math.floor(reqDelayMs * k / groupEnd));
+            }
+            const tileCol = groupStart + k;
+            const dx = minDx + tileCol;
+            const u = tileUrlFrom(center, center.x + dx, center.y + dy);
+            
+            let img = null;
+            let hadError = false;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              img = await fetchImageBitmap(u, netAbort?.signal);
+              if (img) break;
+              if (attempt < 2) {
+                hadError = true;
+                const backoffDelay = retryDelayMs * (attempt + 1);
+                console.log(`[CopyArt] Retry ${attempt + 1}/3 для тайла ${dx},${dy} через ${backoffDelay}ms`);
+                
+                if (attempt === 0) {
+                  const cycleEndTime = Date.now();
+                  const actualCycleTime = saveCycleCount > 0 ? (cycleEndTime - saveLastCycleTime) : 0;
+                  
+                  if (actualCycleTime > 0) {
+                    saveAvgCycleTime = Math.round((saveAvgCycleTime * 0.7) + (actualCycleTime * 0.3));
+                  }
+                  
+                  saveLastCycleSuccessCount = Math.max(80, cycleSuccessTiles);
+                  saveCompletedTiles += cycleSuccessTiles;
+                  cycleSuccessTiles = 0;
+                  saveCycleCount++;
+                  
+                  const totalTilesNeeded = gridSize * gridSize;
+                  const remainingTiles = totalTilesNeeded - saveCompletedTiles;
+                  const estimatedRemainingCycles = Math.ceil(remainingTiles / saveLastCycleSuccessCount);
+                  const estimatedRemainingTime = estimatedRemainingCycles * saveAvgCycleTime;
+                  saveTotalEstimatedMs = (Date.now() - saveStartMs) + estimatedRemainingTime;
+                  
+                  const cycleTimeMin = (actualCycleTime / 60000).toFixed(1);
+                  const avgTimeMin = (saveAvgCycleTime / 60000).toFixed(1);
+                  console.log(`[CopyArt] Цикл ${saveCycleCount}: ${saveLastCycleSuccessCount} тайлов | Время цикла: ${cycleTimeMin}м | Среднее: ${avgTimeMin}м | Осталось: ${remainingTiles} | Циклов: ${estimatedRemainingCycles}`);
+                  
+                  saveInCooldown = true;
+                  saveCooldownStartTime = Date.now();
+                  saveLastCycleTime = cycleEndTime;
+                }
+                
+                await sleep(backoffDelay);
+                saveInCooldown = false;
+                saveCycleStartTime = Date.now();
+              }
+            }
+            if (!img) {
+              console.warn(`[CopyArt] Не удалось загрузить тайл ${dx},${dy} после 3 попыток`);
+            } else if (!hadError) {
+              cycleSuccessTiles++;
+            }
+            return { tileCol, img };
+          }));
+          
+          for (const { tileCol, img } of results) {
+            rowImgs[tileCol] = img;
+          }
+        }
+        for (let by = 0; by < th; by += stripeH) {
+          const bh = Math.min(stripeH, th - by);
+          const rows = new Array(bh);
+          for (let r = 0; r < bh; r++) { const buf = new Uint8Array(1 + W * 4); buf[0] = 0; rows[r] = buf; }
+          for (let tileCol = 0; tileCol < tilesW; tileCol++) {
+            const img = rowImgs[tileCol];
+            if (!img) continue;
+            try { tileStripeCtx.clearRect(0, 0, tw, bh); } catch {}
+            try { tileStripeCtx.drawImage(img, 0, by, tw, bh, 0, 0, tw, bh); } catch {}
+            let seg = null;
+            try { seg = tileStripeCtx.getImageData(0, 0, tw, bh).data; } catch {}
+            if (seg) {
+              const baseX = tileCol * tw * 4;
+              for (let r = 0; r < bh; r++) {
+                const row = rows[r];
+                const off = r * tw * 4;
+                row.set(seg.subarray(off, off + tw * 4), 1 + baseX);
+              }
+            }
+          }
+          for (let r = 0; r < bh; r++) {
+            await w.write(rows[r]);
+            const globalY = tileRow * th + by + r + 1;
+            saveStage = t('copyart.stage.saving');
+            saveProgress = Math.max(0, Math.min(99, Math.round(100 * globalY / Math.max(1, H))));
+            updateEta();
+          }
+          if ((by & 127) === 0) await nextFrame();
+        }
+        for (let tileCol = 0; tileCol < tilesW; tileCol++) {
+          const img = rowImgs[tileCol];
+          try { if (img && img.close) img.close(); } catch {}
+          rowImgs[tileCol] = null;
+        }
+        if ((tileRow & 1) === 0) await nextFrame();
+      }
+      try { await w.close(); } catch {}
+      try { await collect; } catch {}
+      const out = [];
+      out.push(sig);
+      out.push(pngChunk('IHDR', ihdr));
+      for (let i = 0; i < idatParts.length; i++) { const part = idatParts[i]; if (part && part.length) out.push(pngChunk('IDAT', part)); }
+      out.push(pngChunk('IEND', new Uint8Array(0)));
+      try { first && first.close && first.close(); } catch {}
+      return new Blob(out, { type: 'image/png' });
+    } catch { return null; }
+  }
+
   async function createPngStreaming(minDx, minDy, maxDx, maxDy) {
     try {
       if (typeof CompressionStream === 'undefined') return null;
@@ -1188,7 +1494,7 @@
           row.set(imgData.subarray(ry * W * 4, (ry + 1) * W * 4), 1);
           try { await w.write(row); } catch {}
         }
-        saveStage = 'Cохранение'; saveProgress = Math.max(0, Math.min(100, Math.round(100 * Math.min(H, y + h2) / Math.max(1, H)))); updateEta()
+        saveStage = t('copyart.stage.saving'); saveProgress = Math.max(0, Math.min(100, Math.round(100 * Math.min(H, y + h2) / Math.max(1, H)))); updateEta()
         if ((y & 1023) === 0) await nextFrame();
       }
       try { await w.close(); } catch {}
@@ -1220,11 +1526,9 @@
         if (!(dx >= minDx && dx <= maxDx && dy >= minDy && dy <= maxDy)) continue;
         const img = tileStore.get(key);
         if (!img) continue;
-        let bmp = img;
-        const isBitmap = typeof ImageBitmap !== 'undefined' && bmp && (typeof bmp.close === 'function');
-        if (!isBitmap) {
-          try { bmp = await createImageBitmap(img); } catch { continue; }
-        }
+        let bmp = null;
+        try { bmp = await createImageBitmap(img); } catch { bmp = null; }
+        if (!bmp) continue;
         list.push({ dx, dy, bitmap: bmp });
         try { transfers.push(bmp); } catch {}
       }
@@ -1235,7 +1539,7 @@
       return await new Promise((resolve) => {
         worker.onmessage = (ev) => {
           const d = ev.data || {};
-          if (typeof d.progress === 'number') { try { saveProgress = Math.max(0, Math.min(100, Math.round(d.progress))); saveStage = 'Cохранение'; updateEta(); } catch {} return; }
+          if (typeof d.progress === 'number') { try { saveProgress = Math.max(0, Math.min(100, Math.round(d.progress))); saveStage = t('copyart.stage.saving'); updateEta(); } catch {} return; }
           const blob = d && d.ok ? d.blob : null;
           try { worker.terminate(); URL.revokeObjectURL(url); } catch {}
           resolve(blob || null);
@@ -1246,12 +1550,135 @@
     } catch { return null; }
   }
 
+  async function downloadPNGStreaming() {
+    try {
+      if (!compressionSupported) {
+        alert(t('copyart.alert.browserNotSupported').replace(/\\n/g, '\n'));
+        return;
+      }
+      
+      const totalTilesCount = gridSize * gridSize;
+      const estMs = estimateTime(totalTilesCount);
+      const estMinutes = Math.ceil(estMs / 60000);
+      const estFileSize = estimateFileSize(gridSize);
+      
+      if (estMinutes > 5) {
+        confirmMessage = t('copyart.confirm.largeArea');
+        confirmEstimate = { time: formatEstimateTime(estMs), fileSize: estFileSize };
+        const confirmed = await new Promise((resolve) => {
+          confirmCallback = resolve;
+          confirmDialogOpen = true;
+        });
+        if (!confirmed) return;
+      }
+      
+      const myToken = ++saveToken;
+      saveTotalEstimatedMs = estMs;
+      saving = true; saveProgress = 0; saveEstimatedProgress = 0; saveStage = t('copyart.stage.preparation'); saveStartMs = Date.now(); saveEtaText = '—'; updateEta();
+      try { netAbort && netAbort.abort(); } catch {}
+      try { netAbort = new AbortController(); } catch { netAbort = null; }
+      
+      if (!center) {
+        alert(t('copyart.alert.centerNotFoundShort'));
+        return;
+      }
+      
+      if (saveToken !== myToken) {
+        return;
+      }
+      
+      const tw = 1000, th = 1000;
+      const half = Math.floor((gridSize - 1) / 2);
+      const tilesW = gridSize, tilesH = gridSize;
+      const W = tilesW * tw, H = tilesH * th;
+      
+      const shouldSplit = accelSave && accelGrid >= 2;
+      
+      if (shouldSplit) {
+        const partsX = accelGrid;
+        const partsY = accelGrid;
+        const totalParts = partsX * partsY;
+        const partSizeX = Math.ceil(tilesW / partsX);
+        const partSizeY = Math.ceil(tilesH / partsY);
+        
+        saveTotalParts = totalParts;
+        saveStage = t('copyart.stage.createParts');
+        const files = [];
+        
+        let partIndex = 0;
+        for (let py = 0; py < partsY; py++) {
+          for (let px = 0; px < partsX; px++) {
+            partIndex++;
+            saveCurrentPart = partIndex;
+            const startX = -half + (px * partSizeX);
+            const startY = -half + (py * partSizeY);
+            const endX = Math.min(half, startX + partSizeX - 1);
+            const endY = Math.min(half, startY + partSizeY - 1);
+            
+            saveStage = t('copyart.stage.part').replace('{0}', partIndex).replace('{1}', totalParts);
+            saveProgress = 0;
+            saveEstimatedProgress = 0;
+            const partBlob = await createPngStreamingDirect(startX, startY, endX, endY);
+            if (partBlob) {
+              const partName = `part_r${py + 1}_c${px + 1}.png`;
+              files.push({ name: partName, blob: partBlob });
+            }
+            
+            savePartsProgress = Math.round((partIndex / totalParts) * 90);
+          }
+        }
+        
+        saveStage = t('copyart.stage.compressZip');
+        savePartsProgress = 95;
+        const zipBlob = await createZip(files);
+        savePartsProgress = 100;
+        saveProgress = 100;
+        saveStage = t('copyart.stage.complete');
+        
+        const name = center ? `tiles_${center.x}_${center.y}_${tilesW}x${tilesH}_parts.zip` : `tiles_${tilesW}x${tilesH}_parts.zip`;
+        downloadBlob(zipBlob, name);
+      } else {
+        saveTotalParts = 0;
+        saveCurrentPart = 0;
+        const streamBlob = await createPngStreamingDirect(-half, -half, half, half);
+        if (streamBlob) {
+          saveProgress = 100; saveStage = t('copyart.stage.complete');
+          const name = center ? `tiles_${center.x}_${center.y}_${tilesW}x${tilesH}.png` : `tiles_${tilesW}x${tilesH}.png`;
+          downloadBlob(streamBlob, name);
+        } else {
+          alert(t('copyart.alert.noDataForSave'));
+        }
+      }
+    } catch (e) {
+      if (e && e.message !== 'Cancelled') {
+        console.error('[CopyArt][save] streaming error:', e);
+        alert(t('copyart.error.savingInEcoMode'));
+      }
+    } finally {
+      saving = false;
+    }
+  }
+
+  function cancelSave() {
+    saveToken++;
+    saving = false;
+    try { netAbort && netAbort.abort(); } catch {}
+    netAbort = null;
+  }
+
   async function downloadPNG() {
     try {
       if (saving) return;
-      saving = true; saveProgress = 0; saveStage = 'старт'; saveStartMs = Date.now(); saveEtaText = '—'; console.log('[CopyArt][save] start');
+      saving = true; saveProgress = 0; saveStage = t('copyart.stage.start'); saveStartMs = Date.now(); saveEtaText = '—'; console.log('[CopyArt][save] start');
+      
+      const useEcoMode = isCustomMode && memoryEcoMode;
+      if (useEcoMode) {
+        await downloadPNGStreaming();
+        return;
+      }
+      
       if (!loadedMap || loadedMap.size === 0) {
-        alert('Нет данных для сохранения. Сначала загрузите хотя бы один тайл.');
+        alert(t('copyart.alert.noDataForSaving'));
         return;
       }
       const keys = Array.from(loadedMap);
@@ -1267,7 +1694,7 @@
         if (dy > maxDy) maxDy = dy;
       }
       if (!isFinite(minDx) || !isFinite(minDy) || !isFinite(maxDx) || !isFinite(maxDy)) {
-        alert('Нет данных для сохранения.');
+        alert(t('copyart.alert.noData2'));
         return;
       }
       const tw = tileW || 256;
@@ -1332,13 +1759,8 @@
         let zipBlob = await createZipWorker(files);
         if (!zipBlob) zipBlob = await createZip(files);
         if (zipBlob) {
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(zipBlob);
           const base = center ? `tiles_${center.x}_${center.y}_${tilesW}x${tilesH}` : `tiles_${tilesW}x${tilesH}`;
-          a.download = `${base}_split${gx}x${gy}.zip`;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch {} }, 600);
+          downloadBlob(zipBlob, `${base}_split${gx}x${gy}.zip`);
           return;
         } else {
           console.warn('[CopyArt][save] zip generation failed, fallback to single');
@@ -1350,14 +1772,9 @@
       {
         const workerBlob0 = await saveWithWorkerArea(minDx, minDy, maxDx, maxDy);
         if (workerBlob0) {
-          saveProgress = 100; saveStage = 'готово';
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(workerBlob0);
+          saveProgress = 100; saveStage = t('copyart.stage.complete');
           const name = center ? `tiles_${center.x}_${center.y}_${tilesW}x${tilesH}.png` : `tiles_${tilesW}x${tilesH}.png`;
-          a.download = name;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch {} }, 500);
+          downloadBlob(workerBlob0, name);
           return;
         }
       }
@@ -1366,14 +1783,9 @@
         console.log('[CopyArt][save] large image -> streaming PNG');
         const streamBlob = await createPngStreaming(minDx, minDy, maxDx, maxDy);
         if (streamBlob) {
-          saveProgress = 100; saveStage = 'готово';
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(streamBlob);
+          saveProgress = 100; saveStage = t('copyart.stage.complete');
           const name = center ? `tiles_${center.x}_${center.y}_${tilesW}x${tilesH}.png` : `tiles_${tilesW}x${tilesH}.png`;
-          a.download = name;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch {} }, 500);
+          downloadBlob(streamBlob, name);
           return;
         } else {
           console.warn('[CopyArt][save] streaming PNG not available, trying canvas path');
@@ -1403,7 +1815,7 @@
         const dy2 = (dy - minDy) * th;
         try { ctx.drawImage(img, dx2, dy2, tw, th); } catch {}
         drawnTiles++;
-        if ((i & 31) === 0) { saveProgress = Math.max(0, Math.min(100, Math.round(100 * drawnTiles / Math.max(1, totalTiles)))); saveStage = 'Cохранение'; updateEta(); await nextFrame(); }
+        if ((i & 31) === 0) { saveProgress = Math.max(0, Math.min(100, Math.round(100 * drawnTiles / Math.max(1, totalTiles)))); saveStage = t('copyart.stage.saving'); updateEta(); await nextFrame(); }
       }
       await nextFrame();
       let blob = await new Promise((resolve) => off.toBlob((b)=>resolve(b), 'image/png'));
@@ -1418,19 +1830,14 @@
           if (workerBlob) {
             blob = workerBlob;
           } else {
-            alert('Не удалось собрать PNG. Попробуйте включить «Ускорение сохранения» и сохранить как ZIP.');
+            alert(t('copyart.alert.pngAssemblyFailed'));
             return;
           }
         }
       }
-      saveProgress = 100; saveStage = 'готово';
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      saveProgress = 100; saveStage = t('copyart.stage.complete');
       const name = center ? `tiles_${center.x}_${center.y}_${tilesW}x${tilesH}.png` : `tiles_${tilesW}x${tilesH}.png`;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch {} }, 500);
+      downloadBlob(blob, name);
     } catch {}
     finally { saving = false; try { drawPreview(); } catch {} }
   }
@@ -1440,6 +1847,11 @@
     unsubscribe = lastTileStore.subscribe((v) => { center = v?.tile || null; });
     updateCenterNow();
     try { window.addEventListener('resize', fitPreview); } catch {}
+    
+    compressionSupported = typeof CompressionStream !== 'undefined';
+    if (!compressionSupported && memoryEcoMode && isCustomMode) {
+      alert(t('copyart.alert.browserNotSupported').replace(/\\n/g, '\n'));
+    }
   });
   onDestroy(() => {
     try { unsubscribe && unsubscribe(); } catch {}
@@ -1460,13 +1872,11 @@
 </script>
 
 {#if open}
-  <div class="ca-backdrop" use:portal role="dialog" aria-modal="true" aria-label={t('copyart.modalAria')}>
-    <div class="ca-modal">
+  <div class="ca-backdrop" use:portal role="dialog" aria-modal="true" aria-label={t('copyart.modalAria')} transition:fade>
+    <div class="ca-modal" transition:scale={{ start: 0.96, opacity: 0.08, duration: 160 }}>
       <div class="ca-header">
         <div class="title">{t('copyart.title')}</div>
-        <button class="close-x" on:click={close} aria-label={t('btn.close')}>
-          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M3.2 3.2l9.6 9.6M12.8 3.2L3.2 12.8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
+        <button class="close-x" on:click={close} aria-label={t('btn.close')}>×</button>
       </div>
       <div class="ca-body">
         <div class="left">
@@ -1495,7 +1905,7 @@
               {/each}
               <button type="button" class="tile custom-tile {isCustomMode ? 'selected' : ''}" aria-pressed={isCustomMode} on:click={() => { isCustomMode = true; selectionRect = null; selecting = false; }}>
                 <div class="tile-inner">
-                  <span class="name">Кастом</span>
+                  <span class="name">{t('copyart.custom')}</span>
                 </div>
                 <svg class="ants" use:fitAnts aria-hidden="true"><path fill="none" /></svg>
               </button>
@@ -1506,29 +1916,57 @@
                   type="number" 
                   class="custom-size-input" 
                   bind:value={customSize} 
-                  placeholder="Размер"
+                  placeholder={t('copyart.custom.sizePlaceholder')}
                   min="1" 
                   max="99" 
                   step="2"
                   inputmode="numeric"
+                  disabled={saving}
                   on:input={setCustomSize}
                   on:change={() => { customSize = clampCustomSize(customSize); setCustomSize(); }}
                   on:blur={() => { customSize = clampCustomSize(customSize); }}
                 />
-                <div class="custom-hint">Нечётные числа 1-99</div>
+                <div class="custom-hint">{t('copyart.custom.hint')}</div>
               </div>
             {/if}
           </div>
 
+          {#if isCustomMode && memoryEcoMode}
           <div class="group card">
+            <div class="eco-mode-info">
+              <div class="eco-title">{t('copyart.eco.active')}</div>
+              <div class="eco-text">{t('copyart.eco.text')}</div>
+              {#if customSize && parseInt(customSize) > 0}
+                <div class="eco-stats">
+                  {#if accelSave && accelGrid >= 2}
+                    <div class="stat-row">
+                      <span class="stat-label">{t('copyart.eco.format')}</span>
+                      <span class="stat-value">{t('copyart.eco.zipParts').replace('{0}', accelGrid).replace('{1}', accelGrid)}</span>
+                    </div>
+                  {/if}
+                  <div class="stat-row">
+                    <span class="stat-label">{t('copyart.eco.fileSize')}</span>
+                    <span class="stat-value">~{formatBytes(estimateFileSize(parseInt(customSize)))}</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">{t('copyart.eco.time')}</span>
+                    <span class="stat-value">~{formatEstimateTime(estimateTime(parseInt(customSize) * parseInt(customSize)))}</span>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+          {/if}
+
+          {#if !isCustomMode}
+          <div class="group card">
+            <div class="label">{t('copyart.assembly')}</div>
             <div class="row">
-              <button class="btn btn-primary" on:click={assemble} disabled={assembling}>{t('copyart.assemble')}</button>
+              <button class="btn btn-primary" on:click={assemble} disabled={assembling || !center}>{t('copyart.assemble')}</button>
               <button class="btn" on:click={cancelAssemble} disabled={!assembling}>{t('copyart.stop')}</button>
             </div>
-            {#if assembleErr}
-              <div class="error">{assembleErr}</div>
-            {/if}
           </div>
+          {/if}
 
           <div class="group card">
             <div class="label">{t('copyart.selection')}</div>
@@ -1550,8 +1988,25 @@
 
           <div class="group card">
             <div class="label">{t('copyart.downloadSpeed')}</div>
+            <div class="tiles">
+              <button type="button" class="tile {accelSave ? 'selected expanded' : ''}" aria-pressed={accelSave} on:click={() => { accelSave = !accelSave; }}>
+                <div class="tile-inner">
+                  <span class="name">{t('copyart.splitParts')}</span>
+                </div>
+                <svg class="ants" use:fitAnts aria-hidden="true"><path fill="none" /></svg>
+                {#if accelSave}
+                <div class="tile-sub" transition:fade>
+                  <div class="row">
+                    <label class="mono" for="accelGrid2">{t('copyart.gridSize')}</label>
+                    <input id="accelGrid2" class="num" type="number" min="2" max="9" step="1" bind:value={accelGrid} style="width:100px" on:click|stopPropagation on:mousedown|stopPropagation on:keydown|stopPropagation />
+                  </div>
+                </div>
+                {/if}
+              </button>
+            </div>
+
             <div class="row">
-              <label class="mono" for="concurrency">Параллельность</label>
+              <label class="mono" for="concurrency">{t('copyart.parallelism')}</label>
               <input id="concurrency" class="num" type="number" min="1" max="64" step="1" bind:value={maxConcurrent} style="width:100px" />
             </div>
             <div class="row">
@@ -1560,24 +2015,22 @@
             </div>
             <div class="row">
               <label class="mono" for="retryDelay">{t('copyart.retryDelay')}</label>
-              <input id="retryDelay" class="num" type="number" min="500" step="100" bind:value={retryDelayMs} style="width:100px" />
+              <input id="retryDelay" class="num" type="number" min="500" step="1000" bind:value={retryDelayMs} style="width:100px" />
             </div>
-            <div class="row" style="align-items:center">
-              <label class="mono" for="accelSave">Разделение на части</label>
-              <input id="accelSave" type="checkbox" bind:checked={accelSave} />
+            <div class="server-cooldown-hint">
+              <svg class="cooldown-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16,23a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,16,23Z"/>
+                <rect x="15" y="12" width="2" height="9"/>
+                <path d="M29,30H3a1,1,0,0,1-.8872-1.4614l13-25a1,1,0,0,1,1.7744,0l13,25A1,1,0,0,1,29,30ZM4.6507,28H27.3493l.002-.0033L16.002,6.1714h-.004L4.6487,27.9967Z"/>
+              </svg>
+              <span>{t('copyart.serverCooldown')}</span>
             </div>
-            {#if accelSave}
-            <div class="row">
-              <label class="mono" for="accelGrid">Размер сетки (N×N)</label>
-              <input id="accelGrid" class="num" type="number" min="2" max="9" step="1" bind:value={accelGrid} style="width:100px" />
-            </div>
-            {/if}
           </div>
         </div>
         <div class="right" bind:this={previewEl} use:previewSizer>
-          {#if !composedCanvas}
+          {#if memoryEcoMode && isCustomMode}
             <div class="empty-preview">
-              <div class="empty-card">
+              <div class="empty-card" transition:scale={{ start: 0.95, opacity: 0.08, duration: 140 }}>
                 <svg class="empty-icon" viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
                   <rect x="3" y="3" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
                   <rect x="14" y="3" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
@@ -1585,7 +2038,7 @@
                   <rect x="14" y="14" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
                 </svg>
                 <div class="empty-title">{t('copyart.title')}</div>
-                <div class="empty-sub">{t('copyart.noPreview')}</div>
+                <div class="empty-sub">{t('copyart.eco.previewDisabled')}</div>
               </div>
             </div>
           {:else}
@@ -1595,23 +2048,56 @@
                     on:pointermove={onPointerMove}
                     on:pointerup={onPointerUp}
                     on:pointercancel={onPointerUp}
-                    on:contextmenu={(e)=>e.preventDefault()}></canvas>
+                    on:contextmenu={(e)=>e.preventDefault()}
+                    style:display={!isCustomMode && !assembling && loadedMap.size === 0 ? 'none' : 'block'}></canvas>
+            {#if !isCustomMode && !assembling && loadedMap.size === 0}
+              <div class="empty-preview">
+                <div class="empty-card" transition:scale={{ start: 0.95, opacity: 0.08, duration: 140 }}>
+                  <svg class="empty-icon" viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
+                  </svg>
+                  <div class="empty-title">{t('copyart.title')}</div>
+                  <div class="empty-sub">{t('copyart.noPreview')}</div>
+                </div>
+              </div>
+            {/if}
           {/if}
           {#if saving}
-            <div class="save-toast">
-              <div class="save-bar"><div class="save-bar-fill" style="width: {Math.max(0, Math.min(100, saveProgress))}%"></div></div>
+            {#if saveTotalParts > 0}
+              <div class="parts-toast" transition:fly={{ y: 16, duration: 160 }}>
+                <div class="save-bar">
+                  <div class="save-bar-fill" style="width: {Math.max(0, Math.min(100, savePartsProgress))}%"></div>
+                </div>
+                <div class="save-meta">
+                  <span class="save-stage">{t('copyart.progress.overall')}</span>
+                  <span class="save-perc">{saveCurrentPart}/{saveTotalParts} частей</span>
+                  <span class="save-eta">{Math.round(savePartsProgress)}%</span>
+                </div>
+              </div>
+            {/if}
+            <div class="save-toast" transition:fly={{ y: 16, duration: 160 }}>
+              <div class="save-bar">
+                <div class="save-bar-fill-real" style="width: {Math.max(0, Math.min(100, saveProgress))}%"></div>
+                <div class="save-bar-fill-estimated" style="width: {Math.max(0, Math.min(100, saveEstimatedProgress))}%"></div>
+              </div>
               <div class="save-meta">
                 <span class="save-stage">{saveStage}</span>
-                <span class="save-perc">{saveProgress}%</span>
+                <span class="save-perc">{Math.round(saveProgress)}%</span>
                 <span class="save-eta">ETA: {saveEtaText}</span>
+                {#if isCustomMode && gridSize > 0 && saveTotalParts === 0}
+                  <span class="save-size">~{formatBytes(estimateFileSize(gridSize) * (saveProgress / 100))}</span>
+                {/if}
               </div>
             </div>
           {/if}
           {#if assembling}
-            <div class="assem-toast">
+            <div class="assem-toast" transition:fly={{ y: 16, duration: 160 }}>
               <div class="save-bar"><div class="save-bar-fill" style="width: {Math.max(0, Math.min(100, assemblingProgress))}%"></div></div>
               <div class="save-meta">
-                <span class="save-stage">Сборка</span>
+                <span class="save-stage">{t('copyart.progress.assembly')}</span>
                 <span class="save-perc">{assemblingProgress}%</span>
                 <span class="save-eta">ETA: {assembleEtaText}</span>
               </div>
@@ -1624,15 +2110,55 @@
           <div class="hint">{t('copyart.controlsHint')}</div>
           <div style="flex:1"></div>
           <button class="btn" on:click={clearSelection} disabled={!selectionRect || saving}>{t('copyart.clearSelection')}</button>
-          <button class="btn btn-primary" on:click={saveSelection} disabled={saving || loadedCount === 0}>{t('copyart.save')}</button>
+          <button class="btn btn-primary" on:click={saveSelection} disabled={saving}>{t('copyart.save')}</button>
           <button class="btn btn-primary" on:click={async()=>{ await sendToEditor(); }} disabled={!selectionRect}>{t('copyart.edit')}</button>
         </div>
       </div>
     </div>
   </div>
+  {#if confirmDialogOpen}
+    <div class="qr-dialog-backdrop" use:portal role="dialog" aria-modal="true" transition:fade>
+      <div class="qr-dialog confirm-dialog" transition:scale={{ start: 0.94, opacity: 0.08, duration: 150 }}>
+        <div class="confirm-header">
+          <svg class="confirm-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16,28A11,11,0,1,1,27,17,11,11,0,0,1,16,28ZM16,8a9,9,0,1,0,9,9A9,9,0,0,0,16,8Z"/>
+            <polygon points="18.59 21 15 17.41 15 11 17 11 17 16.58 20 19.59 18.59 21"/>
+            <rect x="3.96" y="5.5" width="5.07" height="2" transform="translate(-2.69 6.51) rotate(-45.06)"/>
+            <rect x="24.5" y="3.96" width="2" height="5.07" transform="translate(2.86 19.91) rotate(-44.94)"/>
+          </svg>
+          <div class="confirm-title">{t('copyart.confirm.title')}</div>
+        </div>
+        <div class="qr-body confirm-body">
+          <div class="confirm-message">{confirmMessage}</div>
+          <div class="confirm-stats-grid">
+            <div class="confirm-stat-item">
+              <div class="confirm-stat-label">{t('copyart.confirm.processingTime')}</div>
+              <div class="confirm-stat-value">~{confirmEstimate.time}</div>
+            </div>
+            <div class="confirm-stat-item">
+              <div class="confirm-stat-label">{t('copyart.confirm.fileSizeLabel')}</div>
+              <div class="confirm-stat-value">~{formatBytes(confirmEstimate.fileSize)}</div>
+            </div>
+          </div>
+          <div class="confirm-warning">
+            <svg class="warning-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16,23a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,16,23Z"/>
+              <rect x="15" y="12" width="2" height="9"/>
+              <path d="M29,30H3a1,1,0,0,1-.8872-1.4614l13-25a1,1,0,0,1,1.7744,0l13,25A1,1,0,0,1,29,30ZM4.6507,28H27.3493l.002-.0033L16.002,6.1714h-.004L4.6487,27.9967Z"/>
+            </svg>
+            <span>{t('copyart.confirm.keepTabOpen')}</span>
+          </div>
+        </div>
+        <div class="qr-actions">
+          <button class="btn btn-primary" on:click={() => { confirmDialogOpen = false; if (confirmCallback) confirmCallback(true); }}>{t('copyart.confirm.continue')}</button>
+          <button class="btn" on:click={() => { confirmDialogOpen = false; if (confirmCallback) confirmCallback(false); }}>{t('copyart.confirm.cancel')}</button>
+        </div>
+      </div>
+    </div>
+  {/if}
   {#if qrDialogOpen}
-    <div class="qr-dialog-backdrop" use:portal role="dialog" aria-modal="true">
-      <div class="qr-dialog">
+    <div class="qr-dialog-backdrop" use:portal role="dialog" aria-modal="true" transition:fade>
+      <div class="qr-dialog" transition:scale={{ start: 0.94, opacity: 0.08, duration: 150 }}>
         <div class="qr-title">{t('copyart.qr.detectedTitle')}</div>
         <div class="qr-body">
           {#if qrPreviewUrl}
@@ -1658,20 +2184,52 @@
 <style>
   .ca-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: grid; place-items: center; z-index: 1000004; }
   
-  .ca-modal { width: min(1000px, 95vw); max-height: min(88vh, 900px); display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: rgba(17,17,17,0.96); color: #fff; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 16px 36px rgba(0,0,0,0.5); backdrop-filter: blur(8px); }
-  .ca-header { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.12); }
-  .ca-header .title { font-weight: 700; }
-  .close-x { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: #e53935; color: #fff; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 2px 8px rgba(0,0,0,0.35); cursor: pointer; }
-  .ca-body { flex: 1 1 auto; display: grid; grid-template-columns: 300px 1fr; }
+  .ca-modal { width: min(1000px, 95vw); max-height: min(88vh, 900px); display: flex; flex-direction: column; border-radius: 16px; overflow: auto; background: rgba(17,17,17,0.96); color: #fff; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 16px 36px rgba(0,0,0,0.5); backdrop-filter: blur(8px); }
+  .ca-header { 
+    position: relative; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between;
+    padding: 16px 20px; 
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+  }
+  .ca-header .title { 
+    font-weight: 600; 
+    font-size: 15px;
+    opacity: 0.95;
+  }
+  .close-x { 
+    width: 28px; 
+    height: 28px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px; 
+    background: rgba(255,255,255,0.06); 
+    color: #fff; 
+    border: none;
+    cursor: pointer;
+    transition: all .15s ease;
+    flex-shrink: 0;
+    font-size: 20px;
+    line-height: 1;
+    padding: 0;
+  }
+  .close-x:hover {
+    background: rgba(255,255,255,0.12);
+    transform: scale(1.05);
+  }
+  .ca-body { flex: 1 1 auto; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
   .left { padding: 12px; display: grid; gap: 12px; border-right: 1px solid rgba(255,255,255,0.12); overflow: auto; }
-  .right { position: relative; display: grid; place-items: center; background: #0f0f12; }
+  .right { position: relative; display: grid; place-items: center; background: #0f0f12; overflow: auto; }
   .right canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   .empty-preview { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,0.8); font-size: 13px; pointer-events: none; user-select: none; }
   .empty-card { display: grid; place-items: center; gap: 8px; padding: 18px 20px; max-width: 360px; text-align: center; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 20px rgba(0,0,0,0.35); }
   .empty-icon { opacity: 0.9; }
   .empty-title { font-weight: 700; font-size: 14px; opacity: 0.95; }
   .empty-sub { font-size: 12px; opacity: 0.8; }
-  .ca-footer { padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); }
+  .ca-footer { position: sticky; bottom: 0; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); backdrop-filter: blur(4px); }
 
   .group { display: grid; gap: 8px; }
   .group.card { padding: 10px; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(255,255,255,0.04); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
@@ -1683,15 +2241,19 @@
   .qr-dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: grid; place-items: center; z-index: 1000005; }
   .qr-dialog { width: min(560px, 92vw); background: rgba(17,17,17,0.97); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; box-shadow: 0 16px 36px rgba(0,0,0,0.5); padding: 12px; display: grid; gap: 10px; }
 
-  .save-toast, .assem-toast { position: absolute; left: 50%; transform: translateX(-50%); width: min(560px, 94%); background: rgba(20,20,24,0.96); color: #fff; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; box-shadow: 0 18px 40px rgba(0,0,0,0.55); padding: 10px 12px; z-index: 10; backdrop-filter: blur(6px); pointer-events: none; }
+  .save-toast, .assem-toast, .parts-toast { position: absolute; left: 50%; transform: translateX(-50%); width: min(560px, 94%); background: rgba(20,20,24,0.96); color: #fff; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; box-shadow: 0 18px 40px rgba(0,0,0,0.55); padding: 10px 12px; z-index: 10; backdrop-filter: blur(6px); pointer-events: none; }
   .save-toast { bottom: 16px; }
   .assem-toast { bottom: 76px; }
-  .save-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); }
+  .parts-toast { bottom: 76px; background: rgba(76, 175, 80, 0.15); border-color: rgba(129, 199, 132, 0.3); }
+  .save-bar { position: relative; width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); }
   .save-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ff8a3d, #ff6a00); box-shadow: 0 0 12px rgba(255,122,61,0.5); }
-  .save-meta { margin-top: 8px; display: flex; gap: 8px; align-items: baseline; justify-content: space-between; font-size: 12px; opacity: 0.95; }
-  .save-stage { font-weight: 600; opacity: 0.95; }
-  .save-perc { opacity: 0.85; }
-  .save-eta { opacity: 0.85; }
+  .save-bar-fill-real { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #ff8a3d, #ff6a00); box-shadow: 0 0 12px rgba(255,122,61,0.5); transition: width .3s ease-out; z-index: 2; }
+  .save-bar-fill-estimated { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, rgba(255, 138, 61, 0.35), rgba(255, 106, 0, 0.35)); z-index: 1; }
+  .save-meta { margin-top: 8px; display: flex; gap: 12px; align-items: baseline; font-size: 12px; opacity: 0.95; }
+  .save-stage { font-weight: 600; opacity: 0.95; min-width: 80px; }
+  .save-perc { opacity: 0.85; min-width: 40px; text-align: right; }
+  .save-eta { opacity: 0.85; min-width: 70px; }
+  .save-size { opacity: 0.85; min-width: 80px; text-align: right; margin-left: auto; }
   .qr-title { font-weight: 700; }
   .qr-body { display: grid; grid-template-columns: 180px 1fr; gap: 10px; align-items: center; }
   .qr-preview { width: 180px; height: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: #0f0f12; }
@@ -1725,8 +2287,7 @@
   .btn-primary { background: #f05123; border-color: rgba(255,255,255,0.25); }
   .btn-primary:hover { filter: brightness(1.05); }
 
-  .error { color: #ff8a80; font-size: 12px; }
-
+ 
   .custom-input-row { display: grid; gap: 6px; margin-top: 4px; }
   .custom-size-input { 
     height: 32px; 
@@ -1752,5 +2313,139 @@
   .custom-tile .name { 
     color: rgba(255,255,255,0.9); 
     font-weight: 500; 
+  }
+
+  .eco-mode-info {
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(46, 125, 50, 0.12);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+  }
+  .eco-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: #81c784;
+    margin-bottom: 4px;
+  }
+  .eco-text {
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+  .eco-stats {
+    display: grid;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(76, 175, 80, 0.2);
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+  }
+  .stat-label {
+    color: rgba(255,255,255,0.7);
+  }
+  .stat-value {
+    color: #81c784;
+    font-weight: 600;
+  }
+
+  .confirm-dialog {
+    max-width: 520px;
+    backdrop-filter: blur(8px);
+  }
+  .confirm-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 24px 24px 20px 24px;
+  }
+  .confirm-icon {
+    width: 28px;
+    height: 28px;
+    fill: #f05123;
+    flex-shrink: 0;
+  }
+  .confirm-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+  .confirm-body {
+    display: block;
+    padding: 0 24px 24px 24px;
+  }
+  .confirm-message {
+    font-size: 15px;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .confirm-stats-grid {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .confirm-stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+  }
+  .confirm-stat-label {
+    font-size: 14px;
+    color: rgba(255,255,255,0.65);
+    font-weight: 400;
+  }
+  .confirm-stat-value {
+    font-size: 15px;
+    color: #f05123;
+    font-weight: 700;
+  }
+  .confirm-warning {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(120, 90, 40, 0.2);
+    border: 1px solid rgba(180, 140, 60, 0.3);
+    border-radius: 6px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+  }
+  .warning-icon {
+    width: 18px;
+    height: 18px;
+    fill: #d4a644;
+    flex-shrink: 0;
+  }
+  .server-cooldown-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 193, 7, 0.06);
+    border: 1px solid rgba(255, 193, 7, 0.2);
+    border-radius: 6px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+  }
+  .cooldown-icon {
+    width: 16px;
+    height: 16px;
+    fill: #ffc107;
+    flex-shrink: 0;
+  }
+  .save-size {
+    opacity: 0.85;
+    font-size: 11px;
   }
 </style>

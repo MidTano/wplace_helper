@@ -15,20 +15,41 @@
   import LoadBar from './LoadBar.svelte';
   import { t, lang } from '../i18n';
   const dispatch = createEventDispatcher();
+  let collapsed = false;
+  let peekVisible = false;
+  let peekAnimate = false;
+  
+  function handleCollapse(){ 
+    collapsed = true;
+    peekVisible = false;
+    peekAnimate = false;
+    setTimeout(() => {
+      peekVisible = true;
+      setTimeout(() => {
+        peekAnimate = true;
+      }, 50);
+    }, 280);
+  }
+  
+  function handleExpand(){ 
+    collapsed = false;
+    peekVisible = false;
+    peekAnimate = false;
+  }
   
   $: L_pick = ($lang, t('btn.pickImage'));
   $: L_clear = ($lang, t('btn.clear'));
 </script>
 
 <div class="topmenu-root" role="toolbar" aria-label={t('topmenu.toolbar')}>
-  <div class="topmenu-bar">
+  <div class="topmenu-bar" class:collapsed={collapsed}>
     <div class="tm-row">
-      <div class="tm-group" aria-label={t('topmenu.group.stats')}>
+      <div class="tm-group drip" style="--drip-delay: 0ms" aria-label={t('topmenu.group.stats')}>
       <AccountStats />
       </div>
 
     
-      <div class="tm-group" aria-label={t('topmenu.group.art')}>
+      <div class="tm-group drip" style="--drip-delay: 40ms" aria-label={t('topmenu.group.art')}>
       <button class="tm-fab tm-primary tm-tip" type="button" on:click={onPick} aria-label={L_pick} data-label={L_pick}>
         <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
           <path d="M19,14a3,3,0,1,0-3-3A3,3,0,0,0,19,14Zm0-4a1,1,0,1,1-1,1A1,1,0,0,1,19,10Z"/>
@@ -50,29 +71,32 @@
       </div>
 
     
-      <div class="tm-group" aria-label={t('topmenu.group.tools')}>
+      <div class="tm-group drip" style="--drip-delay: 80ms" aria-label={t('topmenu.group.tools')}>
       <EnhancedColors />
       <AutoMode />
       </div>
 
     
-      <div class="tm-group" aria-label={t('topmenu.group.settings')}>
+      <div class="tm-group drip" style="--drip-delay: 120ms" aria-label={t('topmenu.group.settings')}>
       <Settings />
       <Language />
       </div>
 
       
-      <div class="tm-group" aria-label="Discord">
+      <div class="tm-group drip" style="--drip-delay: 160ms" aria-label="Discord">
       <Discord />
       </div>
 
     
-      <div class="tm-group tm-end" aria-label={t('topmenu.group.close')}>
-      <Close />
+      <div class="tm-group tm-end drip" style="--drip-delay: 200ms" aria-label={t('topmenu.group.close')}>
+      <Close on:collapse={handleCollapse} />
       </div>
     </div>
     <LoadBar inline={true} />
   </div>
+  {#if collapsed && peekVisible}
+    <button type="button" class="topmenu-peek" class:animate={peekAnimate} aria-label={t('topmenu.toolbar')} on:click={handleExpand}></button>
+  {/if}
 </div>
 
 <style>
@@ -97,14 +121,63 @@
     border-radius: 10px;
     padding: 6px 10px 8px 10px;
     box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    will-change: transform;
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
   }
+  .topmenu-bar.collapsed { transform: translateY(calc(-100% - 60px)); }
   .tm-row {
     display: flex;
     gap: 8px;
     align-items: center;
+    position: relative;
+    z-index: 10;
   }
-  .tm-group { display: flex; align-items: center; gap: 8px; }
+  .tm-group { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px;
+  }
   .tm-group + .tm-group { margin-left: 14px; }
+  
+  .topmenu-bar:not(.collapsed) .tm-group.drip {
+    animation: dripDown 900ms cubic-bezier(0.34, 1.56, 0.64, 1) var(--drip-delay, 0ms) both;
+  }
+  
+  @keyframes dripDown {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px) scaleY(0.3);
+      filter: blur(4px);
+    }
+    
+    30% {
+      opacity: 0.6;
+      transform: translateY(-8px) scaleY(0.7);
+      filter: blur(2px);
+    }
+    
+    50% {
+      opacity: 0.9;
+      transform: translateY(2px) scaleY(1.08);
+      filter: blur(0.5px);
+    }
+    
+    70% {
+      opacity: 1;
+      transform: translateY(-1px) scaleY(0.98);
+      filter: blur(0px);
+    }
+    
+    85% {
+      transform: translateY(0.5px) scaleY(1.01);
+    }
+    
+    100% {
+      opacity: 1;
+      transform: translateY(0) scaleY(1);
+      filter: blur(0px);
+    }
+  }
   .tm-end { margin-left: auto; }
   :global(.tm-fab) {
     width: 40px;
@@ -140,7 +213,7 @@
     box-shadow: 0 6px 16px rgba(0,0,0,0.35);
     white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none;
     transition: opacity .12s ease, transform .12s ease, visibility .12s;
-    z-index: 1000004;
+    z-index: 1000010;
   }
   :global(.tm-fab[data-label]:hover::after),
   :global(.tm-fab[data-label]:focus-visible::after) {
@@ -158,7 +231,90 @@
     box-shadow: 0 6px 16px rgba(0,0,0,0.35);
     white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none;
     transition: opacity .12s ease, transform .12s ease, visibility .12s;
-    z-index: 1000004;
+    z-index: 1000010;
   }
   :global(.tm-tip:hover::after), :global(.tm-tip:focus-visible::after) { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+
+  .topmenu-peek {
+    position: fixed;
+    left: 50%;
+    top: -10px;
+    transform: translateX(-50%) scale(1);
+    width: 220px;
+    height: var(--peek, 12px);
+    background: rgba(24,26,32,0.9);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    z-index: 1000003;
+    cursor: pointer;
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .topmenu-peek:hover {
+    transform: translateX(-50%) scale(1.02);
+  }
+  
+  .topmenu-peek.animate {
+    animation: peekPulse 1400ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  @keyframes peekPulse {
+    0% { 
+      background: rgba(24,26,32,0.9);
+      border-color: rgba(255,255,255,0.15);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      transform: translateX(-50%) scale(1);
+    }
+    
+    8% { 
+      background: rgba(240,81,35,0.85);
+      border-color: rgba(240,81,35,0.9);
+      box-shadow: 0 8px 32px rgba(240,81,35,0.6), 0 0 24px rgba(240,81,35,0.4);
+      transform: translateX(-50%) scale(1.03);
+    }
+    
+    16% { 
+      background: rgba(24,26,32,0.92);
+      border-color: rgba(255,255,255,0.2);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 12px rgba(240,81,35,0.15);
+      transform: translateX(-50%) scale(0.99);
+    }
+    
+    24% { 
+      background: rgba(24,26,32,0.9);
+      border-color: rgba(255,255,255,0.15);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      transform: translateX(-50%) scale(1);
+    }
+    
+    38% { 
+      background: rgba(240,81,35,0.75);
+      border-color: rgba(240,81,35,0.85);
+      box-shadow: 0 8px 28px rgba(240,81,35,0.5), 0 0 20px rgba(240,81,35,0.35);
+      transform: translateX(-50%) scale(1.025);
+    }
+    
+    46% { 
+      background: rgba(24,26,32,0.92);
+      border-color: rgba(255,255,255,0.18);
+      box-shadow: 0 8px 22px rgba(0,0,0,0.38), 0 0 8px rgba(240,81,35,0.1);
+      transform: translateX(-50%) scale(0.995);
+    }
+    
+    54% { 
+      background: rgba(24,26,32,0.9);
+      border-color: rgba(255,255,255,0.15);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      transform: translateX(-50%) scale(1);
+    }
+    
+    100% { 
+      background: rgba(24,26,32,0.9);
+      border-color: rgba(255,255,255,0.15);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      transform: translateX(-50%) scale(1);
+    }
+  }
 </style>

@@ -293,11 +293,7 @@
 {#if open}
   <div class="amenu-backdrop" role="button" tabindex="0" aria-label={t('automenu.closeAria')} on:click|stopPropagation={close} on:keydown={(e)=>{ if(e.key==='Escape'||e.key==='Enter'||e.key===' '){ e.preventDefault(); close(); } }} />
   <div use:portal bind:this={menuEl} class="amenu" role="dialog" aria-modal="true" aria-label={t('automenu.title')} style={`left:${posX}px; top:${posY}px`}>
-    <button class="close-x" type="button" aria-label={t('btn.close')} on:click={close} on:keydown={(e)=>{ if(e.key==='Enter'||e.key===' '||e.key==='Escape'){ e.preventDefault(); close(); } }}>
-      <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="currentColor">
-        <path d="M3.2 3.2l9.6 9.6M12.8 3.2L3.2 12.8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </button>
+    <button class="close-x" type="button" aria-label={t('btn.close')} on:click={close} on:keydown={(e)=>{ if(e.key==='Enter'||e.key===' '||e.key==='Escape'){ e.preventDefault(); close(); } }}>×</button>
     {#if items.length > 0}
       <div class="amenu-header">
         <div class="actions">
@@ -378,9 +374,31 @@
   .name { font-size: 12px; line-height: 1.2; opacity: 0.95; }
   .count { font-size: 12px; line-height: 1.2; opacity: 0.8; }
   .empty { padding: 14px; text-align: center; opacity: 0.8; }
-  .close-x { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: #e53935; color: #fff; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 2px 8px rgba(0,0,0,0.35); cursor: pointer; }
-  .close-x:hover { filter: brightness(1.05); }
-  .close-x { z-index: 2; pointer-events: auto; }
+  .close-x { 
+    position: absolute; 
+    top: 8px; 
+    right: 8px; 
+    width: 28px; 
+    height: 28px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px; 
+    background: rgba(255,255,255,0.06); 
+    color: #fff; 
+    border: none;
+    cursor: pointer;
+    transition: all .15s ease;
+    z-index: 2; 
+    pointer-events: auto;
+    font-size: 20px;
+    line-height: 1;
+    padding: 0;
+  }
+  .close-x:hover {
+    background: rgba(255,255,255,0.12);
+    transform: scale(1.05);
+  }
 
   
   .tile .lock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.95); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; }

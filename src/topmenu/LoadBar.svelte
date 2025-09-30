@@ -253,7 +253,7 @@
       percent = newPercent;
       prevPercent = newPercent;
       prevRemaining = newRemaining;
-      visible = !!sm?.enhanced;
+      visible = !!cur;
 
       showAllFinalizePending = false; showAllPhaseActive = false;
       showAllTrackedTileKey = null; showAllTrackedCount = 0;
@@ -342,8 +342,8 @@
       enhancedOn = newEnhancedOn;
       const cur = sm.current;
       if (!cur) {
-        visible = enhancedOn;
-        if (!enhancedOn) percent = 0;
+        visible = false;
+        percent = 0;
         return;
       }
       const newTotalDots = Number(cur.totalDots) || 0;
@@ -415,7 +415,7 @@
       remaining = newRemaining;
       done = newDone;
       percent = newPercent;
-      visible = enhancedOn;
+      visible = !!cur;
 
       
       if (!shouldShowFirstRealData) {
@@ -597,7 +597,7 @@
 
 {#if inline}
   <div class="loadbar-inline" data-persist={persistDeltas} aria-label={`Loader: ${ariaPercent(percent)}%`}>
-    <div class="bar-wrap" class:visible={enhancedOn}>
+    <div class="bar-wrap" class:visible={visible}>
       <div class="plate" style={plateStyleInline} class:impact-on={impactOn} data-ilevel={impactLevel} data-boost={impactBoost}>
         <div class="track">
           <div class="fill" style={`--pct:${percent}`}></div>
@@ -706,10 +706,15 @@
 <style>
   .loadbar {
     position: fixed;
-    z-index: 1000002;
+    z-index: 1000000;
     pointer-events: auto;
   }
-  .loadbar-inline { pointer-events: auto; }
+  .loadbar-inline { 
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
+    isolation: isolate;
+  }
   
   .bar-wrap {
     max-height: 0;

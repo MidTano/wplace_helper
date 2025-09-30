@@ -10,6 +10,7 @@
   import MainFab from './components/Fab/MainFab.svelte';
   import CancelFab from './components/Fab/CancelFab.svelte';
   import HeaderStats from './components/Output/HeaderStats.svelte';
+  import CustomSelect from './CustomSelect.svelte';
   import { t, lang } from '../i18n';
   import { uploadToCatbox, fileNameFromUrl } from '../utils/catbox';
   import { buildCodeCanvas } from '../utils/codeTileEncoder';
@@ -575,10 +576,9 @@
           try {
             if (data.jobId !== lastPreviewJob) { return; }
             if (lastPreviewFinalApplied) { return; }
-            if (quickPreviewRevoke) { try { quickPreviewRevoke(); } catch {} quickPreviewRevoke = null; }
-            if (quickPreviewUrl) quickPreviewUrl = '';
             if (data && data.blob) {
               const b = data.blob;
+              if (quickPreviewRevoke) { try { quickPreviewRevoke(); } catch {} }
               const u = URL.createObjectURL(b);
               quickPreviewUrl = u;
               quickPreviewRevoke = () => { try { URL.revokeObjectURL(u); } catch {} };
@@ -596,6 +596,7 @@
                 try {
                   if (data.jobId !== lastPreviewJob || lastPreviewFinalApplied) return;
                   if (!blob) return;
+                  if (quickPreviewRevoke) { try { quickPreviewRevoke(); } catch {} }
                   const u = URL.createObjectURL(blob);
                   quickPreviewUrl = u;
                   quickPreviewRevoke = () => { try { URL.revokeObjectURL(u); } catch {} };
@@ -615,8 +616,8 @@
               const bytes = data.bytes; const mime = data.mime || 'image/png'; const k = data.key;
               if (bytes) {
                 const b = new Blob([bytes], { type: mime });
-                if (quickPreviewRevoke) { try { quickPreviewRevoke(); } catch {} quickPreviewRevoke = null; }
-                if (quickPreviewUrl) quickPreviewUrl = '';
+                if (quickPreviewRevoke) { try { quickPreviewRevoke(); quickPreviewRevoke = null; } catch {} }
+                quickPreviewUrl = '';
                 const u = URL.createObjectURL(b);
                 previewUrl = u;
                 const revoke = () => { try { URL.revokeObjectURL(u); } catch {} };
@@ -632,8 +633,8 @@
             if (data.type === 'preview-final') {
               const b = data.blob; const k = data.key;
               if (b) {
-                if (quickPreviewRevoke) { try { quickPreviewRevoke(); } catch {} quickPreviewRevoke = null; }
-                if (quickPreviewUrl) quickPreviewUrl = '';
+                if (quickPreviewRevoke) { try { quickPreviewRevoke(); quickPreviewRevoke = null; } catch {} }
+                quickPreviewUrl = '';
                 const u = URL.createObjectURL(b);
                 previewUrl = u;
                 const revoke = () => { try { URL.revokeObjectURL(u); } catch {} };
@@ -657,8 +658,8 @@
                 try {
                   if (data.jobId !== lastPreviewJob) return;
                   if (!blob) return;
-                  if (quickPreviewRevoke) { try { quickPreviewRevoke(); } catch {} quickPreviewRevoke = null; }
-                  if (quickPreviewUrl) quickPreviewUrl = '';
+                  if (quickPreviewRevoke) { try { quickPreviewRevoke(); quickPreviewRevoke = null; } catch {} }
+                  quickPreviewUrl = '';
                   const u = URL.createObjectURL(blob);
                   previewUrl = u;
                   const revoke = () => { try { URL.revokeObjectURL(u); } catch {} };
@@ -1335,6 +1336,13 @@
     params.sizingContext = sizingContext;
     return createWindowMouseUpHandler(params)();
   }
+  function onWindowMouseMoveWrapper(e) {
+    if (!(isDrawing || isPanning || isSelecting || gradientDragging || (stickerMode && (stickerState.dragging || false)))) return;
+    if (outputBox && e && e.target && outputBox.contains(e.target)) return;
+    const params = createMouseEventParams();
+    params.sizingContext = sizingContext;
+    return createStageMouseMoveHandler(params)(e);
+  }
   
   function startPatternDragWrapper(y, x, e) {
     return createStartPatternDragHandler(createMouseEventParams())(y, x, e);
@@ -1503,7 +1511,50 @@
     return { px, py };
   }
 
+  let overlayThrottleState = {
+    rafId: null,
+    pending: false,
+    lastTime: 0,
+    pendingPx: -1,
+    pendingPy: -1
+  };
+  const OVERLAY_FRAME_INTERVAL = 1000 / 144;
+
+  function drawOverlayThrottled(px, py) {
+    overlayThrottleState.pendingPx = px;
+    overlayThrottleState.pendingPy = py;
+    
+    if (overlayThrottleState.rafId !== null) {
+      overlayThrottleState.pending = true;
+      return;
+    }
+    
+    const now = performance.now ? performance.now() : Date.now();
+    const elapsed = now - overlayThrottleState.lastTime;
+    
+    if (elapsed >= OVERLAY_FRAME_INTERVAL) {
+      overlayThrottleState.lastTime = now;
+      drawOverlayImmediate(px, py);
+    } else {
+      overlayThrottleState.pending = true;
+      overlayThrottleState.rafId = requestAnimationFrame(() => {
+        overlayThrottleState.rafId = null;
+        const nextNow = performance.now ? performance.now() : Date.now();
+        overlayThrottleState.lastTime = nextNow;
+        
+        if (overlayThrottleState.pending) {
+          overlayThrottleState.pending = false;
+          drawOverlayImmediate(overlayThrottleState.pendingPx, overlayThrottleState.pendingPy);
+        }
+      });
+    }
+  }
+
   function drawOverlay(px, py) {
+    drawOverlayThrottled(px, py);
+  }
+
+  function drawOverlayImmediate(px, py) {
     const m = getDisplayMetricsLocal();
     if (!m) return;
     const ctx = overlayCanvas.getContext('2d');
@@ -1628,21 +1679,6 @@
       const mAdj = { ...m, scale: (displayW / outW), dw: displayW, dh: displayH };
       let ringColor = (activeTool === 'brush') ? brushColorCss : undefined;
       
-      
-      if (activeTool === 'brush' && px >= 0 && py >= 0 && editCanvas) {
-        try {
-          const ecCtx = editCanvas.getContext('2d', { willReadFrequently: true });
-          if (ecCtx) {
-            const d = ecCtx.getImageData(px, py, 1, 1).data;
-            const bgY = 0.299 * d[0] + 0.587 * d[1] + 0.114 * d[2];
-            const ringY = 0.299 * (brushColorRGB[0] || 0) + 0.587 * (brushColorRGB[1] || 0) + 0.114 * (brushColorRGB[2] || 0);
-            const contrast = Math.abs(ringY - bgY);
-            if (contrast < 64) {
-              ringColor = (bgY > 128) ? 'rgba(0,0,0,1)' : 'rgba(255,255,255,1)';
-            }
-          }
-        } catch {}
-      }
       drawOverlayForTool(ctx, mAdj, px, py, activeTool, size, ringColor);
       ctx.restore();
     }
@@ -1720,6 +1756,8 @@
     const color = activeTool === 'brush' ? brushColorCss : 'rgba(0,0,0,0)';
     
     addPointToStroke(smoothDrawingState, { x: px, y: py }, activeTool, size, color);
+    
+    drawOverlay(px, py);
   }
   
   function completeSmoothStroke() {
@@ -2119,7 +2157,10 @@
   function downloadCurrent() {
     
     try {
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKey}`:''}${ditherMethod==='custom'?`|cp:${customDitherKey}`:''}`;
+      const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
+      const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
+      const ccKey = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey}`;
       const cached = previewCache.get(key);
       
       const getBaseName = () => {
@@ -2371,6 +2412,7 @@
 
   function close() {
     
+    try { if (overlayThrottleState.rafId !== null) { cancelAnimationFrame(overlayThrottleState.rafId); overlayThrottleState.rafId = null; } } catch {}
     
     
     try { for (const v of previewCache.values()) { try { v.revoke && v.revoke(); } catch {} } } catch {}
@@ -2465,7 +2507,8 @@
     try {
       const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
       const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}`;
+      const ccKey = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey}`;
       const cached = previewCache.get(key);
       const out = cached?.blob || await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue);
       
@@ -2586,6 +2629,7 @@
   });
   onDestroy(() => {
     try { if (updateDebounceTimer) { clearTimeout(updateDebounceTimer); updateDebounceTimer = null; } } catch {}
+    try { if (overlayThrottleState.rafId !== null) { cancelAnimationFrame(overlayThrottleState.rafId); overlayThrottleState.rafId = null; } } catch {}
     destroyImageWorkerLocal();
   });
 
@@ -2601,7 +2645,7 @@
   function onWindowResize() { layoutStage(); }
 </script>
 
-<svelte:window on:resize={onWindowResize} on:wheel={onGlobalWheelWrapper} on:mouseup={() => { isPatternDragging = false; onWindowMouseUpWrapper(); }} on:keydown={onWindowKeyDownWrapper} />
+<svelte:window on:resize={onWindowResize} on:wheel={onGlobalWheelWrapper} on:mousemove={onWindowMouseMoveWrapper} on:mouseup={() => { isPatternDragging = false; onWindowMouseUpWrapper(); }} on:keydown={onWindowKeyDownWrapper} />
 
 {#if open}
   <div use:appendToBody class="editor-backdrop" bind:this={backdropRef} role="button" tabindex="0" style={`z-index:1000000000000; display:${suspendVisible ? 'none' : 'flex'};`}
@@ -2619,11 +2663,11 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.method')}</div>
               <div class="editor-row">
-                <select bind:value={method} on:change={() => schedulePreviewUpdate()} class="editor-select">
-                  {#each RESAMPLE_METHODS as m}
-                    <option value={m}>{t('editor.resample.method.' + m)}</option>
-                  {/each}
-                </select>
+                <CustomSelect 
+                  bind:value={method} 
+                  options={RESAMPLE_METHODS.map(m => ({ value: m, label: t('editor.resample.method.' + m) }))}
+                  onChange={() => schedulePreviewUpdate()}
+                />
               </div>
             </div>
             <div class="editor-control">
@@ -2641,11 +2685,11 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.method')}</div>
               <div class="editor-row">
-                <select bind:value={ditherMethod} on:change={() => { if (ditherMethod !== 'custom') schedulePreviewUpdate(); }} class="editor-select">
-                  {#each DITHER_METHODS as dm}
-                    <option value={dm}>{t('editor.dither.method.' + dm)}</option>
-                  {/each}
-                </select>
+                <CustomSelect 
+                  bind:value={ditherMethod} 
+                  options={DITHER_METHODS.map(dm => ({ value: dm, label: t('editor.dither.method.' + dm) }))}
+                  onChange={() => { if (ditherMethod !== 'custom') schedulePreviewUpdate(); }}
+                />
               </div>
             </div>
             {#if ditherSupportsStrength}
@@ -2706,11 +2750,15 @@
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.palette.set')}</div>
               <div class="editor-row">
-                <select bind:value={paletteMode} on:change={() => schedulePreviewUpdate()} class="editor-select">
-                  <option value="full">{t('editor.panel.palette.opt.full')}</option>
-                  <option value="free">{t('editor.panel.palette.opt.free')}</option>
-                  <option value="custom">{t('editor.panel.palette.opt.custom')}</option>
-                </select>
+                <CustomSelect 
+                  bind:value={paletteMode} 
+                  options={[
+                    { value: 'full', label: t('editor.panel.palette.opt.full') },
+                    { value: 'free', label: t('editor.panel.palette.opt.free') },
+                    { value: 'custom', label: t('editor.panel.palette.opt.custom') }
+                  ]}
+                  onChange={() => schedulePreviewUpdate()}
+                />
               </div>
               {#if paletteMode === 'custom'}
                 <div class="palette-toolbar">
@@ -2832,7 +2880,7 @@
           
           <div class="editor-group">
             <div class="editor-group-title">
-              Цветокоррекция
+              {t('editor.panel.colorCorrection.title')}
               <label class="color-correction-toggle">
                 <input type="checkbox" bind:checked={colorCorrectionEnabled} on:change={() => schedulePreviewUpdate()} />
                 <span class="checkmark"></span>
@@ -2841,48 +2889,48 @@
             
             {#if colorCorrectionEnabled}
               <div class="editor-control">
-                <div class="editor-control-title">Яркость</div>
+                <div class="editor-control-title">{t('editor.panel.colorCorrection.brightness')}</div>
                 <div class="editor-row">
                   <input type="range" min="-100" max="100" step="1" bind:value={brightness} on:input={() => schedulePreviewUpdate()} style="--min:-100; --max:100; --val:{brightness};" />
                   <input type="number" min="-100" max="100" step="1" inputmode="numeric" bind:value={brightness} on:change={() => { brightness = clampStep(brightness, -100, 100, 1); schedulePreviewUpdate(); }} on:blur={() => { brightness = clampStep(brightness, -100, 100, 1); }} class="editor-number" />
-                  <span class="reset-dot" role="button" tabindex="0" title="Сбросить до 0"
-                        aria-label="Сбросить яркость"
+                  <span class="reset-dot" role="button" tabindex="0" title={t('editor.reset.title')}
+                        aria-label={t('editor.reset.brightness')}
                         on:click={() => { brightness = 0; schedulePreviewUpdate(); }}
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); brightness = 0; schedulePreviewUpdate(); } }} />
                 </div>
               </div>
               
               <div class="editor-control">
-                <div class="editor-control-title">Контраст</div>
+                <div class="editor-control-title">{t('editor.panel.colorCorrection.contrast')}</div>
                 <div class="editor-row">
                   <input type="range" min="-100" max="100" step="1" bind:value={contrast} on:input={() => schedulePreviewUpdate()} style="--min:-100; --max:100; --val:{contrast};" />
                   <input type="number" min="-100" max="100" step="1" inputmode="numeric" bind:value={contrast} on:change={() => { contrast = clampStep(contrast, -100, 100, 1); schedulePreviewUpdate(); }} on:blur={() => { contrast = clampStep(contrast, -100, 100, 1); }} class="editor-number" />
-                  <span class="reset-dot" role="button" tabindex="0" title="Сбросить до 0"
-                        aria-label="Сбросить контраст"
+                  <span class="reset-dot" role="button" tabindex="0" title={t('editor.reset.title')}
+                        aria-label={t('editor.reset.contrast')}
                         on:click={() => { contrast = 0; schedulePreviewUpdate(); }}
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); contrast = 0; schedulePreviewUpdate(); } }} />
                 </div>
               </div>
               
               <div class="editor-control">
-                <div class="editor-control-title">Насыщенность</div>
+                <div class="editor-control-title">{t('editor.panel.colorCorrection.saturation')}</div>
                 <div class="editor-row">
                   <input type="range" min="-100" max="100" step="1" bind:value={saturation} on:input={() => schedulePreviewUpdate()} style="--min:-100; --max:100; --val:{saturation};" />
                   <input type="number" min="-100" max="100" step="1" inputmode="numeric" bind:value={saturation} on:change={() => { saturation = clampStep(saturation, -100, 100, 1); schedulePreviewUpdate(); }} on:blur={() => { saturation = clampStep(saturation, -100, 100, 1); }} class="editor-number" />
-                  <span class="reset-dot" role="button" tabindex="0" title="Сбросить до 0"
-                        aria-label="Сбросить насыщенность"
+                  <span class="reset-dot" role="button" tabindex="0" title={t('editor.reset.title')}
+                        aria-label={t('editor.reset.saturation')}
                         on:click={() => { saturation = 0; schedulePreviewUpdate(); }}
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); saturation = 0; schedulePreviewUpdate(); } }} />
                 </div>
               </div>
               
               <div class="editor-control">
-                <div class="editor-control-title">Оттенок</div>
+                <div class="editor-control-title">{t('editor.panel.colorCorrection.hue')}</div>
                 <div class="editor-row">
                   <input type="range" min="-180" max="180" step="1" bind:value={hue} on:input={() => schedulePreviewUpdate()} style="--min:-180; --max:180; --val:{hue};" />
                   <input type="number" min="-180" max="180" step="1" inputmode="numeric" bind:value={hue} on:change={() => { hue = clampStep(hue, -180, 180, 1); schedulePreviewUpdate(); }} on:blur={() => { hue = clampStep(hue, -180, 180, 1); }} class="editor-number" />
-                  <span class="reset-dot" role="button" tabindex="0" title="Сбросить до 0"
-                        aria-label="Сбросить оттенок"
+                  <span class="reset-dot" role="button" tabindex="0" title={t('editor.reset.title')}
+                        aria-label={t('editor.reset.hue')}
                         on:click={() => { hue = 0; schedulePreviewUpdate(); }}
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); hue = 0; schedulePreviewUpdate(); } }} />
                 </div>
@@ -3075,8 +3123,8 @@
                     </button>
                     {#if activeTool==='magic' && showMagicModes}
                       <div class="gradient-modes" role="menu" tabindex="0" aria-label={t('editor.tool.magic')} on:mouseenter={() => openMagicModes()} on:mouseleave={() => closeMagicModesSoon(280)}>
-                        <button class="mode" role="menuitem" class:active={magicMode==='local'} on:click={() => { magicMode='local'; showMagicModes=false; }} title="Смежные">Локально</button>
-                        <button class="mode" role="menuitem" class:active={magicMode==='global'} on:click={() => { magicMode='global'; showMagicModes=false; }} title="Несмежные">Глобально</button>
+                        <button class="mode" role="menuitem" class:active={magicMode==='local'} on:click={() => { magicMode='local'; showMagicModes=false; }} title={t('editor.magic.local.hint')}>{t('editor.magic.local')}</button>
+                        <button class="mode" role="menuitem" class:active={magicMode==='global'} on:click={() => { magicMode='global'; showMagicModes=false; }} title={t('editor.magic.global.hint')}>{t('editor.magic.global')}</button>
                       </div>
                     {/if}
                   </div>
@@ -3167,7 +3215,7 @@
               <div class="comparison-mode-fab-slot">
                 <button 
                   class="comparison-mode-fab" 
-                  title="Режим сравнения ({$comparisonImages.length} изображений)"
+                  title={t('editor.comparison.mode').replace('{0}', $comparisonImages.length)}
                   on:click={openComparisonModal}
                 >
                   <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
@@ -3185,7 +3233,7 @@
                 class="add-comparison-fab" 
                 class:active={isCurrentImageInComparison}
                 disabled={!$canAddMore || working}
-                title={isCurrentImageInComparison ? 'Удалить из сравнения' : 'Добавить в сравнение'}
+                title={isCurrentImageInComparison ? t('editor.comparison.remove') : t('editor.comparison.add')}
                 on:click={addToComparison}
               >
                 {#if isCurrentImageInComparison}
@@ -3265,7 +3313,7 @@
   .editor-backdrop {
     position: fixed;
     inset: 0;
-    background: radial-gradient(60% 60% at 50% 10%, rgba(255,255,255,0.06), rgba(0,0,0,0.5));
+    background: rgba(0,0,0,0.5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3283,17 +3331,17 @@
     height: 86vh; 
     max-height: 86vh;
     min-height: 420px;
-    background: rgba(24, 26, 32, 0.98) !important;
-    border: 1px solid rgba(255,255,255,0.22);
-    border-radius: 14px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset;
+    background: rgba(17, 17, 17, 0.96) !important;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 16px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
     padding: 12px;
     overflow: hidden;
     z-index: 2147483647;
     opacity: 1 !important;
     visibility: visible !important;
     color: #fff;
-    outline: 2px solid rgba(240,81,35,0.7); 
     display: grid;
     grid-template-rows: 1fr;
   }
@@ -3446,7 +3494,7 @@
     padding: 4px 8px;
     border-radius: 6px;
     border: 1px solid rgba(255,255,255,0.18);
-    background: rgba(42,45,51,1);
+    background: rgba(255,255,255,0.08);
     color: #fff;
     font-size: 12px;
     font-weight: 600;
@@ -3461,31 +3509,6 @@
   .editor-number:hover {
     border-color: rgba(255,255,255,0.25);
   }
-  .editor-select {
-    flex: 1;
-    height: 36px;
-    padding: 6px 12px;
-    background: #2a2d33;
-    border: 1px solid rgba(255,255,255,0.18);
-    color: #fff;
-    border-radius: 10px;
-    font-weight: 600;
-    line-height: 1.2;
-    cursor: pointer;
-    
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: none !important;
-    
-    transition: filter .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
-  }
-  .editor-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(240,81,35,0.28); border-color: rgba(255,255,255,0.28); }
-  .editor-select:hover { filter: brightness(1.05); }
-  
-  :global(select.editor-select::-ms-expand) { display: none; }
-  :global(.editor-select option) { background: #2a2d33 !important; color: #fff !important; }
-  :global(.editor-select optgroup) { background: #2a2d33 !important; color: #fff !important; }
 
   
   .palette-custom {
@@ -3507,41 +3530,76 @@
   :global(.palette-custom::-webkit-scrollbar-button:start:decrement),
   :global(.palette-custom::-webkit-scrollbar-button:end:increment) { display: none; width: 0; height: 0; }
   :global(.palette-custom::-webkit-scrollbar-corner) { background: transparent; }
-  .palette-toolbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; padding: 6px 0; isolation: isolate; }
-  .palette-toolbar::before {
-    content: "";
-    position: absolute;
-    left: -10px; right: -10px; top: -6px; bottom: -6px;
-    background: linear-gradient(180deg, rgba(24,26,32,0.96), rgba(24,26,32,0.88));
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    z-index: -1;
-    pointer-events: none;
+  .palette-toolbar { 
+    position: sticky; 
+    top: 0; 
+    z-index: 4; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    gap: 8px; 
+    margin: 0 -10px 10px -10px;
+    padding: 8px 10px;
+    background: rgba(36, 36, 36, 0.95);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
   }
+  
   .palette-count {
-    font-size: 12px; font-weight: 600; opacity: .95;
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 999px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.14);
+    font-size: 12px; 
+    font-weight: 600;
+    display: inline-flex; 
+    align-items: center; 
+    gap: 4px;
+    padding: 6px 10px; 
+    border-radius: 6px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
-  .palette-actions { display: flex; gap: 8px; align-items: center; }
+  .palette-actions { display: flex; gap: 6px; align-items: center; }
   .palette-btn {
-    font-size: 12px; font-weight: 500; letter-spacing: .2px;
-    padding: 6px 10px; border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.18);
-    background: rgba(255,255,255,0.07);
-    color: #fff; cursor: pointer;
-    transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease, filter .15s ease;
+    font-size: 11px; 
+    font-weight: 600;
+    padding: 6px 10px; 
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08);
+    color: #fff; 
+    cursor: pointer;
+    transition: all .15s ease;
+    white-space: nowrap;
   }
-  .palette-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-  .palette-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(240,81,35,0.28); border-color: rgba(255,255,255,0.28); }
-  .palette-btn.primary { background: #f05123; border-color: rgba(255,255,255,0.25); color: #fff; }
-  .palette-btn.ghost { background: rgba(255,255,255,0.04); color: #fff; }
+  .palette-btn:hover { 
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.28);
+    transform: translateY(-1px);
+  }
+  .palette-btn:focus-visible { 
+    outline: none; 
+    box-shadow: 0 0 0 3px rgba(240,81,35,0.28); 
+    border-color: rgba(255,255,255,0.28); 
+  }
+  .palette-btn.primary { 
+    background: #f05123; 
+    border-color: rgba(240,81,35,0.3);
+    color: #fff; 
+  }
+  .palette-btn.primary:hover {
+    background: #ff6433;
+    border-color: rgba(240,81,35,0.4);
+  }
+  .palette-btn.ghost { 
+    background: rgba(255,255,255,0.06); 
+    color: #fff; 
+    border-color: rgba(255,255,255,0.15);
+  }
+  .palette-btn.ghost:hover {
+    background: rgba(255,255,255,0.1);
+  }
 
   
   .palette-presets { margin: 2px 0 10px; }
@@ -3567,7 +3625,7 @@
 
   
   .preset-filters { display: grid; gap: 8px; margin: 6px 0 8px; }
-  .preset-search { height: 32px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); background: rgba(42,45,51,1); color: #fff; font-weight: 600; }
+  .preset-search { height: 32px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-weight: 600; }
   .preset-search:focus { outline: none; box-shadow: 0 0 0 3px rgba(240,81,35,0.28); border-color: rgba(255,255,255,0.28); }
   .preset-toggles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   

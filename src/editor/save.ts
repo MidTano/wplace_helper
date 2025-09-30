@@ -5,6 +5,8 @@ export function downloadBlob(blob: Blob, filename = 'wplace-edited.png') {
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  setTimeout(() => {
+    try { URL.revokeObjectURL(url); } catch {}
+    try { a.remove(); } catch {}
+  }, 1500);
 }

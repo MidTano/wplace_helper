@@ -68,7 +68,7 @@ export function createSmoothDrawingState(): SmoothDrawingState {
     isDrawing: false,
     hasBufferedChanges: false,
     lastUpdateTime: 0,
-    updateThrottleMs: 0, 
+    updateThrottleMs: 0,
     interpolationSteps: 4,
     undoSnapshot: null,
     affectedArea: null
@@ -246,15 +246,19 @@ export function startStroke(
   
   
   const mainCtx = mainCanvas.getContext('2d', { willReadFrequently: true });
-  if (mainCtx) {
+  const totalPixels = width * height;
+  
+  if (mainCtx && totalPixels <= 4000000) {
     try {
       state.undoSnapshot = mainCtx.getImageData(0, 0, width, height);
       state.affectedArea = { x: 0, y: 0, w: width, h: height };
     } catch (e) {
-      console.warn('Не удалось создать undo snapshot:', e);
       state.undoSnapshot = null;
       state.affectedArea = null;
     }
+  } else {
+    state.undoSnapshot = null;
+    state.affectedArea = null;
   }
   
   

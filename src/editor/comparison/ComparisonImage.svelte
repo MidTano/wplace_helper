@@ -3,6 +3,7 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { comparisonUtils } from './ComparisonStore';
+  import { t } from '../../i18n';
 
   const dispatch = createEventDispatcher();
 
@@ -20,6 +21,20 @@
   let resizeObserver;
   let containerWidth = 0;
   let containerHeight = 0;
+
+  let baseCoverScale = 1;
+
+  let pendingPan = null;
+  let panRafId = 0;
+  let lastPanTs = 0;
+
+  let pendingWheel = null;
+  let wheelRafId = 0;
+  let lastWheelTs = 0;
+  const MAX_RATE_MS = 1000 / 144;
+
+  let wheelZooming = false;
+  let wheelZoomTimer = null;
 
   
   let imageLoaded = false;
@@ -60,8 +75,19 @@
       naturalHeight = imageRef.naturalHeight;
       imageLoaded = true;
       imageError = false;
-      
+      recomputeBaseCoverScale();
     }
+  }
+
+  function recomputeBaseCoverScale() {
+    const container = wrapperRef || containerRef;
+    if (!container || !naturalWidth || !naturalHeight) return;
+    const cw = containerWidth || container.offsetWidth || container.clientWidth || 300;
+    const ch = containerHeight || container.offsetHeight || container.clientHeight || 200;
+    if (cw === 0 || ch === 0) return;
+    const scaleX = cw / naturalWidth;
+    const scaleY = ch / naturalHeight;
+    baseCoverScale = Math.max(scaleX, scaleY);
   }
 
   function handleImageError() {
@@ -74,8 +100,13 @@
     resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const cr = entry.contentRect;
-        containerWidth = cr.width;
-        containerHeight = cr.height;
+        const w = cr.width;
+        const h = cr.height;
+        if (w !== containerWidth || h !== containerHeight) {
+          containerWidth = w;
+          containerHeight = h;
+          recomputeBaseCoverScale();
+        }
       }
     });
     resizeObserver.observe(wrapperRef);
@@ -90,85 +121,84 @@
 
   function getImageTransform(currentZoom = zoom, currentPan = pan, isLoaded = imageLoaded) {
     const container = wrapperRef || containerRef;
-    
     if (!isLoaded || !container || !naturalWidth || !naturalHeight) return 'translate(-50%, -50%) scale(1)';
-    
     const cw = containerWidth || container.offsetWidth || container.clientWidth || 300;
     const ch = containerHeight || container.offsetHeight || container.clientHeight || 200;
-
-    if (cw === 0 || ch === 0) {
-      return 'translate(-50%, -50%) scale(1)';
-    }
-
-    
-    const scaleX = cw / naturalWidth;
-    const scaleY = ch / naturalHeight;
-    const baseCoverScale = Math.max(scaleX, scaleY);
-
-    
+    if (cw === 0 || ch === 0) return 'translate(-50%, -50%) scale(1)';
     const s = baseCoverScale * currentZoom;
-
-    
-    
-    
     return `translate(${currentPan.x}px, ${currentPan.y}px) translate(-50%, -50%) scale(${s})`;
   }
 
   function calculateZoomPan(focusX, focusY, oldZoom, newZoom, oldPan) {
     if (!containerRef || !naturalWidth || !naturalHeight) return oldPan;
-    
-    const cw = wrapperRef?.offsetWidth || containerRef.offsetWidth || containerRef.clientWidth || 300;
-    const ch = wrapperRef?.offsetHeight || containerRef.offsetHeight || containerRef.clientHeight || 200;
-
-    
-    const scaleX = cw / naturalWidth;
-    const scaleY = ch / naturalHeight;
-    const baseCoverScale = Math.max(scaleX, scaleY);
-
-    const oldS = baseCoverScale * oldZoom;
-    const newS = baseCoverScale * newZoom;
+    const cw = containerWidth || wrapperRef?.offsetWidth || containerRef.offsetWidth || containerRef.clientWidth || 300;
+    const ch = containerHeight || wrapperRef?.offsetHeight || containerRef.offsetHeight || containerRef.clientHeight || 200;
+    const bcs = baseCoverScale || Math.max(cw / naturalWidth, ch / naturalHeight);
+    const oldS = bcs * oldZoom;
+    const newS = bcs * newZoom;
     const r = newS / oldS;
-
-    
     const Cx = cw / 2;
     const Cy = ch / 2;
-
-    
     const dx = focusX - Cx;
     const dy = focusY - Cy;
-
-    
     return {
       x: r * oldPan.x + (1 - r) * dx,
       y: r * oldPan.y + (1 - r) * dy,
     };
   }
 
+  function schedulePanDispatch() {
+    if (panRafId) return;
+    panRafId = requestAnimationFrame((now) => {
+      panRafId = 0;
+      const p = pendingPan;
+      if (!p) return;
+      if (now - lastPanTs < MAX_RATE_MS) {
+        schedulePanDispatch();
+        return;
+      }
+      dispatch('panChange', p);
+      lastPanTs = now;
+      pendingPan = null;
+    });
+  }
+
+  function scheduleWheelDispatch() {
+    if (wheelRafId) return;
+    wheelRafId = requestAnimationFrame((now) => {
+      wheelRafId = 0;
+      const w = pendingWheel;
+      if (!w) return;
+      if (now - lastWheelTs < MAX_RATE_MS) {
+        scheduleWheelDispatch();
+        return;
+      }
+      const zoomFactor = w.delta > 0 ? 1.25 : 0.8;
+      const newZoom = Math.max(0.05, Math.min(32, zoom * zoomFactor));
+      const newPan = calculateZoomPan(w.focusX, w.focusY, zoom, newZoom, pan);
+      dispatch('viewportChange', { zoom: newZoom, pan: newPan });
+      lastWheelTs = now;
+      pendingWheel = null;
+    });
+  }
+
   function handleWheel(event) {
     event.preventDefault();
-    
-    if (!containerRef || !imageLoaded) return;
-
-    const delta = -event.deltaY;
-    const zoomFactor = delta > 0 ? 1.25 : 0.8;
-    const newZoom = Math.max(0.05, Math.min(32, zoom * zoomFactor));
-    
-    
+    if (!containerRef || !imageLoaded || !isVisible) return;
     const rect = (wrapperRef || containerRef).getBoundingClientRect();
     const focusX = event.clientX - rect.left;
     const focusY = event.clientY - rect.top;
-    
-    
-    const newPan = calculateZoomPan(focusX, focusY, zoom, newZoom, pan);
-    
-    
-    dispatch('viewportChange', { zoom: newZoom, pan: newPan });
+    pendingWheel = { delta: -event.deltaY, focusX, focusY };
+    wheelZooming = true;
+    if (wheelZoomTimer) clearTimeout(wheelZoomTimer);
+    wheelZoomTimer = setTimeout(() => { wheelZooming = false; }, 150);
+    scheduleWheelDispatch();
   }
 
   function handleMouseDown(event) {
     if (event.button !== 0) return; 
 
-    
+    if (!isVisible) return;
     if (showContextMenu) {
       const target = event.target;
       if (target && typeof target.closest === 'function' && target.closest('.context-menu')) {
@@ -201,7 +231,8 @@
       y: panStartY + deltaY
     };
 
-    dispatch('panChange', newPan);
+    pendingPan = newPan;
+    schedulePanDispatch();
   }
 
   function handleMouseUp() {
@@ -331,6 +362,9 @@
     document.removeEventListener('click', handleClickOutside);
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
+    if (panRafId) cancelAnimationFrame(panRafId);
+    if (wheelRafId) cancelAnimationFrame(wheelRafId);
+    if (wheelZoomTimer) { clearTimeout(wheelZoomTimer); wheelZoomTimer = null; }
     cleanupViewportCulling();
     cleanupResizeObserver();
   });
@@ -346,7 +380,7 @@
   class:panning={isPanning}
   role="application"
   tabindex="-1"
-  aria-label={`Изображение ${index} для сравнения`}
+  aria-label={t('comparison.image.aria').replace('{0}', index)}
 >
   
   <div class="image-index">{index}</div>
@@ -356,15 +390,16 @@
     {#if imageError}
       <div class="error-state">
         <div class="error-icon">⚠️</div>
-        <div class="error-text">Ошибка загрузки</div>
+        <div class="error-text">{t('comparison.error.loading')}</div>
       </div>
     {:else if isVisible}
       <img 
         bind:this={imageRef}
         src={image.url}
-        alt={`Изображение ${index}`}
+        alt={t('comparison.image.alt').replace('{0}', index)}
         class="comparison-image"
         class:loaded={imageLoaded}
+        class:interacting={isPanning || wheelZooming}
         style="transform: {imageTransform}"
         on:load={handleImageLoad}
         on:error={handleImageError}
@@ -374,14 +409,14 @@
       {#if !imageLoaded}
         <div class="loading-state">
           <div class="loading-spinner"></div>
-          <div class="loading-text">Загрузка...</div>
+          <div class="loading-text">{t('comparison.loading')}</div>
         </div>
       {/if}
     {:else}
       
       <div class="invisible-placeholder">
         <div class="placeholder-icon">🖼️</div>
-        <div class="placeholder-text">Изображение {index}</div>
+        <div class="placeholder-text">{t('comparison.image.alt').replace('{0}', index)}</div>
       </div>
     {/if}
   </div>
@@ -405,7 +440,7 @@
       class="context-menu"
       style="left: {contextMenuX}px; top: {contextMenuY}px;"
       role="menu"
-      aria-label="Действия с изображением"
+      aria-label={t('comparison.menu.aria')}
       tabindex="-1"
       on:mousedown|stopPropagation
       on:click|stopPropagation
@@ -414,15 +449,15 @@
       on:keydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); closeContextMenu(); } }}
     >
       <button class="menu-item" role="menuitem" on:click={openInEditor}>
-        Открыть в редакторе
+        {t('comparison.menu.openInEditor')}
       </button>
       <div class="menu-separator"></div>
       <button class="menu-item" role="menuitem" on:click={saveImage}>
-        Сохранить изображение
+        {t('comparison.menu.saveImage')}
       </button>
       <div class="menu-separator"></div>
       <button class="menu-item danger" role="menuitem" on:click={removeImage}>
-        Удалить из сравнения
+        {t('comparison.menu.remove')}
       </button>
     </div>
   {/if}
@@ -491,6 +526,10 @@
 
   .comparison-image.loaded {
     opacity: 1;
+  }
+
+  .comparison-image.interacting {
+    will-change: transform;
   }
 
   .loading-state {

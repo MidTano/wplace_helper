@@ -1,8 +1,8 @@
 import App from './App.svelte';
 import { installInterceptors } from './overlay/intercept';
-import { initAntiIdle } from './overlay/antiIdle';
-import { getLoggingEnabled, setLoggingEnabled, log } from './overlay/log';
+import { setLoggingEnabled } from './overlay/log';
 import { applyDarkTheme } from './theme/darkTheme';
+import { registerAltCV } from './share/altcv';
 
 function mount() {
   const rootId = 'wplace-svelte-overlay-root';
@@ -22,6 +22,7 @@ function mount() {
     setLoggingEnabled(false);
     (window as any).wplaceSetLogs = setLoggingEnabled;
   } catch {}
+  try { registerAltCV(); } catch {}
 
   new App({ target: container });
 }

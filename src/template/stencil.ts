@@ -1,5 +1,4 @@
-export type StencilCoords = [number, number, number, number]; 
-import { MASTER_COLORS, type RGB } from '../editor/palette';
+export type StencilCoords = [number, number, number, number];
 
 export default class stencil {
   displayName: string;
@@ -62,8 +61,6 @@ export default class stencil {
         const ch = pickH * block;
         canvas.width = cw;
         canvas.height = ch;
-
-        cx.clearRect(0, 0, cw, ch);
         
         cx.drawImage(
           bmp,
@@ -80,9 +77,6 @@ export default class stencil {
         
         const img = cx.getImageData(0, 0, cw, ch);
         const data = img.data;
-        const enhanced = !!opts?.enhanced;
-        const palMaster: RGB[] = MASTER_COLORS.map(c => c.rgb as RGB);
-        const M = palMaster.length;
         for (let y = 0; y < ch; y++) {
           for (let x = 0; x < cw; x++) {
             const i = (y * cw + x) * 4;
@@ -90,7 +84,6 @@ export default class stencil {
             const g = data[i + 1];
             const b = data[i + 2];
             if (r === 222 && g === 250 && b === 206) {
-              
               if (((x + y) & 1) === 0) {
                 data[i] = 0; data[i + 1] = 0; data[i + 2] = 0;
               } else {
@@ -98,17 +91,13 @@ export default class stencil {
               }
               data[i + 3] = 32;
             } else {
-              
               if ((x % block) !== center || (y % block) !== center) {
                 data[i + 3] = 0;
                 continue;
               }
-              
             }
           }
         }
-        
-        
         let segDots = 0;
         for (let k = 3; k < data.length; k += 4) {
           if (data[k] >= 5) segDots++;

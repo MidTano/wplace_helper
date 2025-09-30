@@ -12,6 +12,7 @@
   import { comparisonUtils } from './ComparisonStore';
   import ComparisonGrid from './ComparisonGrid.svelte';
   import { appendToBody } from '../modal/utils/appendToBody';
+  import { t } from '../../i18n';
 
   const dispatch = createEventDispatcher();
 
@@ -100,35 +101,36 @@
       tabindex="-1"
       aria-labelledby="comparison-title"
     >
+      <div class="comparison-header">
+        <div class="comparison-title" id="comparison-title">{t('comparisonModal.title').replace('{0}', imageCount)}</div>
+        <button class="comparison-close" on:click={closeModal} aria-label={t('comparisonModal.close')}>×</button>
+      </div>
+
       <div class="editor-grid">
         
         <div class="editor-panel">
-          <div class="editor-panel-title" id="comparison-title">Сравнение изображений ({imageCount})</div>
-
-
           <div class="editor-group">
-            <div class="editor-group-title">Изображения</div>
-            <div class="editor-hint">Всего изображений: {imageCount}</div>
+            <div class="editor-group-title">{t('comparisonModal.images')}</div>
+            <div class="editor-hint">{t('comparisonModal.imagesCount').replace('{0}', imageCount)}</div>
             
             <div class="editor-buttons">
               <button class="editor-btn" on:click={resetViewport}>
-                Сбросить вид
+                {t('comparisonModal.resetView')}
               </button>
               <button class="editor-btn editor-primary" on:click={clearAllImages}>
-                Очистить все
+                {t('comparisonModal.clearAll')}
               </button>
-              <button class="editor-btn" style="margin-left:auto" on:click={closeModal}>Закрыть</button>
             </div>
           </div>
 
           
           <div class="editor-group">
-            <div class="editor-group-title">Управление</div>
+            <div class="editor-group-title">{t('comparisonModal.controls')}</div>
             <ul class="hint-list">
-              <li><span>Колесо мыши</span> — зум</li>
-              <li><span>Перетаскивание</span> — панорама</li>
-              <li><span>Space</span> — сброс вида</li>
-              <li><span>Escape</span> — закрыть</li>
+              <li><span>{t('comparisonModal.controls.wheel')}</span> — {t('comparisonModal.controls.wheelDesc')}</li>
+              <li><span>{t('comparisonModal.controls.drag')}</span> — {t('comparisonModal.controls.dragDesc')}</li>
+              <li><span>{t('comparisonModal.controls.space')}</span> — {t('comparisonModal.controls.spaceDesc')}</li>
+              <li><span>{t('comparisonModal.controls.escape')}</span> — {t('comparisonModal.controls.escapeDesc')}</li>
             </ul>
           </div>
         </div>
@@ -150,13 +152,12 @@
           {:else}
             <div class="empty-state">
               <div class="empty-icon">📊</div>
-              <div class="empty-title">Недостаточно изображений</div>
+              <div class="empty-title">{t('comparisonModal.empty.title')}</div>
               <div class="empty-text">
-                Для сравнения необходимо минимум 2 изображения.<br>
-                Добавьте изображения через главное окно редактора.
+                {@html t('comparisonModal.empty.text')}
               </div>
               <button class="editor-btn editor-primary" on:click={closeModal}>
-                Вернуться к редактору
+                {t('comparisonModal.empty.button')}
               </button>
             </div>
           {/if}
@@ -190,54 +191,83 @@
     height: 90vh; 
     max-height: 90vh;
     min-height: 420px;
-    background: rgba(24, 26, 32, 0.98) !important;
-    border: 1px solid rgba(255,255,255,0.22);
-    border-radius: 14px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset;
-    padding: 12px;
+    background: rgba(17, 17, 17, 0.96) !important;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 16px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.5);
     overflow: hidden;
     z-index: 2147483647;
     opacity: 1 !important;
     visibility: visible !important;
     color: #fff;
-    outline: 2px solid rgba(240,81,35,0.7); 
-    display: grid;
-    grid-template-rows: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .comparison-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    flex-shrink: 0;
+  }
+
+  .comparison-title {
+    font-weight: 600;
+    font-size: 15px;
+    opacity: 0.95;
+  }
+
+  .comparison-close {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: all .15s ease;
+    flex-shrink: 0;
+    font-size: 20px;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .comparison-close:hover {
+    background: rgba(255,255,255,0.12);
+    transform: scale(1.05);
   }
 
   .editor-grid {
+    flex: 1;
+    min-height: 0;
     display: grid;
     grid-template-columns: 360px 1fr;
     gap: 12px;
     width: 100%;
     height: 100%;
-    min-height: 0;
   }
 
   .editor-panel {
     background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.12);
     border-radius: 10px;
-    padding: 12px;
-    color: #fff;
+    padding: 16px;
     overflow-y: auto;
-    scrollbar-width: thin;
-    max-height: 100%;
-    min-height: 0;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     position: relative;
-  }
-
-  .editor-panel-title {
-    font-weight: 600;
-    opacity: 0.9;
-    margin-bottom: 4px;
-    font-size: 16px;
   }
 
   .editor-group {
     margin-bottom: 16px;
   }
-
   .editor-group:last-child {
     margin-bottom: 0;
   }
