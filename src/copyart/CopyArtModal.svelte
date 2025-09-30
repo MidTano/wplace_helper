@@ -1245,28 +1245,14 @@
   async function createPngStreamingDirect(minDx, minDy, maxDx, maxDy) {
     try {
       if (typeof CompressionStream === 'undefined') return null;
-      let tw = tileW || 1000;
-      let th = tileH || 1000;
-      let first = await fetchImageBitmap(tileUrlFrom(center, center.x, center.y), netAbort?.signal);
-      if (!first) {
-        const offs = [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
-        for (let i = 0; i < offs.length && !first; i++) {
-          const ox = offs[i][0], oy = offs[i][1];
-          const u = tileUrlFrom(center, center.x + ox, center.y + oy);
-          const im = await fetchImageBitmap(u, netAbort?.signal);
-          if (im) { first = im; break; }
-        }
-      }
-      if (!first) return null;
-      {
-        const iw = (first && (first.width || first.naturalWidth)) || tw;
-        const ih = (first && (first.height || first.naturalHeight)) || th;
-        tw = iw; th = ih;
-      }
+      const tw = 1000;
+      const th = 1000;
+      console.log(`[CopyArt] Начало сохранения с фиксированным размером тайлов: ${tw}x${th}`);
       const tilesW = (maxDx - minDx + 1);
       const tilesH = (maxDy - minDy + 1);
       const W = tilesW * tw;
       const H = tilesH * th;
+      console.log(`[CopyArt] Итоговое изображение: ${W}x${H} (${tilesW}x${tilesH} тайлов)`);
 
       const sig = new Uint8Array([137,80,78,71,13,10,26,10]);
       const ihdr = new Uint8Array(13);
@@ -1304,10 +1290,16 @@
       
       updateEta();
 
+      console.log(`[CopyArt] Начало загрузки тайлов: область от [${center.x + minDx}, ${center.y + minDy}] до [${center.x + maxDx}, ${center.y + maxDy}]`);
+      console.log(`[CopyArt] Размер области: ${tilesW}x${tilesH} тайлов, финальное изображение: ${W}x${H} пикселей`);
+      
       for (let tileRow = 0; tileRow < tilesH; tileRow++) {
-        const dy = minDy + tileRow;
+        const tileAbsY = center.y + minDy + tileRow;
         const rowImgs = new Array(tilesW).fill(null);
         const colsPerBatchLoad = Math.max(1, Math.min(tilesW, Math.floor(maxConcurrent)));
+        if (tileRow === 0 || tileRow === tilesH - 1 || tileRow % 10 === 0) {
+          console.log(`[CopyArt] Обработка ряда ${tileRow + 1}/${tilesH}, Y=${tileAbsY}`);
+        }
         for (let groupStart = 0; groupStart < tilesW; groupStart += colsPerBatchLoad) {
           const groupEnd = Math.min(tilesW, groupStart + colsPerBatchLoad);
           const results = await Promise.all(Array.from({ length: groupEnd - groupStart }, async (_, k) => {
@@ -1315,20 +1307,71 @@
               await sleep(Math.floor(reqDelayMs * k / groupEnd));
             }
             const tileCol = groupStart + k;
-            const dx = minDx + tileCol;
-            const u = tileUrlFrom(center, center.x + dx, center.y + dy);
+            const tileAbsX = center.x + minDx + tileCol;
+            const origin = center?.origin || 'https://backend.wplace.live';
+            const u = `${origin}/files/s0/tiles/${tileAbsX}/${tileAbsY}.png`;
             
             let img = null;
             let hadError = false;
-            for (let attempt = 0; attempt < 3; attempt++) {
-              img = await fetchImageBitmap(u, netAbort?.signal);
-              if (img) break;
-              if (attempt < 2) {
+            let rateLimitCount = 0;
+            if (tileRow === 0 && tileCol === 0) {
+              console.log(`[CopyArt] Пример URL первого тайла: ${u}`);
+            }
+            let attempt = 0;
+            while (!img && attempt < 3) {
+              let urlToFetch = u;
+              if (attempt > 0) {
+                urlToFetch = u + (u.includes('?') ? '&' : '?') + '_cb=' + Date.now() + '_' + attempt;
+                console.log(`[CopyArt] Повторная загрузка тайла [${tileAbsX},${tileAbsY}] (попытка ${attempt + 1}/3, обход кеша)`);
+              }
+              
+              let got429 = false;
+              try {
+                img = await fetchImageBitmap(urlToFetch, netAbort?.signal);
+              } catch (e) {
+                const err = e;
+                if (err?.message?.includes('429') || err?.status === 429) {
+                  got429 = true;
+                  rateLimitCount++;
+                  const waitTime = Math.min(30000, retryDelayMs * 3 * Math.min(rateLimitCount, 5));
+                  console.warn(`[CopyArt] Сервер ограничил запросы (429) для тайла [${tileAbsX},${tileAbsY}], ждём ${waitTime}ms (попытка ${rateLimitCount})`);
+                  await sleep(waitTime);
+                }
+              }
+              
+              if (got429) {
+                continue;
+              }
+              
+              attempt++;
+              
+              if (img) {
+                const imgW = (img.width || img.naturalWidth || 0);
+                const imgH = (img.height || img.naturalHeight || 0);
+                if (imgW !== tw || imgH !== th) {
+                  console.warn(`[CopyArt] Неверный размер тайла [${tileAbsX},${tileAbsY}]: ${imgW}x${imgH}, ожидается ${tw}x${th} (попытка ${attempt}/3)`);
+                  try { if (img.close) img.close(); } catch {}
+                  img = null;
+                  if (attempt < 3) {
+                    await sleep(1500 + (attempt - 1) * 1000);
+                    continue;
+                  }
+                } else {
+                  if (attempt > 1 || rateLimitCount > 0) {
+                    const msg = rateLimitCount > 0 
+                      ? `✓ Тайл [${tileAbsX},${tileAbsY}] успешно загружен после ${rateLimitCount} ограничений 429 и ${attempt} попыток`
+                      : `✓ Тайл [${tileAbsX},${tileAbsY}] успешно загружен с попытки ${attempt}`;
+                    console.log(`[CopyArt] ${msg}`);
+                  }
+                  break;
+                }
+              }
+              if (attempt < 3 && !img) {
                 hadError = true;
-                const backoffDelay = retryDelayMs * (attempt + 1);
-                console.log(`[CopyArt] Retry ${attempt + 1}/3 для тайла ${dx},${dy} через ${backoffDelay}ms`);
+                const backoffDelay = retryDelayMs * attempt;
+                console.log(`[CopyArt] Retry ${attempt}/3 для тайла [${tileAbsX},${tileAbsY}] через ${backoffDelay}ms`);
                 
-                if (attempt === 0) {
+                if (attempt === 1) {
                   const cycleEndTime = Date.now();
                   const actualCycleTime = saveCycleCount > 0 ? (cycleEndTime - saveLastCycleTime) : 0;
                   
@@ -1362,11 +1405,11 @@
               }
             }
             if (!img) {
-              console.warn(`[CopyArt] Не удалось загрузить тайл ${dx},${dy} после 3 попыток`);
+              console.warn(`[CopyArt] Не удалось загрузить тайл [${tileAbsX},${tileAbsY}] после 3 попыток`);
             } else if (!hadError) {
               cycleSuccessTiles++;
             }
-            return { tileCol, img };
+            return { tileCol, img, tileAbsX, tileAbsY };
           }));
           
           for (const { tileCol, img } of results) {
@@ -1380,8 +1423,22 @@
           for (let tileCol = 0; tileCol < tilesW; tileCol++) {
             const img = rowImgs[tileCol];
             if (!img) continue;
+            
+            const actualW = (img.width || img.naturalWidth || tw);
+            const actualH = (img.height || img.naturalHeight || th);
+            
+            if (actualW !== tw || actualH !== th) {
+              console.error(`[CopyArt] Критическая ошибка: размер тайла ${actualW}x${actualH} не совпадает с ожидаемым ${tw}x${th}`);
+              continue;
+            }
+            
             try { tileStripeCtx.clearRect(0, 0, tw, bh); } catch {}
-            try { tileStripeCtx.drawImage(img, 0, by, tw, bh, 0, 0, tw, bh); } catch {}
+            try { 
+              tileStripeCtx.drawImage(img, 0, by, tw, bh, 0, 0, tw, bh); 
+            } catch (e) {
+              console.error(`[CopyArt] Ошибка drawImage для тайла col=${tileCol}, by=${by}:`, e);
+              continue;
+            }
             let seg = null;
             try { seg = tileStripeCtx.getImageData(0, 0, tw, bh).data; } catch {}
             if (seg) {
@@ -1409,14 +1466,15 @@
         }
         if ((tileRow & 1) === 0) await nextFrame();
       }
+      console.log(`[CopyArt] Все тайлы обработаны, формирование PNG...`);
       try { await w.close(); } catch {}
       try { await collect; } catch {}
+      console.log(`[CopyArt] PNG успешно создан, размер ${W}x${H} пикселей`);
       const out = [];
       out.push(sig);
       out.push(pngChunk('IHDR', ihdr));
       for (let i = 0; i < idatParts.length; i++) { const part = idatParts[i]; if (part && part.length) out.push(pngChunk('IDAT', part)); }
       out.push(pngChunk('IEND', new Uint8Array(0)));
-      try { first && first.close && first.close(); } catch {}
       return new Blob(out, { type: 'image/png' });
     } catch { return null; }
   }
@@ -1612,8 +1670,9 @@
             saveCurrentPart = partIndex;
             const startX = -half + (px * partSizeX);
             const startY = -half + (py * partSizeY);
-            const endX = Math.min(half, startX + partSizeX - 1);
-            const endY = Math.min(half, startY + partSizeY - 1);
+            const endX = Math.min(half, -half + ((px + 1) * partSizeX) - 1);
+            const endY = Math.min(half, -half + ((py + 1) * partSizeY) - 1);
+            console.log(`[CopyArt] Часть ${partIndex}/${totalParts}: тайлы [${startX}, ${startY}] → [${endX}, ${endY}] (размер: ${endX - startX + 1}x${endY - startY + 1})`);
             
             saveStage = t('copyart.stage.part').replace('{0}', partIndex).replace('{1}', totalParts);
             saveProgress = 0;
@@ -1716,8 +1775,8 @@
           for (let cx = 0; cx < gx; cx++) {
             const dx0 = minDx + cx * chunkTW;
             const dy0 = minDy + cy * chunkTH;
-            const dx1 = Math.min(maxDx, dx0 + chunkTW - 1);
-            const dy1 = Math.min(maxDy, dy0 + chunkTH - 1);
+            const dx1 = Math.min(maxDx, minDx + (cx + 1) * chunkTW - 1);
+            const dy1 = Math.min(maxDy, minDy + (cy + 1) * chunkTH - 1);
             if (dx0 > dx1 || dy0 > dy1) continue;
             const w = (dx1 - dx0 + 1) * tw;
             const h = (dy1 - dy0 + 1) * th;

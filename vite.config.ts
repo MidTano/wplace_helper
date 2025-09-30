@@ -10,7 +10,7 @@ export default defineConfig({
       userscript: {
         name: 'Wplace Helper',
         namespace: 'https://github.com/MidTano/wplace_helper',
-        version: '2.1.0',
+        version: '2.2.0',
         author: 'MidTano',
         description: 'Overlay and tools for Wplace',
         match: [
@@ -29,6 +29,8 @@ export default defineConfig({
         connect: [
           'catbox.moe',
           'files.catbox.moe',
+          'uguu.se',
+          'qu.ax',
         ],
         updateURL: 'https://github.com/MidTano/wplace_helper/releases/latest/download/overlay.user.js',
         downloadURL: 'https://github.com/MidTano/wplace_helper/releases/latest/download/overlay.user.js',

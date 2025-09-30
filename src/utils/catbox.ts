@@ -17,6 +17,9 @@ export async function uploadToCatbox(blob: Blob, filename = 'image.png'): Promis
         gm({
           method: 'POST',
           url,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          },
           data: fd as any, 
           onload: (r: any) => {
             try {

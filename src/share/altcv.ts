@@ -1,5 +1,7 @@
 import { getSelectedFile, setSelectedFile, getOriginCoords, setOriginCoords, rebuildStencilFromState, setMoveMode } from '../overlay/state';
 import { uploadToCatbox, fileNameFromUrl } from '../utils/catbox';
+import { uploadToUguu } from '../utils/uguu';
+import { uploadToQuax } from '../utils/quax';
 import { addOrUpdate } from '../topmenu/historyStore';
 import { setCurrentHistoryId } from '../overlay/state';
 import { t } from '../i18n';
@@ -64,25 +66,35 @@ async function doCopy() {
   const job = ++copyJobId;
   const origin = getOriginCoords();
   const cam = readLocation();
-  let url = '';
-  let name = '';
   const file = getSelectedFile();
   let closer: (() => void) | null = null;
   if (file) {
     closer = showCenterNotice(t('share.toast.uploading'), 0);
   }
+  const urls: string[] = [];
+  let name = '';
+  const services = ['Catbox', 'uguu.se', 'qu.ax'];
+  const serviceResults: boolean[] = [];
   if (file) {
-    try {
-      url = await uploadToCatbox(file as Blob, (file as any).name || 'image.png');
-      name = fileNameFromUrl(url);
-    } catch {}
+    const filename = (file as any).name || 'image.png';
+    const uploadPromises = [
+      uploadToCatbox(file as Blob, filename).catch((e) => { console.warn('[Upload] Catbox failed:', e); return ''; }),
+      uploadToUguu(file as Blob, filename).catch((e) => { console.warn('[Upload] uguu.se failed:', e); return ''; }),
+      uploadToQuax(file as Blob, filename).catch((e) => { console.warn('[Upload] qu.ax failed:', e); return ''; })
+    ];
+    const results = await Promise.all(uploadPromises);
+    results.forEach(r => serviceResults.push(!!r && /^https?:\/\//i.test(r)));
+    urls.push(...results.filter(u => u && /^https?:\/\//i.test(u)));
+    if (urls.length > 0) {
+      name = fileNameFromUrl(urls[0]);
+    }
     if (closer) { try { closer(); } catch {} closer = null; }
     if (job !== copyJobId) return;
   }
-  if (url) {
+  if (urls.length > 0) {
     closer = showCenterNotice(t('share.toast.verifying'), 0);
     try {
-      const b = await downloadBlob(url);
+      const b = await downloadBlob(urls[0]);
       if (b) { await ensureImageDecoded(b); }
       if (!b) { if (closer) { try { closer(); } catch {} } showCenterNotice(t('share.toast.error')); return; }
       if (job !== copyJobId) { if (closer) { try { closer(); } catch {} } return; }
@@ -90,26 +102,25 @@ async function doCopy() {
       const sha = await sha256Hex(b);
       if (job !== copyJobId) { if (closer) { try { closer(); } catch {} } return; }
       const payload: any = { type: 'wplace_share_v1', ts: Date.now() };
-      if (url) payload.img = { url, name, size, sha256: sha };
+      payload.img = { urls, name, size, sha256: sha };
       if (origin && origin.length >= 4) payload.origin = [origin[0]|0, origin[1]|0, origin[2]|0, origin[3]|0];
       if (cam) payload.camera = cam;
       const share = buildShareText(payload);
       await writeClipboard(share);
       if (closer) { try { closer(); } catch {} closer = null; }
-      showCenterNotice(`${t('share.header.title')}
-${t('share.toast.copied')}`, 4400, url || undefined);
+      showCenterNoticeWithServices(`${t('share.header.title')}\n${t('share.toast.copied')}`, services, serviceResults, 4400, urls[0] || undefined);
       return;
     } catch {}
     if (closer) { try { closer(); } catch {} closer = null; }
   }
   const payload: any = { type: 'wplace_share_v1', ts: Date.now() };
-  if (url) payload.img = { url, name };
+  if (urls.length > 0) payload.img = { urls, name };
   if (origin && origin.length >= 4) payload.origin = [origin[0]|0, origin[1]|0, origin[2]|0, origin[3]|0];
   if (cam) payload.camera = cam;
   const share = buildShareText(payload);
   await writeClipboard(share);
   showCenterNotice(`${t('share.header.title')}
-${t('share.toast.copied')}`, 4400, url || undefined);
+${t('share.toast.copied')}`, 4400, urls[0] || undefined);
 }
 
 async function doPaste() {
@@ -119,36 +130,45 @@ async function doPaste() {
   try { p = JSON.parse(raw); } catch {}
   if (!p) { try { p = extractSharedJson(raw); } catch {} }
   if (!p || p.type !== 'wplace_share_v1') return;
-  if (p.img && p.img.url) {
-    const expectedSha = (p.img && typeof p.img.sha256 === 'string') ? String(p.img.sha256) : '';
-    const expectedSize = (p.img && typeof p.img.size === 'number') ? (p.img.size|0) : 0;
+  const imgData = p.img;
+  if (imgData) {
+    const urlsToTry: string[] = [];
+    if (Array.isArray(imgData.urls)) {
+      urlsToTry.push(...imgData.urls.filter((u: any) => typeof u === 'string'));
+    } else if (typeof imgData.url === 'string') {
+      urlsToTry.push(imgData.url);
+    }
+    const expectedSha = (imgData && typeof imgData.sha256 === 'string') ? String(imgData.sha256) : '';
+    const expectedSize = (imgData && typeof imgData.size === 'number') ? (imgData.size|0) : 0;
     let b: Blob | null = null;
-    for (let i = 0; i < 3; i++) {
-      const base = String(p.img.url);
-      const u = i === 0 ? base : `${base}${base.includes('?') ? '&' : '?'}r=${Date.now()}`;
-      b = await downloadBlob(u);
-      if (!b) continue;
-      if (expectedSize && (b.size|0) !== expectedSize) { b = null; continue; }
-      if (expectedSha) {
-        const gotSha = await sha256Hex(b);
-        if (gotSha !== expectedSha) { b = null; continue; }
+    for (const baseUrl of urlsToTry) {
+      for (let i = 0; i < 3; i++) {
+        const u = i === 0 ? baseUrl : `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}r=${Date.now()}`;
+        b = await downloadBlob(u);
+        if (!b) continue;
+        if (expectedSize && (b.size|0) !== expectedSize) { b = null; continue; }
+        if (expectedSha) {
+          const gotSha = await sha256Hex(b);
+          if (gotSha !== expectedSha) { b = null; continue; }
+        }
+        break;
       }
-      break;
+      if (b) break;
     }
     if (b) {
       try {
         await ensureImageDecoded(b);
         if (job !== pasteJobId) return;
-        const f = new File([b], String(p.img.name || 'image.png'), { type: b.type || 'image/png' });
+        const f = new File([b], String(imgData.name || 'image.png'), { type: b.type || 'image/png' });
         setSelectedFile(f);
         try {
-          const meta = await addOrUpdate(f, String(p.img.name || 'image.png'), Array.isArray(p.origin) && p.origin.length >= 4 ? [p.origin[0]|0, p.origin[1]|0, p.origin[2]|0, p.origin[3]|0] : null);
+          const meta = await addOrUpdate(f, String(imgData.name || 'image.png'), Array.isArray(p.origin) && p.origin.length >= 4 ? [p.origin[0]|0, p.origin[1]|0, p.origin[2]|0, p.origin[3]|0] : null);
           try { setCurrentHistoryId(meta?.id || null); } catch {}
         } catch {}
       } catch {
         setSelectedFile(b);
         try {
-          const meta = await addOrUpdate(b, String(p.img?.name || 'image.png'), Array.isArray(p.origin) && p.origin.length >= 4 ? [p.origin[0]|0, p.origin[1]|0, p.origin[2]|0, p.origin[3]|0] : null);
+          const meta = await addOrUpdate(b, String(imgData?.name || 'image.png'), Array.isArray(p.origin) && p.origin.length >= 4 ? [p.origin[0]|0, p.origin[1]|0, p.origin[2]|0, p.origin[3]|0] : null);
           try { setCurrentHistoryId(meta?.id || null); } catch {}
         } catch {}
       }
@@ -216,6 +236,19 @@ async function sha256Hex(blob: Blob): Promise<string> {
   } catch { return ''; }
 }
 
+function showCenterNoticeWithServices(msg: string, services: string[], results: boolean[], ms = 2200, imageUrl?: string): () => void {
+  const successIcon = `<svg width="16" height="16" viewBox="0 0 32 32" fill="#4ade80"><path d="M16,2A14,14,0,1,0,30,16,14,14,0,0,0,16,2ZM14,21.5908l-5-5L10.5906,15,14,18.4092,21.41,11l1.5957,1.5859Z"/></svg>`;
+  const errorIcon = `<svg width="16" height="16" viewBox="0 0 32 32" fill="#f87171"><path d="M16,2C8.2,2,2,8.2,2,16s6.2,14,14,14s14-6.2,14-14S23.8,2,16,2z M21.4,23L16,17.6L10.6,23L9,21.4l5.4-5.4L9,10.6L10.6,9l5.4,5.4L21.4,9l1.6,1.6L17.6,16l5.4,5.4L21.4,23z"/></svg>`;
+  
+  const servicesHtml = services.map((name, i) => {
+    const icon = results[i] ? successIcon : errorIcon;
+    return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;"><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;">${icon}</span><span style="color:${results[i] ? '#4ade80' : '#f87171'};">${name}</span></div>`;
+  }).join('');
+  
+  const fullMsg = `${msg}\n<div style="display:flex;gap:12px;margin-top:8px;justify-content:center;">${servicesHtml}</div>`;
+  return showCenterNotice(fullMsg, ms, imageUrl);
+}
+
 function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void {
   try {
     const isPersistent = ms <= 0;
@@ -269,7 +302,7 @@ function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void
       img.onload = () => { try { img.style.opacity = '1'; } catch {} };
       const text = document.createElement('div');
       text.style.whiteSpace = 'pre-line';
-      text.textContent = msg;
+      text.innerHTML = msg;
       cont.appendChild(img);
       cont.appendChild(text);
       box.appendChild(cont);
@@ -294,7 +327,8 @@ function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void
       cont.appendChild(text);
       box.appendChild(cont);
     } else {
-      box.textContent = msg;
+      box.innerHTML = msg;
+      box.style.whiteSpace = 'pre-line';
     }
     wrap.appendChild(box);
     document.body.appendChild(wrap);
