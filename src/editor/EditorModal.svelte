@@ -13,6 +13,7 @@
   import CustomSelect from './CustomSelect.svelte';
   import { t, lang } from '../i18n';
   import { uploadToCatbox, fileNameFromUrl } from '../utils/catbox';
+  import { markElement } from '../wguard';
   import { buildCodeCanvas } from '../utils/codeTileEncoder';
   import { setMoveMode } from '../overlay/state';
   import { appendToBody } from './modal/utils/appendToBody';
@@ -53,6 +54,51 @@
 
   
 
+  function getThemeHost() {
+    try {
+      const host = (window).__wphPortalHost;
+      if (host && host.host instanceof HTMLElement) return host.host;
+      if (host && host instanceof HTMLElement) return host;
+      const el = document.getElementById('wph-theme-root');
+      return el || document.documentElement;
+    } catch { return document.documentElement; }
+  }
+
+  function getPrimaryHex() {
+    try {
+      const el = getThemeHost();
+      const v = getComputedStyle(el).getPropertyValue('--wph-primary');
+      const s = String(v || '').trim();
+      return s || '#f05123';
+    } catch { return '#f05123'; }
+  }
+
+  function getPrimary2Hex() {
+    try {
+      const el = getThemeHost();
+      let v = getComputedStyle(el).getPropertyValue('--wph-primary2');
+      let s = String(v || '').trim();
+      if (!s) {
+        v = getComputedStyle(el).getPropertyValue('--wph-primary-2');
+        s = String(v || '').trim();
+      }
+      return s || '#ff6b3d';
+    } catch { return '#ff6b3d'; }
+  }
+
+  function hexToRgba(hex, a) {
+    let v = String(hex || '').trim().toLowerCase();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (v.length === 4) { v = `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`; }
+    const m = /^#([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(v);
+    if (!m) return `rgba(240,81,35,${Math.max(0, Math.min(1, a))})`;
+    const r = parseInt(m[1], 16);
+    const g = parseInt(m[2], 16);
+    const b = parseInt(m[3], 16);
+    const al = Math.max(0, Math.min(1, a));
+    return `rgba(${r}, ${g}, ${b}, ${al})`;
+  }
+
   export let open = false;
   export let file = null; 
 
@@ -68,6 +114,35 @@
   let paletteMode = 'full'; 
   let outlineThickness = 0; 
   let erodeAmount = 0; 
+  let simplifyArea = 0;
+  let blurMode = 'none';
+  let blurRadius = 0;
+  let sharpenAmount = 0;
+  let sharpenRadius = 0;
+  let sharpenThreshold = 0;
+  let modeRadius = 0;
+  let posterizeLevels = 0;
+  let posterizeAfterPalette = false;
+  let kwEnabled = false;
+  let kwRadius = 4;
+  let kwSectors = 8;
+  let kwStrengthPct = 100;
+  let kwAnisotropyPct = 60;
+  let kwBlend = false;
+  let kwAfterPalette = false;
+  let edgeEnabled = false;
+  let edgeThreshold = 60;
+  let edgeThickness = 1;
+  let edgeThin = true;
+  let edgeMethod = 'sobel';
+  let adaptDitherEnabled = false;
+  let adaptDitherMethod = 'sobel';
+  let adaptDitherThreshold = 60;
+  let adaptDitherThickness = 1;
+  let adaptDitherThin = true;
+  let adaptDitherInvert = false;
+  let adaptDitherFeather = 0;
+  let quantMethod = 'rgb';
   let customIndices = [];
   let customInitialized = false;
   
@@ -106,6 +181,46 @@
       if (typeof s.paletteMode === 'string') paletteMode = s.paletteMode;
       if (typeof s.outlineThickness === 'number') outlineThickness = Math.max(0, s.outlineThickness|0);
       if (typeof s.erodeAmount === 'number') erodeAmount = Math.max(0, s.erodeAmount|0);
+      if (typeof s.simplifyArea === 'number') simplifyArea = Math.max(0, s.simplifyArea|0);
+      if (typeof s.blurMode === 'string') blurMode = s.blurMode;
+      if (typeof s.blurRadius === 'number') blurRadius = Math.max(0, s.blurRadius|0);
+      if (typeof s.sharpenAmount === 'number') sharpenAmount = Math.max(0, s.sharpenAmount|0);
+      if (typeof s.sharpenRadius === 'number') sharpenRadius = Math.max(0, s.sharpenRadius|0);
+      if (typeof s.sharpenThreshold === 'number') sharpenThreshold = Math.max(0, s.sharpenThreshold|0);
+      if (typeof s.modeRadius === 'number') modeRadius = Math.max(0, s.modeRadius|0);
+      if (typeof s.posterizeLevels === 'number') posterizeLevels = Math.max(0, s.posterizeLevels|0);
+      if (typeof s.posterizeAfterPalette === 'boolean') posterizeAfterPalette = !!s.posterizeAfterPalette;
+      if (typeof s.gamma === 'number') gamma = Number(s.gamma) || 1;
+      if (typeof s.quantMethod === 'string') {
+        const qm = String(s.quantMethod);
+        quantMethod = (qm==='rgb'||qm==='linear'||qm==='oklab'||qm==='ycbcr') ? qm : 'rgb';
+      }
+      if (typeof s.kwEnabled === 'boolean') kwEnabled = !!s.kwEnabled;
+      if (typeof s.kwRadius === 'number') kwRadius = Math.max(1, s.kwRadius|0);
+      if (typeof s.kwSectors === 'number') kwSectors = (s.kwSectors|0)===8?8:4;
+      if (typeof s.kwStrengthPct === 'number') kwStrengthPct = Math.max(0, Math.min(100, s.kwStrengthPct|0));
+      if (typeof s.kwAnisotropyPct === 'number') kwAnisotropyPct = Math.max(0, Math.min(100, s.kwAnisotropyPct|0));
+      if (typeof s.kwBlend === 'boolean') kwBlend = !!s.kwBlend;
+      if (typeof s.kwAfterPalette === 'boolean') kwAfterPalette = !!s.kwAfterPalette;
+      if (typeof s.edgeEnabled === 'boolean') edgeEnabled = !!s.edgeEnabled;
+      if (typeof s.edgeThreshold === 'number') edgeThreshold = Math.max(0, s.edgeThreshold|0);
+      if (typeof s.edgeThickness === 'number') edgeThickness = Math.max(1, s.edgeThickness|0);
+      if (typeof s.edgeThin === 'boolean') edgeThin = !!s.edgeThin;
+      if (typeof s.edgeMethod === 'string') {
+        const em = String(s.edgeMethod);
+        edgeMethod = (em==='sobel'||em==='prewitt'||em==='scharr'||em==='laplacian') ? em : 'sobel';
+      }
+
+      if (typeof s.adaptDitherEnabled === 'boolean') adaptDitherEnabled = !!s.adaptDitherEnabled;
+      if (typeof s.adaptDitherThreshold === 'number') adaptDitherThreshold = Math.max(0, s.adaptDitherThreshold|0);
+      if (typeof s.adaptDitherThickness === 'number') adaptDitherThickness = Math.max(1, s.adaptDitherThickness|0);
+      if (typeof s.adaptDitherThin === 'boolean') adaptDitherThin = !!s.adaptDitherThin;
+      if (typeof s.adaptDitherInvert === 'boolean') adaptDitherInvert = !!s.adaptDitherInvert;
+      if (typeof s.adaptDitherMethod === 'string') {
+        const am = String(s.adaptDitherMethod);
+        adaptDitherMethod = (am==='sobel'||am==='prewitt'||am==='scharr'||am==='laplacian') ? am : 'sobel';
+      }
+      if (typeof s.adaptDitherFeather === 'number') adaptDitherFeather = Math.max(0, s.adaptDitherFeather|0);
 
       
       if (paletteMode === 'custom') {
@@ -279,7 +394,7 @@
       isCurrentImageInComparison = false;
     } else {
       
-      const currentKey = `${pixelSize}|${method}|${ditherMethod}|${ditherLevels}|${paletteMode}|${outlineThickness}|${erodeAmount}|${customKey}|${customDitherKey}`;
+      const currentKey = `${pixelSize}|${method}|${ditherMethod}|${ditherLevels}|${paletteMode}|${outlineThickness}|${erodeAmount}|sa:${simplifyArea}|bm:${blurMode}|br:${blurRadius}|shA:${sharpenAmount}|shR:${sharpenRadius}|shT:${sharpenThreshold}|mr:${modeRadius}|pz:${posterizeLevels}|pzP:${posterizeAfterPalette?1:0}|${customKey}|${customDitherKey}`;
       isCurrentImageInComparison = $comparisonImages.some(img => {
         const s = img.metadata.settings;
         const ciMatch = (paletteMode !== 'custom') ? true : ((s.customIndices ? s.customIndices.join('-') : '') === customKey);
@@ -292,6 +407,35 @@
             (s.hue|0) === (hue|0)
           ))
         );
+        const kwMatch = (
+          (s.kwEnabled || false) === (kwEnabled || false) &&
+          ((s.kwRadius|0) === (kwRadius|0)) &&
+          ((s.kwSectors|0) === (kwSectors|0)) &&
+          ((s.kwStrengthPct|0) === (kwStrengthPct|0)) &&
+          ((s.kwAnisotropyPct|0) === (kwAnisotropyPct|0)) &&
+          ((s.kwBlend || false) === (kwBlend || false)) &&
+          ((s.kwAfterPalette || false) === (kwAfterPalette || false))
+        );
+        const edMatch = (
+          (s.edgeEnabled || false) === (edgeEnabled || false) &&
+          ((s.edgeThreshold|0) === (edgeThreshold|0)) &&
+          ((s.edgeThickness|0) === (edgeThickness|0)) &&
+          ((s.edgeThin || false) === (edgeThin || false)) &&
+          (String(s.edgeMethod||'sobel') === String(edgeMethod||'sobel'))
+        );
+        const qmMatch = (String(s.quantMethod||'rgb') === String(quantMethod||'rgb'));
+        const blMatch = (String(s.blurMode||'none') === String(blurMode||'none')) && ((s.blurRadius|0) === (blurRadius|0));
+        const shMatch = ((s.sharpenAmount|0) === (sharpenAmount|0)) && ((s.sharpenRadius|0) === (sharpenRadius|0)) && ((s.sharpenThreshold|0) === (sharpenThreshold|0));
+        const pzMatch = ((s.posterizeLevels|0) === (posterizeLevels|0)) && (!!s.posterizeAfterPalette === !!posterizeAfterPalette);
+        const adMatch = (
+          (s.adaptDitherEnabled || false) === (adaptDitherEnabled || false) &&
+          (String(s.adaptDitherMethod||'sobel') === String(adaptDitherMethod||'sobel')) &&
+          ((s.adaptDitherThreshold|0) === (adaptDitherThreshold|0)) &&
+          ((s.adaptDitherThickness|0) === (adaptDitherThickness|0)) &&
+          (!!s.adaptDitherThin === !!adaptDitherThin) &&
+          (!!s.adaptDitherInvert === !!adaptDitherInvert) &&
+          ((s.adaptDitherFeather|0) === (adaptDitherFeather|0))
+        );
         return s.pixelSize === pixelSize &&
           s.method === method &&
           s.ditherMethod === ditherMethod &&
@@ -299,10 +443,17 @@
           s.paletteMode === paletteMode &&
           s.outlineThickness === outlineThickness &&
           s.erodeAmount === erodeAmount &&
-          ciMatch && ccMatch &&
-          (ditherMethod !== 'custom' || true); 
+          ((s.simplifyArea|0) === (simplifyArea|0)) &&
+          ((s.modeRadius|0) === (modeRadius|0)) &&
+          ciMatch && ccMatch && kwMatch && edMatch && qmMatch && blMatch && shMatch && pzMatch && adMatch &&
+          (ditherMethod !== 'custom' || true);
       });
     }
+  }
+  let _prevInComparison = isCurrentImageInComparison;
+  $: if (_prevInComparison !== isCurrentImageInComparison) {
+    _prevInComparison = isCurrentImageInComparison;
+    try { window.dispatchEvent(new CustomEvent('tutorial:in-comparison-changed', { detail: { inComparison: isCurrentImageInComparison } })); } catch {}
   }
   
   function getCurrentEditorSettings() {
@@ -314,6 +465,36 @@
       paletteMode,
       outlineThickness,
       erodeAmount,
+      simplifyArea,
+      blurMode,
+      blurRadius,
+      sharpenAmount,
+      sharpenRadius,
+      sharpenThreshold,
+      modeRadius,
+      posterizeLevels,
+      posterizeAfterPalette,
+      gamma,
+      quantMethod,
+      kwEnabled,
+      kwRadius,
+      kwSectors,
+      kwStrengthPct,
+      kwAnisotropyPct,
+      kwBlend,
+      kwAfterPalette,
+      edgeEnabled,
+      edgeThreshold,
+      edgeThickness,
+      edgeThin,
+      edgeMethod,
+      adaptDitherEnabled,
+      adaptDitherMethod,
+      adaptDitherThreshold,
+      adaptDitherThickness,
+      adaptDitherThin,
+      adaptDitherInvert,
+      adaptDitherFeather,
       customIndices: paletteMode === 'custom' ? customIndices : undefined,
       customDitherPattern: ditherMethod === 'custom' ? customDitherPattern : undefined,
       customDitherStrength: ditherMethod === 'custom' ? customDitherStrength : undefined,
@@ -357,6 +538,7 @@
         if (imageToRemove) {
           comparisonActions.removeImage(imageToRemove.id);
           console.log('Изображение удалено из сравнения');
+          try { window.dispatchEvent(new CustomEvent('tutorial:comparison-removed')); } catch {}
         }
         return;
       }
@@ -370,8 +552,20 @@
       let currentBlob = null;
       const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
       const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
-      const ccKey = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey}`;
+      const ccKey = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}|g:${gamma}` : '|cc:0';
+      const blurKey = `|bm:${blurMode}|br:${blurRadius}`;
+      const shKey = `|shA:${sharpenAmount}|shR:${sharpenRadius}|shT:${sharpenThreshold}`;
+      const mrKey = `|mr:${modeRadius}`;
+      const pzKey = `|pz:${posterizeLevels}`;
+      const pzPKey = `|pzP:${posterizeAfterPalette?1:0}`;
+      const saKey = `|sa:${simplifyArea}`;
+      const kwKey = `|kwE:${kwEnabled?1:0}|kwR:${kwRadius}|kwN:${kwSectors}|kwStr:${kwStrengthPct}|kwAn:${kwAnisotropyPct}|kwB:${kwBlend?1:0}|kwP:${kwAfterPalette?1:0}`;
+      const edKey = `|edE:${edgeEnabled?1:0}|edThr:${edgeThreshold}|edThk:${edgeThickness}|edN:${edgeThin?1:0}`;
+      const qmKey = `|qm:${quantMethod}`;
+      const emKey = `|edM:${edgeMethod}`;
+      const adKey = `|adE:${adaptDitherEnabled?1:0}|adThr:${adaptDitherThreshold}|adThk:${adaptDitherThickness}|adN:${adaptDitherThin?1:0}|adInv:${adaptDitherInvert?1:0}|adF:${adaptDitherFeather}`;
+      const amKey = `|adM:${adaptDitherMethod}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey}${blurKey}${shKey}${mrKey}${pzKey}${pzPKey}${saKey}${kwKey}${edKey}${qmKey}${emKey}${adKey}${amKey}`;
       
       
       const cached = previewCache.get(key);
@@ -379,7 +573,7 @@
         currentBlob = cached.blob;
       } else {
         
-        currentBlob = await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue);
+        currentBlob = await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue, gamma, blurMode, blurRadius, sharpenAmount, sharpenRadius, sharpenThreshold, modeRadius, posterizeLevels, posterizeAfterPalette, kwEnabled, kwRadius, kwSectors, kwStrengthPct, kwAnisotropyPct, kwAfterPalette, simplifyArea, kwBlend, edgeEnabled, edgeThreshold, edgeThickness, edgeThin, quantMethod, edgeMethod, adaptDitherEnabled, adaptDitherMethod, adaptDitherThreshold, adaptDitherThickness, adaptDitherThin, adaptDitherInvert, adaptDitherFeather);
       }
       
       if (!currentBlob) {
@@ -397,6 +591,7 @@
       const success = await comparisonActions.addImage(currentBlob, settings, metadata);
       if (success) {
         console.log(`Изображение добавлено в сравнение. Всего изображений: ${$comparisonImages.length + 1}`);
+        try { window.dispatchEvent(new CustomEvent('tutorial:comparison-added')); } catch {}
       } else {
         console.warn('Не удалось добавить изображение в сравнение (возможно, дубликат)');
       }
@@ -413,6 +608,7 @@
       }
       
       comparisonActions.openModal();
+      try { window.dispatchEvent(new CustomEvent('tutorial:comparison-opened')); } catch {}
       console.log('Открыто модальное окно сравнения с', $comparisonImages.length, 'изображениями');
     } catch (error) {
       console.error('Ошибка при открытии модального окна сравнения:', error);
@@ -498,14 +694,26 @@
     try {
       const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
       const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
-      const ccKey2 = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey2}`;
+      const ccKey2 = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}|g:${gamma}` : '|cc:0';
+      const blurKey2 = `|bm:${blurMode}|br:${blurRadius}`;
+      const shKey2 = `|shA:${sharpenAmount}|shR:${sharpenRadius}|shT:${sharpenThreshold}`;
+      const mrKey2 = `|mr:${modeRadius}`;
+      const pzKey2 = `|pz:${posterizeLevels}`;
+      const pzPKey2 = `|pzP:${posterizeAfterPalette?1:0}`;
+      const saKey2 = `|sa:${simplifyArea}`;
+      const kwKey2 = `|kwE:${kwEnabled?1:0}|kwR:${kwRadius}|kwN:${kwSectors}|kwStr:${kwStrengthPct}|kwAn:${kwAnisotropyPct}|kwB:${kwBlend?1:0}|kwP:${kwAfterPalette?1:0}`;
+      const edKey2 = `|edE:${edgeEnabled?1:0}|edThr:${edgeThreshold}|edThk:${edgeThickness}|edN:${edgeThin?1:0}`;
+      const qmKey2 = `|qm:${quantMethod}`;
+      const emKey2 = `|edM:${edgeMethod}`;
+      const adKey2 = `|adE:${adaptDitherEnabled?1:0}|adThr:${adaptDitherThreshold}|adThk:${adaptDitherThickness}|adN:${adaptDitherThin?1:0}|adInv:${adaptDitherInvert?1:0}|adF:${adaptDitherFeather}`;
+      const amKey2 = `|adM:${adaptDitherMethod}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey2}${blurKey2}${shKey2}${mrKey2}${pzKey2}${pzPKey2}${saKey2}${kwKey2}${edKey2}${qmKey2}${emKey2}${adKey2}${amKey2}`;
       const cached = previewCache.get(key);
       
       const filename = generateFileName(file, pixelSize, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount);
       let outBlob = cached?.blob;
       if (!outBlob) {
-        outBlob = await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue);
+        outBlob = await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue, gamma, blurMode, blurRadius, sharpenAmount, sharpenRadius, sharpenThreshold, modeRadius, posterizeLevels, posterizeAfterPalette, kwEnabled, kwRadius, kwSectors, kwStrengthPct, kwAnisotropyPct, kwAfterPalette, simplifyArea, kwBlend, edgeEnabled, edgeThreshold, edgeThickness, edgeThin, quantMethod, edgeMethod, adaptDitherEnabled, adaptDitherMethod, adaptDitherThreshold, adaptDitherThickness, adaptDitherThin, adaptDitherInvert, adaptDitherFeather);
       }
       
       const url = await uploadToCatbox(outBlob, filename);
@@ -588,7 +796,7 @@
             }
             if (data && data.bitmap) {
               const bmp = data.bitmap; const w = data.w|0, h = data.h|0;
-              const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+              const canvas = document.createElement('canvas'); markElement(canvas); canvas.width = w; canvas.height = h;
               const ctx = canvas.getContext('2d'); try { ctx.imageSmoothingEnabled = false; } catch {}
               ctx.clearRect(0,0,w,h); ctx.drawImage(bmp,0,0,w,h);
               try { bmp.close && bmp.close(); } catch {}
@@ -650,7 +858,7 @@
             if (data.type === 'preview-final-bmp') {
               try { console.debug('[wph] received preview-final-bmp', data.jobId, { w: data.w, h: data.h, hasBitmap: !!data.bitmap }); } catch {}
               const bmp = data.bitmap; const k = data.key; const w = data.w|0, h = data.h|0;
-              const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+              const canvas = document.createElement('canvas'); markElement(canvas); canvas.width = w; canvas.height = h;
               const ctx = canvas.getContext('2d'); try { ctx.imageSmoothingEnabled = false; } catch {}
               ctx.clearRect(0,0,w,h); ctx.drawImage(bmp,0,0,w,h);
               try { bmp.close && bmp.close(); } catch {}
@@ -703,9 +911,21 @@
               try {
                 const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
                 const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
-                const ccKey3 = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
-                const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey3}`;
-                const out = await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue);
+                const ccKey3 = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}|g:${gamma}` : '|cc:0';
+                const blurKey3 = `|bm:${blurMode}|br:${blurRadius}`;
+                const shKey3 = `|shA:${sharpenAmount}|shR:${sharpenRadius}|shT:${sharpenThreshold}`;
+                const mrKey3 = `|mr:${modeRadius}`;
+                const pzKey3 = `|pz:${posterizeLevels}`;
+                const pzPKey3 = `|pzP:${posterizeAfterPalette?1:0}`;
+                const saKey3 = `|sa:${simplifyArea}`;
+                const kwKey3 = `|kwE:${kwEnabled?1:0}|kwR:${kwRadius}|kwN:${kwSectors}|kwStr:${kwStrengthPct}|kwAn:${kwAnisotropyPct}|kwB:${kwBlend?1:0}|kwP:${kwAfterPalette?1:0}`;
+                const edKey3 = `|edE:${edgeEnabled?1:0}|edThr:${edgeThreshold}|edThk:${edgeThickness}|edN:${edgeThin?1:0}`;
+                const qmKey3 = `|qm:${quantMethod}`;
+                const emKey3b = `|edM:${edgeMethod}`;
+                const adKey3 = `|adE:${adaptDitherEnabled?1:0}|adThr:${adaptDitherThreshold}|adThk:${adaptDitherThickness}|adN:${adaptDitherThin?1:0}|adInv:${adaptDitherInvert?1:0}`;
+      const amKey3 = `|adM:${adaptDitherMethod}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey3}${blurKey3}${shKey3}${mrKey3}${pzKey3}${pzPKey3}${saKey3}${kwKey3}${edKey3}${qmKey3}${emKey3b}${adKey3}${amKey3}`;
+                const out = await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue, gamma, blurMode, blurRadius, sharpenAmount, sharpenRadius, sharpenThreshold, modeRadius, posterizeLevels, posterizeAfterPalette, kwEnabled, kwRadius, kwSectors, kwStrengthPct, kwAnisotropyPct, kwAfterPalette, simplifyArea, kwBlend, edgeEnabled, edgeThreshold, edgeThickness, edgeThin, quantMethod, edgeMethod, adaptDitherEnabled, adaptDitherMethod, adaptDitherThreshold, adaptDitherThickness, adaptDitherThin, adaptDitherInvert);
                 const obj = await blobToObjectUrl(out);
                 previewUrl = obj.url;
                 if (workerReady && workerState && workerState.imageWorker) {
@@ -802,6 +1022,7 @@
   let contrast = 0;      
   let saturation = 0;    
   let hue = 0;           
+  let gamma = 1;         
   let colorCorrectionEnabled = false; 
   
   const rgbToCss = (rgb) => `rgba(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0},1)`;
@@ -1395,17 +1616,17 @@
         editCanvas.width = outW;
         editCanvas.height = outH;
       }
-      const img = new Image();
+      const img = new Image(); markElement(img);
       img.src = previewUrl;
       await img.decode();
       const ctx = editCanvas.getContext('2d');
       ctx.clearRect(0, 0, outW, outH);
       ctx.drawImage(img, 0, 0, outW, outH);
       
-      ensureSelectionSurfaces();
-      drawOverlay(-1, -1); 
-      layoutStage();
-    } catch (e) {
+        ensureSelectionSurfaces();
+        drawOverlay(-1, -1); 
+        layoutStage();
+      } catch (e) {
       
     }
   }
@@ -1594,7 +1815,7 @@
     }
     function drawImageMappedMasked(canvas, maskCanvas) {
       if (!canvas || !maskCanvas) return;
-      const off = document.createElement('canvas');
+      const off = document.createElement('canvas'); markElement(off);
       off.width = Math.max(1, Math.floor(displayW));
       off.height = Math.max(1, Math.floor(displayH));
       const octx = off.getContext('2d', { willReadFrequently: true });
@@ -1646,13 +1867,13 @@
       ctx.drawImage(stickerCanvas, 0, 0, stickerW, stickerH, dx, dy, dw, dh);
       ctx.save();
       ctx.lineJoin = 'miter';
-      ctx.strokeStyle = 'rgba(240,81,35,0.35)'; 
+      ctx.strokeStyle = hexToRgba(getPrimaryHex(), 0.35); 
       ctx.lineWidth = Math.max(4, Math.round(0.015 * Math.max(dw, dh)));
-      ctx.shadowColor = 'rgba(240,81,35,0.6)';
+      ctx.shadowColor = hexToRgba(getPrimaryHex(), 0.6);
       ctx.shadowBlur = 8;
       ctx.strokeRect(dx - 2, dy - 2, dw + 4, dh + 4);
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = '#ff8c00';
+      ctx.strokeStyle = getPrimary2Hex();
       ctx.lineWidth = Math.max(2, Math.round(0.006 * Math.max(dw, dh)));
       const dash = Math.max(6, Math.round(0.04 * Math.max(dw, dh)));
       const gap = Math.max(4, Math.round(dash * 0.7));
@@ -1916,14 +2137,14 @@
       selectionMask = new Uint8Array(outW * outH);
       selectionCount = 0;
     }
-    if (!selectionVisCanvas) selectionVisCanvas = document.createElement('canvas');
+    if (!selectionVisCanvas) { selectionVisCanvas = document.createElement('canvas'); markElement(selectionVisCanvas); }
     if (selectionVisCanvas.width !== outW || selectionVisCanvas.height !== outH) {
       selectionVisCanvas.width = outW;
       selectionVisCanvas.height = outH;
       selectionVisCtx = selectionVisCanvas.getContext('2d');
       selectionVisCtx.imageSmoothingEnabled = false;
       selectionVisCtx.clearRect(0, 0, outW, outH);
-      selectionVisCtx.fillStyle = '#55aaff';
+      selectionVisCtx.fillStyle = getPrimary2Hex();
     }
   }
 
@@ -1981,7 +2202,7 @@
     
     if (selectionVisCtx) {
       selectionVisCtx.clearRect(0, 0, outW, outH);
-      selectionVisCtx.fillStyle = '#55aaff';
+      selectionVisCtx.fillStyle = getPrimary2Hex();
       for (let y = 0; y < outH; y++) {
         const row = y * outW;
         for (let x = 0; x < outW; x++) {
@@ -2159,8 +2380,19 @@
     try {
       const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
       const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
-      const ccKey = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey}`;
+      const ccKey = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}|g:${gamma}` : '|cc:0';
+      const blurKey = `|bm:${blurMode}|br:${blurRadius}`;
+      const shKey = `|shA:${sharpenAmount}|shR:${sharpenRadius}|shT:${sharpenThreshold}`;
+      const mrKey = `|mr:${modeRadius}`;
+      const pzKey = `|pz:${posterizeLevels}`;
+      const pzPKey = `|pzP:${posterizeAfterPalette?1:0}`;
+      const kwKey = `|kwE:${kwEnabled?1:0}|kwR:${kwRadius}|kwN:${kwSectors}|kwStr:${kwStrengthPct}|kwAn:${kwAnisotropyPct}|kwB:${kwBlend?1:0}|kwP:${kwAfterPalette?1:0}`;
+      const edKey = `|edE:${edgeEnabled?1:0}|edThr:${edgeThreshold}|edThk:${edgeThickness}|edN:${edgeThin?1:0}`;
+      const qmKey = `|qm:${quantMethod}`;
+      const emKey = `|edM:${edgeMethod}`;
+      const adKey = `|adE:${adaptDitherEnabled?1:0}|adThr:${adaptDitherThreshold}|adThk:${adaptDitherThickness}|adN:${adaptDitherThin?1:0}|adInv:${adaptDitherInvert?1:0}`;
+      const amKey = `|adM:${adaptDitherMethod}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey}${blurKey}${shKey}${mrKey}${pzKey}${pzPKey}${kwKey}${edKey}${qmKey}${emKey}${adKey}${amKey}`;
       const cached = previewCache.get(key);
       
       const getBaseName = () => {
@@ -2190,7 +2422,7 @@
       const filename = `${base}_${suffix}.png`;
       if (cached?.blob) { downloadBlob(cached.blob, filename); return; }
       
-      resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue)
+      resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue, gamma, blurMode, blurRadius, sharpenAmount, sharpenRadius, sharpenThreshold, modeRadius, posterizeLevels, posterizeAfterPalette, kwEnabled, kwRadius, kwSectors, kwStrengthPct, kwAnisotropyPct, kwAfterPalette, simplifyArea, kwBlend, edgeEnabled, edgeThreshold, edgeThickness, edgeThin, quantMethod, edgeMethod)
         .then((blob) => downloadBlob(blob, filename))
         .catch(() => {});
     } catch {}
@@ -2287,7 +2519,13 @@
         ditherLevels: ditherLevels,
         paletteMode: paletteMode,
         outlineThickness: outlineThickness,
-        erodeAmount: erodeAmount
+        erodeAmount: erodeAmount,
+        blurMode: blurMode,
+        blurRadius: blurRadius,
+        sharpenAmount: sharpenAmount,
+        sharpenRadius: sharpenRadius,
+        sharpenThreshold: sharpenThreshold,
+        quantMethod: quantMethod
       };
       for (const p of parts) {
         if (p.startsWith('ps:')) out.pixelSize = Math.max(1, parseFloat(p.slice(3)) || 1);
@@ -2300,10 +2538,40 @@
         else if (p.startsWith('pm:')) out.paletteMode = p.slice(3);
         else if (p.startsWith('o:')) out.outlineThickness = Math.max(0, parseInt(p.slice(2)) || 0);
         else if (p.startsWith('e:')) out.erodeAmount = Math.max(0, parseInt(p.slice(2)) || 0);
+        else if (p.startsWith('bm:')) out.blurMode = p.slice(3);
+        else if (p.startsWith('br:')) out.blurRadius = Math.max(0, parseInt(p.slice(3)) || 0);
+        else if (p.startsWith('shA:')) out.sharpenAmount = Math.max(0, parseInt(p.slice(4)) || 0);
+        else if (p.startsWith('shR:')) out.sharpenRadius = Math.max(0, parseInt(p.slice(4)) || 0);
+        else if (p.startsWith('shT:')) out.sharpenThreshold = Math.max(0, parseInt(p.slice(4)) || 0);
+        else if (p.startsWith('pz:')) out.posterizeLevels = Math.max(0, parseInt(p.slice(3)) || 0);
+        else if (p.startsWith('pzP:')) out.posterizeAfterPalette = (parseInt(p.slice(4))|0) === 1;
+        else if (p.startsWith('sa:')) out.simplifyArea = Math.max(0, parseInt(p.slice(3)) || 0);
+        else if (p.startsWith('g:')) { const gv = parseFloat(p.slice(2)); out.gamma = isNaN(gv) ? 1 : gv; }
+        else if (p.startsWith('qm:')) out.quantMethod = p.slice(3);
+        else if (p.startsWith('kwE:')) out.kwEnabled = (parseInt(p.slice(4))|0) === 1;
+        else if (p.startsWith('kwR:')) out.kwRadius = Math.max(1, parseInt(p.slice(4)) || 1);
+        else if (p.startsWith('kwN:')) out.kwSectors = ((parseInt(p.slice(4))|0)===8)?8:4;
+        else if (p.startsWith('kwStr:')) out.kwStrengthPct = Math.max(0, Math.min(100, parseInt(p.slice(6)) || 0));
+        else if (p.startsWith('kwAn:')) out.kwAnisotropyPct = Math.max(0, Math.min(100, parseInt(p.slice(5)) || 0));
+        else if (p.startsWith('kwB:')) out.kwBlend = (parseInt(p.slice(4))|0) === 1;
+        else if (p.startsWith('kwP:')) out.kwAfterPalette = (parseInt(p.slice(4))|0) === 1;
+        else if (p.startsWith('mr:')) out.modeRadius = Math.max(0, parseInt(p.slice(3)) || 0);
+        else if (p.startsWith('edE:')) out.edgeEnabled = (parseInt(p.slice(4))|0) === 1;
+        else if (p.startsWith('edThr:')) out.edgeThreshold = Math.max(0, parseInt(p.slice(6)) || 0);
+        else if (p.startsWith('edThk:')) out.edgeThickness = Math.max(1, parseInt(p.slice(6)) || 1);
+        else if (p.startsWith('edN:')) out.edgeThin = (parseInt(p.slice(4))|0) === 1;
+        else if (p.startsWith('edM:')) out.edgeMethod = p.slice(4);
+        else if (p.startsWith('adE:')) out.adaptDitherEnabled = (parseInt(p.slice(4))|0) === 1;
+        else if (p.startsWith('adThr:')) out.adaptDitherThreshold = Math.max(0, parseInt(p.slice(6)) || 0);
+        else if (p.startsWith('adThk:')) out.adaptDitherThickness = Math.max(1, parseInt(p.slice(6)) || 1);
+        else if (p.startsWith('adN:')) out.adaptDitherThin = (parseInt(p.slice(4))|0) === 1;
+        else if (p.startsWith('adInv:')) out.adaptDitherInvert = (parseInt(p.slice(6))|0) === 1;
+        else if (p.startsWith('adM:')) out.adaptDitherMethod = p.slice(4);
+        else if (p.startsWith('adF:')) out.adaptDitherFeather = Math.max(0, parseInt(p.slice(4)) || 0);
       }
       return out;
     } catch {
-      return { pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount };
+      return { pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, blurMode, blurRadius, sharpenAmount, sharpenRadius, sharpenThreshold, modeRadius, posterizeLevels, gamma, quantMethod, kwEnabled, kwRadius, kwSectors, kwStrengthPct, kwAnisotropyPct, kwBlend, kwAfterPalette, edgeEnabled, edgeThreshold, edgeThickness, edgeThin, edgeMethod };
     }
   }
   async function updatePreview() {
@@ -2333,8 +2601,20 @@
       } catch {}
       const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
       const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
-      const ccKey5 = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey5}`;
+      const ccKey5 = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}|g:${gamma}` : '|cc:0';
+      const blurKey5 = `|bm:${blurMode}|br:${blurRadius}`;
+      const shKey5 = `|shA:${sharpenAmount}|shR:${sharpenRadius}|shT:${sharpenThreshold}`;
+      const mrKey5 = `|mr:${modeRadius}`;
+      const pzKey5 = `|pz:${posterizeLevels}`;
+      const pzPKey5 = `|pzP:${posterizeAfterPalette?1:0}`;
+      const saKey5 = `|sa:${simplifyArea}`;
+      const kwKey5 = `|kwE:${kwEnabled?1:0}|kwR:${kwRadius}|kwN:${kwSectors}|kwStr:${kwStrengthPct}|kwAn:${kwAnisotropyPct}|kwB:${kwBlend?1:0}|kwP:${kwAfterPalette?1:0}`;
+      const edKey5 = `|edE:${edgeEnabled?1:0}|edThr:${edgeThreshold}|edThk:${edgeThickness}|edN:${edgeThin?1:0}`;
+      const qmKey5 = `|qm:${quantMethod}`;
+      const emKey5 = `|edM:${edgeMethod}`;
+      const adKey5 = `|adE:${adaptDitherEnabled?1:0}|adThr:${adaptDitherThreshold}|adThk:${adaptDitherThickness}|adN:${adaptDitherThin?1:0}|adInv:${adaptDitherInvert?1:0}|adF:${adaptDitherFeather}`;
+      const amKey5 = `|adM:${adaptDitherMethod}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey5}${blurKey5}${shKey5}${mrKey5}${pzKey5}${pzPKey5}${saKey5}${kwKey5}${edKey5}${qmKey5}${emKey5}${adKey5}${amKey5}`;
       const cached = previewCache.get(key);
       if (cached) {
         
@@ -2368,6 +2648,7 @@
               paletteMode,
               outlineThickness: outlineThickness|0 || 0,
               erodeAmount: erodeAmount|0 || 0,
+              simplifyArea: simplifyArea|0 || 0,
               customIndices: (paletteMode === 'custom') ? (customIndices || []) : [],
               palette: allowedColors || [],
               key,
@@ -2375,7 +2656,36 @@
               brightness: brightness|0 || 0,
               contrast: contrast|0 || 0,
               saturation: saturation|0 || 0,
-              hue: hue|0 || 0
+              hue: hue|0 || 0,
+              gamma: Number(gamma) || 1,
+              blurMode,
+              blurRadius: blurRadius|0 || 0,
+              sharpenAmount: sharpenAmount|0 || 0,
+              sharpenRadius: sharpenRadius|0 || 0,
+              sharpenThreshold: sharpenThreshold|0 || 0,
+              modeRadius: modeRadius|0 || 0,
+              posterizeLevels: posterizeLevels|0 || 0,
+              posterizeAfterPalette: !!posterizeAfterPalette,
+              kwEnabled: !!kwEnabled,
+              kwRadius: kwRadius|0 || 0,
+              kwSectors: kwSectors|0 || 0,
+              kwStrengthPct: kwStrengthPct|0 || 0,
+              kwAnisotropyPct: kwAnisotropyPct|0 || 0,
+              kwAfterPalette: !!kwAfterPalette,
+              kwBlend: !!kwBlend,
+              edgeEnabled: !!edgeEnabled,
+              edgeThreshold: edgeThreshold|0 || 0,
+              edgeThickness: edgeThickness|0 || 1,
+              edgeThin: !!edgeThin,
+              quantMethod: quantMethod,
+              edgeMethod: edgeMethod,
+              adaptDitherEnabled: !!adaptDitherEnabled,
+              adaptDitherMethod: adaptDitherMethod,
+              adaptDitherThreshold: adaptDitherThreshold|0 || 0,
+              adaptDitherThickness: adaptDitherThickness|0 || 1,
+              adaptDitherThin: !!adaptDitherThin,
+              adaptDitherInvert: !!adaptDitherInvert,
+              adaptDitherFeather: adaptDitherFeather|0 || 0
             });
             lastPreviewJob = jid; lastPreviewFinalApplied = false;
             jobSeq = Math.max(jobSeq, jid);
@@ -2389,7 +2699,7 @@
           const fallbackReason = workerLimited ? 'worker capabilities limited' : 'worker not ready';
           try { console.debug('[wph] fallback to CPU processing:', fallbackReason); } catch {}
           
-          const out = await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue);
+          const out = await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue, gamma, blurMode, blurRadius, sharpenAmount, sharpenRadius, sharpenThreshold, modeRadius, posterizeLevels, posterizeAfterPalette, kwEnabled, kwRadius, kwSectors, kwStrengthPct, kwAnisotropyPct, kwAfterPalette, simplifyArea, kwBlend, edgeEnabled, edgeThreshold, edgeThickness, edgeThin, quantMethod, edgeMethod, adaptDitherEnabled, adaptDitherMethod, adaptDitherThreshold, adaptDitherThickness, adaptDitherThin, adaptDitherInvert, adaptDitherFeather);
           const obj = await blobToObjectUrl(out);
           previewUrl = obj.url;
           const stats = await computeStatsForBlob(out);
@@ -2429,6 +2739,21 @@
     paletteMode = 'full';
     outlineThickness = 0;
     erodeAmount = 0;
+    blurMode = 'none';
+    blurRadius = 0;
+    sharpenAmount = 0;
+    sharpenRadius = 0;
+    sharpenThreshold = 0;
+    modeRadius = 0;
+    posterizeLevels = 0;
+    posterizeAfterPalette = false;
+    kwEnabled = false;
+    kwRadius = 4;
+    kwSectors = 8;
+    kwStrengthPct = 100;
+    kwAnisotropyPct = 60;
+    kwBlend = false;
+    kwAfterPalette = false;
     
     
     customIndices = [];
@@ -2507,10 +2832,21 @@
     try {
       const customKeyNow = (paletteMode === 'custom' && customIndices && customIndices.length) ? customIndices.join('-') : '';
       const customDitherKeyNow = (ditherMethod === 'custom') ? (customDitherAppliedKey || '') : '';
-      const ccKey = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}` : '|cc:0';
-      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey}`;
+      const ccKey = colorCorrectionEnabled ? `|cc:1|b:${brightness}|c:${contrast}|s:${saturation}|h:${hue}|g:${gamma}` : '|cc:0';
+      const blurKey = `|bm:${blurMode}|br:${blurRadius}`;
+      const shKey = `|shA:${sharpenAmount}|shR:${sharpenRadius}|shT:${sharpenThreshold}`;
+      const mrKey = `|mr:${modeRadius}`;
+      const pzKey = `|pz:${posterizeLevels}`;
+      const pzPKey = `|pzP:${posterizeAfterPalette?1:0}`;
+      const kwKey = `|kwE:${kwEnabled?1:0}|kwR:${kwRadius}|kwN:${kwSectors}|kwStr:${kwStrengthPct}|kwAn:${kwAnisotropyPct}|kwB:${kwBlend?1:0}|kwP:${kwAfterPalette?1:0}`;
+      const edKey = `|edE:${edgeEnabled?1:0}|edThr:${edgeThreshold}|edThk:${edgeThickness}|edN:${edgeThin?1:0}`;
+      const qmKey = `|qm:${quantMethod}`;
+      const emKey = `|edM:${edgeMethod}`;
+      const adKey = `|adE:${adaptDitherEnabled?1:0}|adThr:${adaptDitherThreshold}|adThk:${adaptDitherThickness}|adN:${adaptDitherThin?1:0}|adInv:${adaptDitherInvert?1:0}`;
+      const amKey = `|adM:${adaptDitherMethod}`;
+      const key = `${fileStamp}|ps:${pixelSize}|m:${method}|dm:${ditherMethod}|dl:${ditherLevels}|pm:${paletteMode}|o:${outlineThickness}|e:${erodeAmount}${paletteMode==='custom'?`|ci:${customKeyNow}`:''}${ditherMethod==='custom'?`|cp:${customDitherKeyNow}`:''}${ccKey}${blurKey}${shKey}${mrKey}${pzKey}${pzPKey}${kwKey}${edKey}${qmKey}${emKey}${adKey}${amKey}`;
       const cached = previewCache.get(key);
-      const out = cached?.blob || await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue);
+      const out = cached?.blob || await resampleAndDither(file, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customIndices, colorCorrectionEnabled, brightness, contrast, saturation, hue, gamma, blurMode, blurRadius, sharpenAmount, sharpenRadius, sharpenThreshold, modeRadius, posterizeLevels, posterizeAfterPalette, kwEnabled, kwRadius, kwSectors, kwStrengthPct, kwAnisotropyPct, kwAfterPalette, simplifyArea, kwBlend, edgeEnabled, edgeThreshold, edgeThickness, edgeThin, quantMethod, edgeMethod, adaptDitherEnabled, adaptDitherMethod, adaptDitherThreshold, adaptDitherThickness, adaptDitherThin, adaptDitherInvert);
       
       dispatch('apply', { blob: out, pixelSize, method, ditherMethod, ditherLevels, paletteMode, outlineThickness, erodeAmount, customKey: customKeyNow, hadPixelEdits });
       
@@ -2534,6 +2870,13 @@
     saturation = 0;
     hue = 0;
     colorCorrectionEnabled = false;
+    kwEnabled = false;
+    kwRadius = 4;
+    kwSectors = 8;
+    kwStrengthPct = 100;
+    kwAnisotropyPct = 60;
+    kwBlend = false;
+    kwAfterPalette = false;
     schedulePreviewUpdate();
   }
 
@@ -2636,7 +2979,11 @@
   $: if (open) {
     
     hadPixelEdits = false;
-    tick().then(() => debugLayout('after-open'));
+    tick().then(() => {
+      debugLayout('after-open');
+      console.log('[Tutorial/Editor] Editor opened, dispatching editor:opened event');
+      window.dispatchEvent(new CustomEvent('editor:opened'));
+    });
   }
 
   
@@ -2648,10 +2995,10 @@
 <svelte:window on:resize={onWindowResize} on:wheel={onGlobalWheelWrapper} on:mousemove={onWindowMouseMoveWrapper} on:mouseup={() => { isPatternDragging = false; onWindowMouseUpWrapper(); }} on:keydown={onWindowKeyDownWrapper} />
 
 {#if open}
-  <div use:appendToBody class="editor-backdrop" bind:this={backdropRef} role="button" tabindex="0" style={`z-index:1000000000000; display:${suspendVisible ? 'none' : 'flex'};`}
+  <div use:appendToBody class="editor-backdrop" bind:this={backdropRef} role="button" tabindex="0" style={`display:${suspendVisible ? 'none' : 'flex'};`}
        on:click={(e) => { if (e.target === e.currentTarget) close(); }}
        on:keydown={onBackdropKeyDownWrapper}>
-    <div class="editor-modal" bind:this={modalRef} role="dialog" aria-modal="true" tabindex="-1" style="z-index:1000000000001;">
+    <div class="editor-modal" bind:this={modalRef} role="dialog" aria-modal="true" tabindex="-1" style="z-index: var(--z-modal);">
       <div class="editor-grid">
         
         <div class="editor-panel" class:locked={editMode} bind:this={panelRef}
@@ -2670,7 +3017,7 @@
                 />
               </div>
             </div>
-            <div class="editor-control">
+            <div class="editor-control" data-tutorial="pixelsize">
               <div class="editor-control-title">{t('editor.panel.downscale.pixelSize')}</div>
               <div class="editor-row">
                 <input type="range" min="1" max="20" step="0.1" bind:value={pixelSize} on:input={() => schedulePreviewUpdate()} style="--min:1; --max:20; --val:{pixelSize};" />
@@ -2678,9 +3025,57 @@
               </div>
               <div class="editor-hint">{t('editor.panel.resultSize')}: {Math.max(1, Math.floor(originalDims.w / pixelSize))} × {Math.max(1, Math.floor(originalDims.h / pixelSize))}</div>
             </div>
+                        <div class="editor-subgroup">
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.panel.preblur.title')}</div>
+                <div class="editor-row">
+                  <CustomSelect 
+                    bind:value={blurMode} 
+                    options={[
+                      { value: 'none', label: t('editor.preblur.method.none') },
+                      { value: 'box', label: t('editor.preblur.method.box') },
+                      { value: 'gaussian', label: t('editor.preblur.method.gaussian') },
+                      { value: 'bilateral', label: t('editor.preblur.method.bilateral') },
+                      { value: 'kuwahara', label: t('editor.preblur.method.kuwahara') }
+                    ]}
+                    onChange={() => { if (blurMode==='kuwahara' && ((blurRadius|0)===0)) { blurRadius = 4; } schedulePreviewUpdate(); }}
+                  />
+                </div>
+              </div>
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.preblur.radius')}</div>
+                <div class="editor-row">
+                  <input type="range" min="0" max="20" step="1" bind:value={blurRadius} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:20; --val:{blurRadius};" />
+                  <input type="number" min="0" max="20" step="1" inputmode="numeric" bind:value={blurRadius} on:change={() => { blurRadius = clampStep(blurRadius, 0, 20, 1); schedulePreviewUpdate(); }} on:blur={() => { blurRadius = clampStep(blurRadius, 0, 20, 1); }} class="editor-number" />
+                </div>
+              </div>
+            </div>
+            <div class="editor-subgroup">
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.sharpen.amount')}</div>
+                <div class="editor-row">
+                  <input type="range" min="0" max="300" step="5" bind:value={sharpenAmount} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:300; --val:{sharpenAmount};" />
+                  <input type="number" min="0" max="300" step="5" inputmode="numeric" bind:value={sharpenAmount} on:change={() => { sharpenAmount = clampStep(sharpenAmount, 0, 300, 5); schedulePreviewUpdate(); }} on:blur={() => { sharpenAmount = clampStep(sharpenAmount, 0, 300, 5); }} class="editor-number" />
+                </div>
+              </div>
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.sharpen.radius')}</div>
+                <div class="editor-row">
+                  <input type="range" min="0" max="20" step="1" bind:value={sharpenRadius} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:20; --val:{sharpenRadius};" />
+                  <input type="number" min="0" max="20" step="1" inputmode="numeric" bind:value={sharpenRadius} on:change={() => { sharpenRadius = clampStep(sharpenRadius, 0, 20, 1); schedulePreviewUpdate(); }} on:blur={() => { sharpenRadius = clampStep(sharpenRadius, 0, 20, 1); }} class="editor-number" />
+                </div>
+              </div>
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.sharpen.threshold')}</div>
+                <div class="editor-row">
+                  <input type="range" min="0" max="64" step="1" bind:value={sharpenThreshold} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:64; --val:{sharpenThreshold};" />
+                  <input type="number" min="0" max="64" step="1" inputmode="numeric" bind:value={sharpenThreshold} on:change={() => { sharpenThreshold = clampStep(sharpenThreshold, 0, 64, 1); schedulePreviewUpdate(); }} on:blur={() => { sharpenThreshold = clampStep(sharpenThreshold, 0, 64, 1); }} class="editor-number" />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="editor-group">
+          <div class="editor-group" data-tutorial="dither">
             <div class="editor-group-title">{t('editor.panel.dither.title')}</div>
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.method')}</div>
@@ -2711,6 +3106,13 @@
             {:else}
               <div class="editor-hint">{t('editor.panel.dither.strengthUnavailable')}</div>
             {/if}
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.posterize.levels')}</div>
+              <div class="editor-row">
+                <input type="range" min="0" max="16" step="1" bind:value={posterizeLevels} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:16; --val:{posterizeLevels};" />
+                <input type="number" min="0" max="16" step="1" inputmode="numeric" bind:value={posterizeLevels} on:change={() => { posterizeLevels = clampStep(posterizeLevels, 0, 16, 1); schedulePreviewUpdate(); }} on:blur={() => { posterizeLevels = clampStep(posterizeLevels, 0, 16, 1); }} class="editor-number" />
+              </div>
+            </div>
             {#if ditherMethod === 'custom'}
               <div class="custom-dither-panel">
                 {#if t('editor.dither.custom.title')}
@@ -2744,9 +3146,131 @@
               </div>
             {/if}
           </div>
+          <div class="editor-group" data-tutorial="adaptive-dithering">
+            <div class="editor-group-title">
+              {t('editor.adaptive.title')}
+              <label class="color-correction-toggle">
+                <input type="checkbox" bind:checked={adaptDitherEnabled} on:change={() => schedulePreviewUpdate()} />
+                <span class="checkmark"></span>
+              </label>
+            </div>
+            {#if adaptDitherEnabled}
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.adaptive.method')}</div>
+                <div class="editor-row">
+                  <CustomSelect 
+                    bind:value={adaptDitherMethod} 
+                    options={[{ value: 'sobel', label: t('editor.edge.method.sobel') }, { value: 'prewitt', label: t('editor.edge.method.prewitt') }, { value: 'scharr', label: t('editor.edge.method.scharr') }, { value: 'laplacian', label: t('editor.edge.method.laplacian') }]}
+                    onChange={() => schedulePreviewUpdate()}
+                  />
+                </div>
+              </div>
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.adaptive.threshold')}</div>
+                <div class="editor-row">
+                  <input type="range" min="0" max="255" step="1" bind:value={adaptDitherThreshold} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:255; --val:{adaptDitherThreshold};" />
+                  <input type="number" min="0" max="255" step="1" inputmode="numeric" bind:value={adaptDitherThreshold} on:change={() => { adaptDitherThreshold = clampStep(adaptDitherThreshold, 0, 255, 1); schedulePreviewUpdate(); }} on:blur={() => { adaptDitherThreshold = clampStep(adaptDitherThreshold, 0, 255, 1); }} class="editor-number" />
+                </div>
+              </div>
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.adaptive.thickness')}</div>
+                <div class="editor-row">
+                  <input type="range" min="1" max="6" step="1" bind:value={adaptDitherThickness} on:input={() => schedulePreviewUpdate()} style="--min:1; --max:6; --val:{adaptDitherThickness};" />
+                  <input type="number" min="1" max="6" step="1" inputmode="numeric" bind:value={adaptDitherThickness} on:change={() => { adaptDitherThickness = clampStep(adaptDitherThickness, 1, 6, 1); schedulePreviewUpdate(); }} on:blur={() => { adaptDitherThickness = clampStep(adaptDitherThickness, 1, 6, 1); }} class="editor-number" />
+                </div>
+              </div>
+              <div class="editor-control">
+                <div class="editor-control-title">
+                  {t('editor.adaptive.thinMask')}
+                  <label class="color-correction-toggle">
+                    <input type="checkbox" bind:checked={adaptDitherThin} on:change={() => schedulePreviewUpdate()} />
+                    <span class="checkmark"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="editor-control">
+                <div class="editor-control-title">
+                  {t('editor.adaptive.invertMask')}
+                  <label class="color-correction-toggle">
+                    <input type="checkbox" bind:checked={adaptDitherInvert} on:change={() => schedulePreviewUpdate()} />
+                    <span class="checkmark"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="editor-control">
+                <div class="editor-control-title">{t('editor.adaptive.feather')}</div>
+                <div class="editor-row">
+                  <input type="range" min="0" max="10" step="1" bind:value={adaptDitherFeather} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:10; --val:{adaptDitherFeather};" />
+                  <input type="number" min="0" max="10" step="1" inputmode="numeric" bind:value={adaptDitherFeather} on:change={() => { adaptDitherFeather = clampStep(adaptDitherFeather, 0, 10, 1); schedulePreviewUpdate(); }} on:blur={() => { adaptDitherFeather = clampStep(adaptDitherFeather, 0, 10, 1); }} class="editor-number" />
+                </div>
+              </div>
+            {/if}
+          </div>
 
-          <div class="editor-group">
+          <div class="editor-group" data-tutorial="kuwahara">
+            <div class="editor-group-title">{t('editor.kuwahara.title')}
+              <label class="color-correction-toggle">
+                <input type="checkbox" bind:checked={kwEnabled} on:change={() => schedulePreviewUpdate()} />
+                <span class="checkmark"></span>
+              </label>
+            </div>
+            {#if kwEnabled}
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.kuwahara.radius')}</div>
+              <div class="editor-row">
+                <input type="range" min="1" max="20" step="1" bind:value={kwRadius} on:input={() => schedulePreviewUpdate()} style="--min:1; --max:20; --val:{kwRadius};" />
+                <input type="number" min="1" max="20" step="1" inputmode="numeric" bind:value={kwRadius} on:change={() => { kwRadius = clampStep(kwRadius, 1, 20, 1); schedulePreviewUpdate(); }} on:blur={() => { kwRadius = clampStep(kwRadius, 1, 20, 1); }} class="editor-number" />
+              </div>
+            </div>
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.kuwahara.sectors')}</div>
+              <div class="editor-row">
+                <CustomSelect bind:value={kwSectors} options={[{ value: 4, label: '4' }, { value: 8, label: '8' }]} onChange={() => schedulePreviewUpdate()} />
+              </div>
+            </div>
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.kuwahara.strength')}</div>
+              <div class="editor-row">
+                <input type="range" min="0" max="100" step="1" bind:value={kwStrengthPct} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:100; --val:{kwStrengthPct};" />
+                <input type="number" min="0" max="100" step="1" inputmode="numeric" bind:value={kwStrengthPct} on:change={() => { kwStrengthPct = clampStep(kwStrengthPct, 0, 100, 1); schedulePreviewUpdate(); }} on:blur={() => { kwStrengthPct = clampStep(kwStrengthPct, 0, 100, 1); }} class="editor-number" />
+              </div>
+            </div>
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.kuwahara.anisotropy')}</div>
+              <div class="editor-row">
+                <input type="range" min="0" max="100" step="1" bind:value={kwAnisotropyPct} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:100; --val:{kwAnisotropyPct};" />
+                <input type="number" min="0" max="100" step="1" inputmode="numeric" bind:value={kwAnisotropyPct} on:change={() => { kwAnisotropyPct = clampStep(kwAnisotropyPct, 0, 100, 1); schedulePreviewUpdate(); }} on:blur={() => { kwAnisotropyPct = clampStep(kwAnisotropyPct, 0, 100, 1); }} class="editor-number" />
+              </div>
+            </div>
+            <div class="editor-control">
+              <div class="editor-control-title">
+                {t('editor.kuwahara.blended')}
+                <label class="color-correction-toggle">
+                  <input type="checkbox" bind:checked={kwBlend} on:change={() => schedulePreviewUpdate()} />
+                  <span class="checkmark"></span>
+                </label>
+              </div>
+            </div>
+            {/if}
+          </div>
+
+          <div class="editor-group" data-tutorial="palette">
             <div class="editor-group-title">{t('editor.panel.palette.title')}</div>
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.quant.title')}</div>
+              <div class="editor-row">
+                <CustomSelect 
+                  bind:value={quantMethod} 
+                  options={[
+                    { value: 'rgb', label: t('editor.quant.method.rgb') },
+                    { value: 'linear', label: t('editor.quant.method.linear') },
+                    { value: 'oklab', label: t('editor.quant.method.oklab') },
+                    { value: 'ycbcr', label: t('editor.quant.method.ycbcr') }
+                  ]}
+                  onChange={() => schedulePreviewUpdate()}
+                />
+              </div>
+            </div>
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.palette.set')}</div>
               <div class="editor-row">
@@ -2861,11 +3385,69 @@
 
           <div class="editor-group">
             <div class="editor-group-title">{t('editor.panel.post.title')}</div>
+            <div class="editor-subgroup">
+            <div class="editor-control">
+              <div class="editor-control-title">
+                {t('editor.edge.overlay')}
+                <label class="color-correction-toggle">
+                  <input type="checkbox" bind:checked={edgeEnabled} on:change={() => schedulePreviewUpdate()} />
+                  <span class="checkmark"></span>
+                </label>
+              </div>
+            </div>
+            {#if edgeEnabled}
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.edge.method')}</div>
+              <div class="editor-row">
+                <CustomSelect 
+                  bind:value={edgeMethod} 
+                  options={[
+                    { value: 'sobel', label: t('editor.edge.method.sobel') },
+                    { value: 'prewitt', label: t('editor.edge.method.prewitt') },
+                    { value: 'scharr', label: t('editor.edge.method.scharr') },
+                    { value: 'laplacian', label: t('editor.edge.method.laplacian') }
+                  ]}
+                  onChange={() => schedulePreviewUpdate()}
+                />
+              </div>
+            </div>
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.edge.threshold')}</div>
+              <div class="editor-row">
+                <input type="range" min="0" max="255" step="1" bind:value={edgeThreshold} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:255; --val:{edgeThreshold};" />
+                <input type="number" min="0" max="255" step="1" inputmode="numeric" bind:value={edgeThreshold} on:change={() => { edgeThreshold = clampStep(edgeThreshold, 0, 255, 1); schedulePreviewUpdate(); }} on:blur={() => { edgeThreshold = clampStep(edgeThreshold, 0, 255, 1); }} class="editor-number" />
+              </div>
+            </div>
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.edge.thickness')}</div>
+              <div class="editor-row">
+                <input type="range" min="1" max="6" step="1" bind:value={edgeThickness} on:input={() => schedulePreviewUpdate()} style="--min:1; --max:6; --val:{edgeThickness};" />
+                <input type="number" min="1" max="6" step="1" inputmode="numeric" bind:value={edgeThickness} on:change={() => { edgeThickness = clampStep(edgeThickness, 1, 6, 1); schedulePreviewUpdate(); }} on:blur={() => { edgeThickness = clampStep(edgeThickness, 1, 6, 1); }} class="editor-number" />
+              </div>
+            </div>
+            <div class="editor-control">
+              <div class="editor-control-title">
+                {t('editor.edge.thin')}
+                <label class="color-correction-toggle">
+                  <input type="checkbox" bind:checked={edgeThin} on:change={() => schedulePreviewUpdate()} />
+                  <span class="checkmark"></span>
+                </label>
+              </div>
+            </div>
+            {/if}
+            </div>
             <div class="editor-control">
               <div class="editor-control-title">{t('editor.panel.post.outline')}</div>
               <div class="editor-row">
                 <input type="range" min="0" max="8" step="1" bind:value={outlineThickness} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:8; --val:{outlineThickness};" />
                 <input type="number" min="0" max="8" step="1" inputmode="numeric" bind:value={outlineThickness} on:change={() => { outlineThickness = clampStep(outlineThickness, 0, 8, 1); schedulePreviewUpdate(); }} on:blur={() => { outlineThickness = clampStep(outlineThickness, 0, 8, 1); }} class="editor-number" />
+              </div>
+            </div>
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.post.simplifyRegions')}</div>
+              <div class="editor-row">
+                <input type="range" min="0" max="500" step="10" bind:value={simplifyArea} on:input={() => schedulePreviewUpdate()} style="--min:0; --max:500; --val:{simplifyArea};" />
+                <input type="number" min="0" max="500" step="10" inputmode="numeric" bind:value={simplifyArea} on:change={() => { simplifyArea = clampStep(simplifyArea, 0, 500, 10); schedulePreviewUpdate(); }} on:blur={() => { simplifyArea = clampStep(simplifyArea, 0, 500, 10); }} class="editor-number" />
               </div>
             </div>
             <div class="editor-control">
@@ -2875,10 +3457,17 @@
                 <input type="number" min="0" max="8" step="1" inputmode="numeric" bind:value={erodeAmount} on:change={() => { erodeAmount = clampStep(erodeAmount, 0, 8, 1); schedulePreviewUpdate(); }} on:blur={() => { erodeAmount = clampStep(erodeAmount, 0, 8, 1); }} class="editor-number" />
               </div>
             </div>
+            <div class="editor-control">
+              <div class="editor-control-title">{t('editor.post.modeFilterSize')}</div>
+              <div class="editor-row">
+                <input type="range" min="1" max="10" step="1" bind:value={modeRadius} on:input={() => schedulePreviewUpdate()} style="--min:1; --max:10; --val:{modeRadius};" />
+                <input type="number" min="1" max="10" step="1" inputmode="numeric" bind:value={modeRadius} on:change={() => { modeRadius = clampStep(modeRadius, 1, 10, 1); schedulePreviewUpdate(); }} on:blur={() => { modeRadius = clampStep(modeRadius, 1, 10, 1); }} class="editor-number" />
+              </div>
+            </div>
           </div>
 
           
-          <div class="editor-group">
+          <div class="editor-group" data-tutorial="color-correction">
             <div class="editor-group-title">
               {t('editor.panel.colorCorrection.title')}
               <label class="color-correction-toggle">
@@ -2935,6 +3524,17 @@
                         on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); hue = 0; schedulePreviewUpdate(); } }} />
                 </div>
               </div>
+              <div class="editor-control">
+                <div class="editor-control-title">Gamma</div>
+                <div class="editor-row">
+                  <input type="range" min="0.2" max="5" step="0.1" bind:value={gamma} on:input={() => schedulePreviewUpdate()} style="--min:0.2; --max:5; --val:{gamma};" />
+                  <input type="number" min="0.2" max="5" step="0.1" inputmode="decimal" bind:value={gamma} on:change={() => { gamma = clampStep(gamma, 0.2, 5, 0.1); schedulePreviewUpdate(); }} on:blur={() => { gamma = clampStep(gamma, 0.2, 5, 0.1); }} class="editor-number" />
+                  <span class="reset-dot" role="button" tabindex="0" title={t('editor.reset.title')}
+                        aria-label="Reset gamma"
+                        on:click={() => { gamma = 1; schedulePreviewUpdate(); }}
+                        on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); gamma = 1; schedulePreviewUpdate(); } }} />
+                </div>
+              </div>
             {/if}
           </div>
 
@@ -2942,7 +3542,7 @@
             <button class="editor-btn" on:click={reset} disabled={working}>{t('editor.reset')}</button>
             <div style="flex:1"></div>
             <button class="editor-btn" on:click={close}>{t('common.cancel')}</button>
-            <button class="editor-btn editor-primary" on:click={apply} disabled={working || !file}>{t('editor.apply')}</button>
+            <button class="editor-btn editor-primary" on:click={apply} disabled={working || !file} data-tutorial="apply-button">{t('editor.apply')}</button>
           </div>
           {#if editMode}
             
@@ -2977,7 +3577,7 @@
         </div>
 
         
-        <div class="editor-output">
+        <div class="editor-output" data-tutorial="editor-preview">
           <div class="editor-output-box" bind:this={outputBox}>
             <div class="editor-output-header" class:compact={editMode}>
               <HeaderStats {outW} {outH} {opaqueCount} {colorCount} {etaSeconds} {formatEta} compact={editMode} />
@@ -3058,7 +3658,7 @@
               </div>
             {/if}
           
-            <div class="fab-container" class:editing={editMode}>
+            <div class="fab-container" class:editing={editMode} data-tutorial="tools">
       
               <div class="fab-tools" class:open={editMode} class:disabled={stickerMode} aria-hidden={!editMode}>
           
@@ -3217,6 +3817,7 @@
                   class="comparison-mode-fab" 
                   title={t('editor.comparison.mode').replace('{0}', $comparisonImages.length)}
                   on:click={openComparisonModal}
+                  data-tutorial="comparison-mode-fab"
                 >
                   <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
                     <path d="M20,16a5,5,0,0,0,10,0,1,1,0,0,0-.1055-.4473L25.896,7.5562a.8913.8913,0,0,0-.0454-.0816A1,1,0,0,0,25,7H18.8218A3.0155,3.0155,0,0,0,17,5.1841V2H15V5.1841A3.0155,3.0155,0,0,0,13.1782,7H7a1,1,0,0,0-.8945.5527l-4,8A1,1,0,0,0,2,16a5,5,0,0,0,10,0,1,1,0,0,0-.1055-.4473L8.6182,9h4.56A3.0147,3.0147,0,0,0,15,10.8154V28H6v2H26V28H17V10.8159A3.0155,3.0155,0,0,0,18.8218,9h4.56l-3.2763,6.5527A1,1,0,0,0,20,16ZM7,19a2.9958,2.9958,0,0,1-2.8152-2h5.63A2.9956,2.9956,0,0,1,7,19Zm2.3821-4H4.6179L7,10.2363ZM16,9a1,1,0,1,1,1-1A1.0009,1.0009,0,0,1,16,9Zm9,10a2.9958,2.9958,0,0,1-2.8152-2h5.63A2.9956,2.9956,0,0,1,25,19Zm0-8.7637L27.3821,15H22.6179Z"/>
@@ -3235,6 +3836,7 @@
                 disabled={!$canAddMore || working}
                 title={isCurrentImageInComparison ? t('editor.comparison.remove') : t('editor.comparison.add')}
                 on:click={addToComparison}
+                data-tutorial="add-comparison-fab"
               >
                 {#if isCurrentImageInComparison}
                   
@@ -3313,11 +3915,11 @@
   .editor-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: var(--wph-backdrop, rgba(0,0,0,0.5));
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 2147483646; 
+    z-index: var(--z-backdrop); 
     pointer-events: auto;
     isolation: isolate;
   }
@@ -3326,22 +3928,22 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    z-index: var(--z-modal, 2147483605);
     pointer-events: auto;
     width: min(92vw, 980px);
     height: 86vh; 
     max-height: 86vh;
     min-height: 420px;
-    background: rgba(17, 17, 17, 0.96) !important;
-    border: 1px solid rgba(255,255,255,0.15);
+    background: var(--wph-surface, rgba(17,17,17,0.96)) !important;
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.15));
     border-radius: 16px;
     box-shadow: 0 16px 36px rgba(0,0,0,0.5);
     backdrop-filter: blur(8px);
     padding: 12px;
     overflow: hidden;
-    z-index: 2147483647;
     opacity: 1 !important;
     visibility: visible !important;
-    color: #fff;
+    color: var(--wph-text, #fff);
     display: grid;
     grid-template-rows: 1fr;
   }
@@ -3353,8 +3955,8 @@
     min-height: 0; 
   }
   .editor-panel {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: var(--wph-surface, rgba(255,255,255,0.04));
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.12));
     border-radius: 10px;
     padding: 10px;
     display: flex;
@@ -3362,7 +3964,7 @@
     gap: 12px;
     overflow-y: auto; 
     scrollbar-gutter: stable; 
-    scrollbar-color: rgba(255,255,255,0.35) rgba(255,255,255,0.08);
+    scrollbar-color: var(--wph-border, rgba(255,255,255,0.35)) var(--wph-surface, rgba(255,255,255,0.08));
     scrollbar-width: thin;
     min-height: 0; 
     position: relative; 
@@ -3379,23 +3981,38 @@
   
   .editor-panel.locked { overflow: hidden; scrollbar-width: none; }
   :global(.editor-panel.locked::-webkit-scrollbar) { width: 0 !important; height: 0 !important; }
-  :global(.editor-panel::-webkit-scrollbar) { width: 6px; height: 6px; }
-  :global(.editor-panel::-webkit-scrollbar-track) { background: rgba(255,255,255,0.06); border-radius: 8px; }
-  :global(.editor-panel::-webkit-scrollbar-thumb) { background: rgba(255,255,255,0.28); border-radius: 8px; }
-  :global(.editor-panel::-webkit-scrollbar-thumb:hover) { background: rgba(255,255,255,0.38); }
-  :global(.editor-panel::-webkit-scrollbar-button) { display: none; width: 0; height: 0; }
-  :global(.editor-panel::-webkit-scrollbar-button:single-button) { display: none; width: 0; height: 0; }
+  :global(.editor-panel::-webkit-scrollbar) { width: 8px; height: 8px; }
+  :global(.editor-panel::-webkit-scrollbar-track) { background: var(--wph-surface, rgba(255,255,255,0.08)); border-radius: 8px; }
+  :global(.editor-panel::-webkit-scrollbar-thumb) { background: var(--wph-border, rgba(255,255,255,0.35)); border-radius: 8px; }
+  :global(.editor-panel::-webkit-scrollbar-thumb:hover) { background: var(--wph-border, rgba(255,255,255,0.38)); }
+  :global(.editor-panel::-webkit-scrollbar-button) { display: none !important; width: 0 !important; height: 0 !important; background: transparent !important; border: 0 !important; }
+  :global(.editor-panel::-webkit-scrollbar-button:single-button) { display: none !important; width: 0 !important; height: 0 !important; }
   :global(.editor-panel::-webkit-scrollbar-button:vertical:decrement),
   :global(.editor-panel::-webkit-scrollbar-button:vertical:increment),
   :global(.editor-panel::-webkit-scrollbar-button:start:decrement),
-  :global(.editor-panel::-webkit-scrollbar-button:end:increment) { display: none; width: 0; height: 0; }
+  :global(.editor-panel::-webkit-scrollbar-button:end:increment) { display: none !important; width: 0 !important; height: 0 !important; }
+  :global(.editor-panel *::-webkit-scrollbar-button) { display: none !important; width: 0 !important; height: 0 !important; background: transparent !important; border: 0 !important; }
+  :global(.editor-panel *::-webkit-scrollbar-button:single-button) { display: none !important; width: 0 !important; height: 0 !important; }
+  :global(.editor-panel *::-webkit-scrollbar-button:vertical:decrement),
+  :global(.editor-panel *::-webkit-scrollbar-button:vertical:increment),
+  :global(.editor-panel *::-webkit-scrollbar-button:start:decrement),
+  :global(.editor-panel *::-webkit-scrollbar-button:end:increment) { display: none !important; width: 0 !important; height: 0 !important; }
+  :global(.editor-panel::-webkit-scrollbar-corner),
+  :global(.editor-panel *::-webkit-scrollbar-corner) { background: transparent !important; }
   .editor-panel-title {
     font-weight: 600;
     opacity: 0.9;
     margin-bottom: 4px;
   }
-  .editor-control { display: flex; flex-direction: column; gap: 6px; }
-  .editor-control-title { font-size: 13px; opacity: .9; }
+  .editor-control { display: flex; flex-direction: column; gap: 6px; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+  .editor-control-title {
+    font-size: 13px;
+    opacity: .9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
   .editor-row { display: flex; align-items: center; gap: 10px; }
   .editor-row input[type="range"] { flex: 1; }
   .reset-dot {
@@ -3404,7 +4021,7 @@
     min-width: 12px;
     min-height: 12px;
     border-radius: 50%;
-    background: #f05123;
+    background: var(--wph-primary, #f05123);
     border: 1px solid rgba(0,0,0,0.25);
     box-shadow: 0 1px 2px rgba(0,0,0,0.35);
     display: inline-block;
@@ -3413,7 +4030,7 @@
   }
   .reset-dot:hover { filter: brightness(1.05); }
   .reset-dot:active { transform: scale(0.95); }
-  .reset-dot:focus { box-shadow: 0 0 0 2px rgba(240,81,35,0.45), 0 1px 2px rgba(0,0,0,0.35); }
+  .reset-dot:focus { box-shadow: 0 0 0 2px var(--wph-primaryGlow, rgba(240,81,35,0.45)), 0 1px 2px rgba(0,0,0,0.35); }
   
   :global(input[type="range"]) {
     -webkit-appearance: none;
@@ -3422,7 +4039,7 @@
     border-radius: 999px;
     
     background:
-      linear-gradient(#f05123, #f05123)
+      linear-gradient(var(--wph-primary, #f05123), var(--wph-primary, #f05123))
         0 / calc((var(--val) - var(--min)) * 100% / (var(--max) - var(--min))) 100% no-repeat,
       rgba(255,255,255,0.25);
     outline: none;
@@ -3446,7 +4063,7 @@
     width: 16px; height: 16px;
     border-radius: 50%;
     background: #fff;
-    border: 3px solid #f05123;
+    border: 3px solid var(--wph-primary, #f05123);
     margin-top: -5px; 
     opacity: 0; transform: scale(0.6);
     transition: opacity .15s ease, transform .15s ease;
@@ -3462,14 +4079,14 @@
     height: 6px;
     border-radius: 999px;
     background:
-      linear-gradient(#f05123, #f05123)
+      linear-gradient(var(--wph-primary, #f05123), var(--wph-primary, #f05123))
         0 / calc((var(--val) - var(--min)) * 100% / (var(--max) - var(--min))) 100% no-repeat,
       rgba(255,255,255,0.25);
   }
   :global(input[type="range"]:hover::-moz-range-track),
   :global(input[type="range"]:focus-visible::-moz-range-track) {
     background:
-      linear-gradient(#f05123, #f05123)
+      linear-gradient(var(--wph-primary, #f05123), var(--wph-primary, #f05123))
         0 / calc((var(--val) - var(--min)) * 100% / (var(--max) - var(--min))) 100% no-repeat,
       rgba(255,255,255,0.35);
   }
@@ -3477,7 +4094,7 @@
     width: 16px; height: 16px;
     border-radius: 50%;
     background: #fff;
-    border: 3px solid #f05123;
+    border: 3px solid var(--wph-primary, #f05123);
     opacity: 0; transform: scale(0.6);
     transition: opacity .15s ease, transform .15s ease;
     box-shadow: 0 2px 6px rgba(0,0,0,0.25);
@@ -3503,7 +4120,7 @@
   }
   .editor-number:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(240,81,35,0.28);
+    box-shadow: 0 0 0 3px var(--wph-focusRing, rgba(240,81,35,0.28));
     border-color: rgba(255,255,255,0.28);
   }
   .editor-number:hover {
@@ -3580,17 +4197,17 @@
   }
   .palette-btn:focus-visible { 
     outline: none; 
-    box-shadow: 0 0 0 3px rgba(240,81,35,0.28); 
+    box-shadow: 0 0 0 3px var(--wph-focusRing, rgba(240,81,35,0.28)); 
     border-color: rgba(255,255,255,0.28); 
   }
   .palette-btn.primary { 
-    background: #f05123; 
-    border-color: rgba(240,81,35,0.3);
+    background: var(--wph-primary, #f05123); 
+    border-color: var(--wph-primaryGlow, rgba(240,81,35,0.3));
     color: #fff; 
   }
   .palette-btn.primary:hover {
-    background: #ff6433;
-    border-color: rgba(240,81,35,0.4);
+    background: var(--wph-primary, #f05123);
+    border-color: var(--wph-primaryGlow, rgba(240,81,35,0.4));
   }
   .palette-btn.ghost { 
     background: rgba(255,255,255,0.06); 
@@ -3616,7 +4233,7 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.35);
   }
   .preset-star:hover { filter: brightness(1.08); transform: translateY(-1px); }
-  .preset-star.active { background: #f05123; border-color: rgba(255,255,255,0.36); color: #fff; box-shadow: 0 4px 12px rgba(240,81,35,0.45); }
+  .preset-star.active { background: var(--wph-primary, #f05123); border-color: rgba(255,255,255,0.36); color: #fff; box-shadow: 0 4px 12px var(--wph-primaryGlow, rgba(240,81,35,0.45)); }
   .preset-swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; }
   .preset-swatches .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.45); background: var(--c); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); }
   .preset-meta { display: flex; align-items: center; justify-content: flex-start; gap: 6px; font-size: 12px; opacity: .92; }
@@ -3626,7 +4243,7 @@
   
   .preset-filters { display: grid; gap: 8px; margin: 6px 0 8px; }
   .preset-search { height: 32px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-weight: 600; }
-  .preset-search:focus { outline: none; box-shadow: 0 0 0 3px rgba(240,81,35,0.28); border-color: rgba(255,255,255,0.28); }
+  .preset-search:focus { outline: none; box-shadow: 0 0 0 3px var(--wph-focusRing, rgba(240,81,35,0.28)); border-color: rgba(255,255,255,0.28); }
   .preset-toggles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   
   .tile { position: relative; display: block; padding: 8px 10px; border-radius: 12px; border: none; background: rgba(255,255,255,0.04); color: inherit; cursor: pointer; text-align: left; overflow: hidden; }
@@ -3635,7 +4252,7 @@
   .tile.selected { border-color: transparent; box-shadow: none; }
   .tile .name { font-size: 12px; line-height: 1.2; opacity: 0.95; }
   .ants { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
-  .ants path { stroke: #f3734d; stroke-width: 2; stroke-linecap: butt; stroke-linejoin: round; stroke-dasharray: var(--dash) var(--dash); stroke-dashoffset: 0; filter: drop-shadow(0 0 2px rgba(240,81,35,0.6)); vector-effect: non-scaling-stroke; shape-rendering: geometricPrecision; }
+  .ants path { stroke: var(--wph-primary, #f05123); stroke-width: 2; stroke-linecap: butt; stroke-linejoin: round; stroke-dasharray: var(--dash) var(--dash); stroke-dashoffset: 0; filter: drop-shadow(0 0 2px var(--wph-primaryGlow, rgba(240,81,35,0.6))); vector-effect: non-scaling-stroke; shape-rendering: geometricPrecision; }
   .tile.selected .ants { opacity: 1; }
   @keyframes antsRun { to { stroke-dashoffset: calc(-2 * var(--dash)); } }
   .tile.selected .ants path { animation: antsRun var(--ants-speed, 1.2s) linear infinite; }
@@ -3763,9 +4380,9 @@
   .sw { width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 0 1px rgba(0,0,0,0.15) inset; background: var(--c); }
   .nm { display: none; }
   .palette-badge { display: none; }
-  .palette-item input:checked + .sw { outline: 2px solid #f05123; outline-offset: 1px; }
+  .palette-item input:checked + .sw { outline: 2px solid var(--wph-primary, #f05123); outline-offset: 1px; }
   
-  .palette-item.paid { background: rgba(240,81,35,0.18); border-color: rgba(240,81,35,0.35); }
+  .palette-item.paid { background: var(--wph-primaryGlow, rgba(240,81,35,0.18)); border-color: var(--wph-primaryGlow, rgba(240,81,35,0.35)); }
   .palette-item.paid input:checked + .sw { outline-color: #fff; }
 
   
@@ -3778,6 +4395,16 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .editor-subgroup {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .editor-group-title { 
     font-weight: 600; 
@@ -3826,8 +4453,8 @@
   }
   
   .color-correction-toggle input:checked + .checkmark {
-    background: #f05123;
-    border-color: #f05123;
+    background: var(--wph-primary, #f05123);
+    border-color: var(--wph-primary, #f05123);
   }
   
   .color-correction-toggle input:checked + .checkmark::after {
@@ -3839,12 +4466,12 @@
   }
   
   .color-correction-toggle input:checked:hover + .checkmark {
-    background: #e04619;
+    background: var(--wph-primary, #f05123);
   }
 
   .editor-buttons { display: flex; gap: 8px; align-items: center; }
   .editor-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.07); color: #fff; cursor: pointer; }
-  .editor-btn.editor-primary { background: #f05123; border-color: rgba(255,255,255,0.25); }
+  .editor-btn.editor-primary { background: var(--wph-primary, #f05123); border-color: rgba(255,255,255,0.25); }
 
   .editor-output { position: relative; display: flex; flex-direction: column; min-height: 380px; }
   .editor-output-header { position: absolute; top: 0; left: 0; right: 0; height: 36px; z-index: 5; background: rgba(24,26,32,0.85); border-bottom: 1px solid rgba(255,255,255,0.15); padding: 6px 10px; display: flex; align-items: center; justify-content: center; overflow: visible; }
@@ -3882,21 +4509,21 @@
   .header-palette .chip-swatch { width: 14px; height: 14px; border-radius: 4px; background: var(--c); border: 1px solid rgba(255,255,255,0.45); box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
   .header-palette .chip-label { font-size: 12px; opacity: .98; color: #fff; white-space: nowrap; }
   .header-palette .chip-tag { display: inline-flex; align-items: center; justify-content: center; height: 16px; min-width: 16px; padding: 0 6px; font-size: 11px; font-weight: 700; color: #111; background: rgba(255,255,255,0.85); border: 1px solid rgba(0,0,0,0.25); border-radius: 999px; line-height: 1; }
-  .header-palette .selected-chip.a .chip-tag { background: #f05123; color: #fff; border-color: rgba(0,0,0,0.25); }
-  .header-palette .selected-chip.b .chip-tag { background: #55aaff; color: #071018; border-color: rgba(0,0,0,0.2); }
+  .header-palette .selected-chip.a .chip-tag { background: var(--wph-primary, #f05123); color: #fff; border-color: rgba(0,0,0,0.25); }
+  .header-palette .selected-chip.b .chip-tag { background: var(--wph-primary2, #55aaff); color: #071018; border-color: rgba(0,0,0,0.2); }
   .header-palette .swatch { position: relative; width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.35); background: var(--c); box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: pointer; padding: 0; }
   .header-palette .swatch::after { content: attr(data-label); position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%); background: rgba(17,17,17,0.95); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 12px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 6px 16px rgba(0,0,0,0.35); white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s ease, transform .12s ease, visibility .12s; z-index: 40; }
   .header-palette .swatch:hover::after, .header-palette .swatch:focus-visible::after { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
-  .header-palette .swatch.selected { outline: 2px solid #f05123; outline-offset: 1px; }
+  .header-palette .swatch.selected { outline: 2px solid var(--wph-primary, #f05123); outline-offset: 1px; }
   .header-palette .palette-popover { position: absolute; top: 100%; padding-top: 8px; left: 50%; z-index: 20; opacity: 0; transform: translate(-50%, 0) scale(.98); pointer-events: none; transition: opacity .15s ease, transform .15s ease; text-align: center; display: flex; flex-direction: column; align-items: center; width: max-content; }
   .header-palette .palette-popover > .palette-grid { background: rgba(17,17,17,0.95); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 8px; box-shadow: 0 12px 28px rgba(0,0,0,0.45); margin: 0 auto; }
   .header-palette.open .palette-popover, .header-palette:hover .palette-popover { opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto; }
   .header-palette .palette-grid { display: grid; grid-template-columns: repeat(14, 16px); gap: 6px; }
   .header-palette .palette-hint { margin-top: 8px; text-align: center; font-size: 12px; opacity: 1; color: #fff; background: rgba(17,17,17,0.95); padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); display: block; width: 100%; box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
   
-  .header-palette .swatch.is-grad-a { outline: 2px solid #f05123; outline-offset: 1px; }
-  .header-palette .swatch.is-grad-b { box-shadow: 0 0 0 2px #55aaff inset; }
-  .header-palette .swatch.is-grad-a.is-grad-b { outline-style: dashed; box-shadow: 0 0 0 2px #55aaff inset; }
+  .header-palette .swatch.is-grad-a { outline: 2px solid var(--wph-primary, #f05123); outline-offset: 1px; }
+  .header-palette .swatch.is-grad-b { box-shadow: 0 0 0 2px var(--wph-primary2, #55aaff) inset; }
+  .header-palette .swatch.is-grad-a.is-grad-b { outline-style: dashed; box-shadow: 0 0 0 2px var(--wph-primary2, #55aaff) inset; }
   
   
   .edit-stage { position: absolute; inset: 0; cursor: crosshair; }
@@ -3938,10 +4565,10 @@
     height: 14px;
     border-radius: 50%;
     border: 2px solid rgba(255,255,255,0.22);
-    border-top-color: #f05123;
-    border-right-color: #f05123;
+    border-top-color: var(--wph-primary, #f05123);
+    border-right-color: var(--wph-primary, #f05123);
     animation: eb-spin .8s linear infinite;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.25) inset, 0 0 10px rgba(240,81,35,0.25);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.25) inset, 0 0 10px var(--wph-primaryGlow, rgba(240,81,35,0.25));
   }
   .editor-busy .busy-text { opacity: .95; }
   @keyframes eb-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -3959,7 +4586,7 @@
   .custom-dither-grid { display: inline-flex; flex-direction: column; gap: 2px; user-select: none; }
   .custom-dither-grid .row { display: flex; gap: 2px; }
   .custom-dither-grid .cell { width: 18px; height: 18px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.3); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35); cursor: pointer; }
-  .custom-dither-grid .cell.on { background: #f05123; border-color: rgba(255,255,255,0.3); box-shadow: 0 0 8px rgba(240,81,35,0.6), inset 0 0 0 1px rgba(0,0,0,0.35); }
+  .custom-dither-grid .cell.on { background: var(--wph-primary, #f05123); border-color: rgba(255,255,255,0.3); box-shadow: 0 0 8px var(--wph-primaryGlow, rgba(240,81,35,0.6)), inset 0 0 0 1px rgba(0,0,0,0.35); }
   .custom-dither-actions { width: 100%; display: flex; justify-content: center; margin-top: 8px; gap: 12px; }
   .fab-tools.disabled { pointer-events: none; opacity: .45; filter: grayscale(.35); }
   .fab-tools.disabled .fab-tool.active { background: rgba(255,255,255,0.95); color: #222; }
@@ -3970,7 +4597,7 @@
   .gradient-tool .gradient-modes { position: absolute; left: 50%; transform: translateX(-50%); bottom: 48px; display: grid; gap: 6px; background: rgba(17,17,17,0.95); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 6px; box-shadow: 0 12px 28px rgba(0,0,0,0.45); z-index: 30; }
   .gradient-tool .gradient-modes .mode { min-width: 38px; height: 30px; padding: 0 8px; border-radius: 8px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; transition: filter .12s ease, background .12s ease, color .12s ease, transform .12s ease; }
   .gradient-tool .gradient-modes .mode:hover { filter: brightness(1.08); transform: translateY(-1px); }
-  .gradient-tool .gradient-modes .mode.active { background: #f05123; border-color: rgba(255,255,255,0.25); }
+  .gradient-tool .gradient-modes .mode.active { background: var(--wph-primary, #f05123); border-color: rgba(255,255,255,0.25); }
   
   .save-fab { position: absolute; left: 10px; bottom: 10px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #222; border: 1px solid rgba(0,0,0,0.1); display: grid; place-items: center; box-shadow: 0 8px 22px rgba(0,0,0,0.35); cursor: pointer; z-index: 2; transition: transform .25s cubic-bezier(.2,.8,.2,1), opacity .25s ease, filter .15s ease; }
   .save-fab:hover { filter: brightness(1.05); }
@@ -3983,11 +4610,11 @@
   .tool-size-badge { position: absolute; top: -10px; right: -10px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #111; color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 10px rgba(0,0,0,0.35); pointer-events: none; }
   
   .magic-button .tool-size-badge { top: auto; right: -8px; bottom: -8px; }
-  .tool-mode-badge { position: absolute; bottom: -8px; left: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #f05123; color: #fff; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 10px rgba(0,0,0,0.35); pointer-events: none; }
+  .tool-mode-badge { position: absolute; bottom: -8px; left: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--wph-primary, #f05123); color: #fff; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 10px rgba(0,0,0,0.35); pointer-events: none; }
   
   .magic-popover .gradient-modes .mode { white-space: nowrap; min-width: 112px; }
   .fab-tool:hover { filter: brightness(1.03); transform: translateY(-2px); }
-  .fab-tool.active { background: #f05123; color: #fff; border-color: rgba(0,0,0,0.15); }
+  .fab-tool.active { background: var(--wph-primary, #f05123); color: #fff; border-color: rgba(0,0,0,0.15); }
 
   
   .zoom-panel {
@@ -4055,9 +4682,9 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .zoom-sep { width: 2px; height: 2px; background: transparent; margin: 0; }
-  .zoom-btn.fit { background: transparent; color: #f05123; border-color: #f05123; }
+  .zoom-btn.fit { background: transparent; color: var(--wph-primary, #f05123); border-color: var(--wph-primary, #f05123); }
   .zoom-btn.fit svg { fill: currentColor; }
-  .zoom-btn.fit:hover { background: #f05123; color: #fff; border-color: rgba(255,255,255,0.25); }
+  .zoom-btn.fit:hover { background: var(--wph-primary, #f05123); color: #fff; border-color: rgba(255,255,255,0.25); }
 
   
 
@@ -4092,8 +4719,8 @@
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.95);
-    color: #222;
+    background: var(--wph-primary, #f05123);
+    color: var(--wph-on-primary, #fff);
     border: 1px solid rgba(0,0,0,0.1);
     display: grid;
     place-items: center;
@@ -4141,7 +4768,7 @@
   }
   
   .add-comparison-fab.active {
-    background: #f05123;
+    background: var(--wph-primary, #f05123);
     color: #fff;
     border-color: rgba(255,255,255,0.25);
   }
@@ -4166,7 +4793,7 @@
     height: 20px;
     padding: 0 4px;
     border-radius: 999px;
-    background: #f05123;
+    background: var(--wph-primary, #f05123);
     color: #fff;
     font-size: 11px;
     font-weight: 700;

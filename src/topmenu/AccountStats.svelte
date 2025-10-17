@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
   import { t, lang } from '../i18n';
+  import { appendToBody } from '../editor/modal/utils/appendToBody';
   
   let open = false;
   let stats = null; 
@@ -63,21 +64,24 @@
   });
   onDestroy(() => { try { removeListener && removeListener(); } catch {} });
 
-  function portal(node) {
-    try { document.body.appendChild(node); } catch {}
-    return { destroy() { try { node.remove(); } catch {} } };
-  }
-
   async function updatePosition() {
     try {
       await tick();
       const r = btnEl?.getBoundingClientRect?.();
       const W = Math.max(0, window.innerWidth || 0);
+      const H = Math.max(0, window.innerHeight || 0);
       const pad = 10;
+      const topMenuHeight = 110;
       const mwRaw = popEl?.offsetWidth || 0;
+      const mhRaw = popEl?.offsetHeight || 0;
       const mw = Math.max(260, mwRaw || 300);
+      const mh = mhRaw || 250;
       const nx = Math.max(pad, Math.min(Math.round((r?.left || 0) + (r?.width || 0)/2 - mw/2), W - mw - pad));
-      const ny = Math.round((r?.bottom || 0) + 8);
+      let ny = Math.round((r?.bottom || 0) + 8);
+      if (ny + mh > H - pad) {
+        ny = Math.max(topMenuHeight + pad, H - mh - pad);
+      }
+      ny = Math.max(topMenuHeight + pad, ny);
       posX = nx; posY = ny;
     } catch {}
   }
@@ -97,7 +101,7 @@
     </svg>
   </button>
   {#if open}
-    <div use:portal bind:this={popEl} id="tm-stats-popover" class="tm-stats-popover" role="tooltip" aria-label={t('stats.title')} style={`left:${posX}px; top:${posY}px`}>
+    <div use:appendToBody bind:this={popEl} id="tm-stats-popover" class="tm-stats-popover" role="tooltip" aria-label={t('stats.title')} style={`left:${posX}px; top:${posY}px`}>
       <div class="title">{t('stats.title')}</div>
       {#if !stats}
         <div class="hint">{t('stats.hint.wait')}</div>
@@ -122,13 +126,13 @@
   .tm-stats-popover {
     position: fixed;
     left: 0; top: 0; 
-    background: rgba(17,17,17,0.96);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.15);
+    background: var(--wph-surface, rgba(17,17,17,0.96));
+    color: var(--wph-text, #fff);
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.15));
     border-radius: 10px; padding: 10px 12px; min-width: 260px; max-width: 320px;
     box-shadow: 0 12px 28px rgba(0,0,0,0.45);
     backdrop-filter: blur(6px);
-    z-index: 1000003;
+    z-index: 1000011;
   }
   .title { font-weight: 700; margin-bottom: 6px; }
   .hint { font-size: 12px; opacity: .8; margin-bottom: 8px; }

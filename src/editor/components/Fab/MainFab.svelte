@@ -39,7 +39,7 @@
 </button>
 
 <style>
-  .fab-edit { width: 44px; height: 44px; border-radius: 50%; background: #f05123; color: #fff; border: none; display: grid; place-items: center; box-shadow: 0 8px 22px rgba(0,0,0,0.35); cursor: pointer; transition: transform .15s ease, filter .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease; }
+  .fab-edit { width: 44px; height: 44px; border-radius: 50%; background: var(--wph-primary, #f05123); color: #fff; border: none; display: grid; place-items: center; box-shadow: 0 8px 22px rgba(0,0,0,0.35); cursor: pointer; transition: transform .15s ease, filter .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease; }
   .fab-edit:hover { filter: brightness(1.05); transform: translateY(-1px); }
-  .fab-edit.active { background: #fff; color: #f05123; box-shadow: 0 8px 24px rgba(240,81,35,0.45); }
+  .fab-edit.active { background: #fff; color: var(--wph-primary, #f05123); box-shadow: 0 8px 24px var(--wph-primaryGlow, rgba(240,81,35,0.45)); }
 </style>

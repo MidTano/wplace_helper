@@ -9,6 +9,7 @@ export function generateWorkerCode(): string {
     var dbg = function(m, extra){
       try { self.postMessage({ type: 'debug', message: String(m||''), extra: (extra===undefined?null:extra) }); } catch(_d){}
     };
+    var qmethod = 'rgb';
     
     
     var stripeJobs = new Map();
@@ -16,7 +17,14 @@ export function generateWorkerCode(): string {
     
     
     function clampByte(v){ return v < 0 ? 0 : v > 255 ? 255 : v|0; }
-    function nearestPaletteColor(r,g,b,pal){ var bi=0, bd=Infinity; for(var i=0;i<pal.length;i++){ var pr=pal[i][0]|0, pg=pal[i][1]|0, pb=pal[i][2]|0; var dr=r-pr, dg=g-pg, db=b-pb; var d=dr*dr+dg*dg+db*db; if(d<bd){ bd=d; bi=i; } } var p=pal[bi]; return [p[0]|0,p[1]|0,p[2]|0]; }
+    function s2l(v){ var x=v/255; return x<=0.04045? x/12.92 : Math.pow((x+0.055)/1.055,2.4); }
+    function toYCbCr(r,g,b){ var Y=0.299*r+0.587*g+0.114*b; var Cb=-0.168736*r-0.331264*g+0.5*b; var Cr=0.5*r-0.418688*g-0.081312*b; return [Y,Cb,Cr]; }
+    function toOklab(r8,g8,b8){ var r=s2l(r8), g=s2l(g8), b=s2l(b8); var l=0.4122214708*r+0.5363325363*g+0.0514459929*b; var m=0.2119034982*r+0.6806995451*g+0.1073969566*b; var s=0.0883024619*r+0.2817188376*g+0.6299787005*b; var l_=Math.cbrt(l), m_=Math.cbrt(m), s_=Math.cbrt(s); var L=0.2104542553*l_+0.7936177850*m_-0.0040720468*s_; var A=1.9779984951*l_-2.4285922050*m_+0.4505937099*s_; var B=0.0259040371*l_+0.7827717662*m_-0.8086757660*s_; return [L,A,B]; }
+    function distRgb(r,g,b, pr,pg,pb){ var dr=r-pr, dg=g-pg, db=b-pb; return dr*dr+dg*dg+db*db; }
+    function distLinear(r,g,b, pr,pg,pb){ var rl=s2l(r), gl=s2l(g), bl=s2l(b); var prl=s2l(pr), pgl=s2l(pg), pbl=s2l(pb); var dr=rl-prl, dg=gl-pgl, db=bl-pbl; return dr*dr+dg*dg+db*db; }
+    function distYCbCr(r,g,b, pr,pg,pb){ var a=toYCbCr(r,g,b), p=toYCbCr(pr,pg,pb); var dy=a[0]-p[0], dcb=a[1]-p[1], dcr=a[2]-p[2]; return dy*dy+dcb*dcb+dcr*dcr; }
+    function distOklab(r,g,b, pr,pg,pb){ var a=toOklab(r,g,b), p=toOklab(pr,pg,pb); var d0=a[0]-p[0], d1=a[1]-p[1], d2=a[2]-p[2]; return d0*d0+d1*d1+d2*d2; }
+    function nearestPaletteColor(r,g,b,pal){ var bi=0, bd=Infinity; for(var i=0;i<pal.length;i++){ var pr=pal[i][0]|0, pg=pal[i][1]|0, pb=pal[i][2]|0; var d; if(qmethod==='linear'){ d=distLinear(r,g,b,pr,pg,pb); } else if(qmethod==='ycbcr'){ d=distYCbCr(r,g,b,pr,pg,pb); } else if(qmethod==='oklab'){ d=distOklab(r,g,b,pr,pg,pb); } else { d=distRgb(r,g,b,pr,pg,pb); } if(d<bd){ bd=d; bi=i; } } var p=pal[bi]; return [p[0]|0,p[1]|0,p[2]|0]; }
     function findDarkerColor(r,g,b,palette,fallbackR,fallbackG,fallbackB){ var origBrightness=0.299*(r/255)+0.587*(g/255)+0.114*(b/255); var bestColor=[fallbackR,fallbackG,fallbackB]; var bestBrightness=0.299*(fallbackR/255)+0.587*(fallbackG/255)+0.114*(fallbackB/255); for(var i=0;i<palette.length;i++){ var c=palette[i]; var brightness=0.299*(c[0]/255)+0.587*(c[1]/255)+0.114*(c[2]/255); if(brightness<=origBrightness&&brightness<bestBrightness){ bestColor=c; bestBrightness=brightness; } } return bestColor; }
     
     function dErrorPaletteCanvas(canvas, palette, kernel, div, serpentine, errorScale){ 
@@ -126,7 +134,7 @@ export function generateWorkerCode(): string {
       }
       return canvas; }
     
-    function applyColorCorrection(canvas, enabled, brightness, contrast, saturation, hue){
+    function applyColorCorrection(canvas, enabled, brightness, contrast, saturation, hue, gamma){
       try {
         if (!enabled) return canvas;
         var cx = canvas.getContext('2d', { willReadFrequently: true });
@@ -140,6 +148,8 @@ export function generateWorkerCode(): string {
         var sFactor = 1 + (sVal/100);
         var rad = (hVal||0) * Math.PI/180;
         var cosA = Math.cos(rad), sinA = Math.sin(rad);
+        var gVal = Math.max(0.2, Math.min(5, Number(gamma)||1));
+        var invG = 1 / gVal;
         
         var q11=0.299, q12=0.587, q13=0.114;
         var r2y=0.299, g2y=0.587, b2y=0.114;
@@ -182,17 +192,171 @@ export function generateWorkerCode(): string {
             g = clampByte(g + bAdd255);
             b = clampByte(b + bAdd255);
           }
+          if (gVal !== 1) {
+            r = clampByte(Math.pow(r/255, invG) * 255);
+            g = clampByte(Math.pow(g/255, invG) * 255);
+            b = clampByte(Math.pow(b/255, invG) * 255);
+          }
           d[i]=r; d[i+1]=g; d[i+2]=b;
         }
         cx.putImageData(img,0,0);
         return canvas;
       } catch(e){ return canvas; }
     }
-    function quantizeToPalette(canvas, palette){ var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,canvas.width,canvas.height); var data=img.data; for (var i=0;i<data.length;i+=4){ var a=data[i+3]; if (a<128){ data[i]=0; data[i+1]=0; data[i+2]=0; data[i+3]=0; continue; } var r=data[i], g=data[i+1], b=data[i+2]; var best=0, bestD=1e12; for (var pI=0; pI<palette.length; pI++){ var pr=palette[pI][0], pg=palette[pI][1], pb=palette[pI][2]; var dr=r-pr, dg=g-pg, db=b-pb; var D=dr*dr+dg*dg+db*db; if (D<bestD){ bestD=D; best=pI; } } var c=palette[best]; data[i]=c[0]; data[i+1]=c[1]; data[i+2]=c[2]; data[i+3]=255; } cx.putImageData(img,0,0); return canvas; }
+    function quantizeToPalette(canvas, palette){ var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,canvas.width,canvas.height); var data=img.data; for (var i=0;i<data.length;i+=4){ var a=data[i+3]; if (a<128){ data[i]=0; data[i+1]=0; data[i+2]=0; data[i+3]=0; continue; } var r=data[i], g=data[i+1], b=data[i+2]; var np=nearestPaletteColor(r,g,b,palette); data[i]=np[0]; data[i+1]=np[1]; data[i+2]=np[2]; data[i+3]=255; } cx.putImageData(img,0,0); return canvas; }
+    function simplifyRegions(canvas, minArea){ try{ var thr=Math.max(1, (minArea|0)); if (thr<=1) return canvas; var w=canvas.width|0,h=canvas.height|0; if (w===0||h===0) return canvas; var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var d=img.data; var visited=new Uint8Array(w*h); var qx=new Int32Array(w*h); var qy=new Int32Array(w*h); function idx(x,y){ return (y*w+x)*4; } var qs=0,qe=0; for (var y=0;y<h;y++){ for (var x=0;x<w;x++){ var li=y*w+x; if (visited[li]) continue; var p=li*4; var a=d[p+3]|0; if (a<128){ visited[li]=1; continue; } var r0=d[p]|0,g0=d[p+1]|0,b0=d[p+2]|0; var key=((r0<<16)|(g0<<8)|b0)>>>0; visited[li]=1; qs=0; qe=0; qx[qe]=x; qy[qe]=y; qe++; var comp=[]; var borderColors={}; while(qs<qe){ var cx0=qx[qs], cy0=qy[qs]; qs++; var pi=idx(cx0,cy0); comp.push(pi); var nb=[[1,0],[-1,0],[0,1],[0,-1]]; for (var k=0;k<4;k++){ var nx=cx0+nb[k][0], ny=cy0+nb[k][1]; if (nx<0||ny<0||nx>=w||ny>=h) continue; var l2=ny*w+nx; if (visited[l2]) continue; var p2=idx(nx,ny); var a2=d[p2+3]|0; if (a2<128){ visited[l2]=1; continue; } var r=d[p2]|0,g=d[p2+1]|0,b=d[p2+2]|0; var k2=((r<<16)|(g<<8)|b)>>>0; if (k2===key){ visited[l2]=1; qx[qe]=nx; qy[qe]=ny; qe++; } else { borderColors[k2]=(borderColors[k2]||0)+1; } } }
+        if (comp.length>0 && comp.length<thr){ var bestKey=-1,bestCnt=-1; for (var ks in borderColors){ var c=borderColors[ks]|0; if (c>bestCnt){ bestCnt=c; bestKey=(ks|0); } } if (bestKey>=0){ var nr=(bestKey>>>16)&255, ng=(bestKey>>>8)&255, nb=bestKey&255; for (var ii=0;ii<comp.length;ii++){ var pp=comp[ii]; d[pp]=nr; d[pp+1]=ng; d[pp+2]=nb; d[pp+3]=255; } } }
+      } }
+      cx.putImageData(img,0,0); return canvas; } catch(_){ return canvas; } }
     function erodeInward(canvas, amount){ var a=Math.max(0, amount|0); if (a<=0) return canvas; var w=canvas.width,h=canvas.height; var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var data=img.data; var mask=new Uint8Array(w*h); for (var i=0,p=0;i<mask.length;i++,p+=4) mask[i]=data[p+3]>=128?1:0; var er=new Uint8Array(mask); var tmp=new Uint8Array(mask.length); function erodeOnce(){ tmp.fill(0); for (var y=0;y<h;y++){ for (var x=0;x<w;x++){ var ii=y*w+x; if (!er[ii]) { tmp[ii]=0; continue; } var okL=(x>0)?er[ii-1]:0; var okR=(x+1<w)?er[ii+1]:0; var okU=(y>0)?er[ii-w]:0; var okD=(y+1<h)?er[ii+w]:0; tmp[ii]=(okL&&okR&&okU&&okD)?1:0; } } er.set(tmp); }
       for (var k=0;k<a;k++) erodeOnce(); for (var i2=0,p2=0;i2<er.length;i2++,p2+=4){ if (!er[i2]) data[p2+3]=0; } cx.putImageData(img,0,0); return canvas; }
     function drawBlackOutline(canvas, thickness){ var t=Math.max(0, thickness|0); if (t<=0) return canvas; var w=canvas.width,h=canvas.height; var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var data=img.data; var mask=new Uint8Array(w*h); for (var i=0,p=0;i<mask.length;i++,p+=4) mask[i]=data[p+3]>=128?1:0; var dil=new Uint8Array(mask); var tmp=new Uint8Array(mask.length); function dilOnce(){ tmp.fill(0); for (var y=0;y<h;y++){ for (var x=0;x<w;x++){ var ii=y*w+x; if (dil[ii]) { tmp[ii]=1; continue; } if ((x>0&&dil[ii-1])||(x+1<w&&dil[ii+1])||(y>0&&dil[ii-w])||(y+1<h&&dil[ii+w])) tmp[ii]=1; } } dil.set(tmp); }
       for (var k2=0;k2<t;k2++) dilOnce(); for (var y4=0;y4<h;y4++){ for (var x4=0;x4<w;x4++){ var i3=y4*w+x4; if (dil[i3] && !mask[i3]){ var p4=i3*4; data[p4]=0; data[p4+1]=0; data[p4+2]=0; data[p4+3]=255; } } } cx.putImageData(img,0,0); return canvas; }
+
+    function sobelEdgeMask(canvas, threshold, thin){ try{ var w=canvas.width|0,h=canvas.height|0; if(w===0||h===0) return new Uint8Array(0); var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var d=img.data; var gxk=[-1,0,1,-2,0,2,-1,0,1]; var gyk=[-1,-2,-1,0,0,0,1,2,1]; var mag=new Float32Array(w*h); var dir = thin ? new Int8Array(w*h) : null; for(var y=1;y<h-1;y++){ for(var x=1;x<w-1;x++){ var sx=0,sy=0,k=0; for(var dy=-1;dy<=1;dy++){ var yy=y+dy; var off=yy*w; for(var dx=-1;dx<=1;dx++){ var xx=x+dx; var p=((off+xx)*4)|0; var L=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2]; var gxx=gxk[k], gyy=gyk[k]; k++; sx+=gxx*L; sy+=gyy*L; } } var m=Math.abs(sx)+Math.abs(sy); mag[y*w+x]=m; if(dir){ var ax=Math.abs(sx), ay=Math.abs(sy); var idx=0; if(ax>=ay) idx=0; else idx=1; dir[y*w+x]=idx; } } } var thr=Math.max(0, threshold|0); var mask=new Uint8Array(w*h); if(thin && dir){ for(var y=1;y<h-1;y++){ for(var x=1;x<w-1;x++){ var i=y*w+x; var m=mag[i]; if(m<thr) continue; var d0=dir[i]; var m1=0,m2=0; if(d0===0){ m1=mag[i-1]; m2=mag[i+1]; } else { m1=mag[i-w]; m2=mag[i+w]; } if(m>=m1 && m>=m2) mask[i]=1; } } } else { for(var i2=0;i2<mask.length;i2++){ if(mag[i2]>=thr) mask[i2]=1; } } return mask; } catch(_){ return new Uint8Array(0); } }
+
+    function prewittEdgeMask(canvas, threshold, thin){ try{ var w=canvas.width|0,h=canvas.height|0; if(w===0||h===0) return new Uint8Array(0); var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var d=img.data; var gxk=[-1,0,1,-1,0,1,-1,0,1]; var gyk=[1,1,1,0,0,0,-1,-1,-1]; var mag=new Float32Array(w*h); var dir = thin ? new Int8Array(w*h) : null; for(var y=1;y<h-1;y++){ for(var x=1;x<w-1;x++){ var sx=0,sy=0,k=0; for(var dy=-1;dy<=1;dy++){ var yy=y+dy; var off=yy*w; for(var dx=-1;dx<=1;dx++){ var xx=x+dx; var p=((off+xx)*4)|0; var L=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2]; var gxx=gxk[k], gyy=gyk[k]; k++; sx+=gxx*L; sy+=gyy*L; } } var m=Math.abs(sx)+Math.abs(sy); mag[y*w+x]=m; if(dir){ var ax=Math.abs(sx), ay=Math.abs(sy); var idx=0; if(ax>=ay) idx=0; else idx=1; dir[y*w+x]=idx; } } } var thr=Math.max(0, threshold|0); var mask=new Uint8Array(w*h); if(thin && dir){ for(var y=1;y<h-1;y++){ for(var x=1;x<w-1;x++){ var i=y*w+x; var m=mag[i]; if(m<thr) continue; var d0=dir[i]; var m1=0,m2=0; if(d0===0){ m1=mag[i-1]; m2=mag[i+1]; } else { m1=mag[i-w]; m2=mag[i+w]; } if(m>=m1 && m>=m2) mask[i]=1; } } } else { for(var i2=0;i2<mask.length;i2++){ if(mag[i2]>=thr) mask[i2]=1; } } return mask; } catch(_){ return new Uint8Array(0); } }
+
+    function scharrEdgeMask(canvas, threshold, thin){ try{ var w=canvas.width|0,h=canvas.height|0; if(w===0||h===0) return new Uint8Array(0); var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var d=img.data; var gxk=[3,0,-3,10,0,-10,3,0,-3]; var gyk=[3,10,3,0,0,0,-3,-10,-3]; var mag=new Float32Array(w*h); var dir = thin ? new Int8Array(w*h) : null; for(var y=1;y<h-1;y++){ for(var x=1;x<w-1;x++){ var sx=0,sy=0,k=0; for(var dy=-1;dy<=1;dy++){ var yy=y+dy; var off=yy*w; for(var dx=-1;dx<=1;dx++){ var xx=x+dx; var p=((off+xx)*4)|0; var L=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2]; var gxx=gxk[k], gyy=gyk[k]; k++; sx+=gxx*L; sy+=gyy*L; } } var m=Math.abs(sx)+Math.abs(sy); mag[y*w+x]=m; if(dir){ var ax=Math.abs(sx), ay=Math.abs(sy); var idx=0; if(ax>=ay) idx=0; else idx=1; dir[y*w+x]=idx; } } } var thr=Math.max(0, threshold|0); var mask=new Uint8Array(w*h); if(thin && dir){ for(var y=1;y<h-1;y++){ for(var x=1;x<w-1;x++){ var i=y*w+x; var m=mag[i]; if(m<thr) continue; var d0=dir[i]; var m1=0,m2=0; if(d0===0){ m1=mag[i-1]; m2=mag[i+1]; } else { m1=mag[i-w]; m2=mag[i+w]; } if(m>=m1 && m>=m2) mask[i]=1; } } } else { for(var i2=0;i2<mask.length;i2++){ if(mag[i2]>=thr) mask[i2]=1; } } return mask; } catch(_){ return new Uint8Array(0); } }
+
+    function laplacianEdgeMask(canvas, threshold){ try{ var w=canvas.width|0,h=canvas.height|0; if(w===0||h===0) return new Uint8Array(0); var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var d=img.data; var k=[0,1,0,1,-4,1,0,1,0]; var mag=new Float32Array(w*h); for(var y=1;y<h-1;y++){ for(var x=1;x<w-1;x++){ var s=0,idx=0; for(var dy=-1;dy<=1;dy++){ var yy=y+dy; var off=yy*w; for(var dx=-1;dx<=1;dx++){ var xx=x+dx; var p=((off+xx)*4)|0; var L=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2]; s+=k[idx++]*L; } } mag[y*w+x]=Math.abs(s); } } var thr=Math.max(0, threshold|0); var mask=new Uint8Array(w*h); for(var i=0;i<mask.length;i++){ if(mag[i]>=thr) mask[i]=1; } return mask; } catch(_){ return new Uint8Array(0); } }
+
+    function dilateMask(mask, w, h, times){ var out=new Uint8Array(mask); var tmp=new Uint8Array(mask.length); var t=Math.max(1, times|0); for(var s=0;s<t;s++){ tmp.fill(0); for(var y=0;y<h;y++){ for(var x=0;x<w;x++){ var i=y*w+x; if(out[i]){ tmp[i]=1; continue; } if((x>0&&out[i-1])||(x+1<w&&out[i+1])||(y>0&&out[i-w])||(y+1<h&&out[i+w])) tmp[i]=1; } } out.set(tmp); } return out; }
+
+    function nearestInPalette(palette, r, g, b){ try{ if(!palette||!palette.length) return [r|0,g|0,b|0]; var np=nearestPaletteColor(r,g,b,palette); return [np[0]|0,np[1]|0,np[2]|0]; } catch(_){ return [r|0,g|0,b|0]; } }
+
+    function overlayEdges(canvas, mask, r, g, b){ try{ var w=canvas.width|0,h=canvas.height|0; if((w*h)!==mask.length) return canvas; var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var d=img.data; for(var i=0,p=0;i<mask.length;i++,p+=4){ if(mask[i]){ d[p]=r; d[p+1]=g; d[p+2]=b; d[p+3]=255; } } cx.putImageData(img,0,0); return canvas; } catch(_){ return canvas; } }
+    function mixByMask(primary, secondary, mask, pickSecondaryOnMask){ try{ var w=primary.width|0,h=primary.height|0; if(w===0||h===0) return primary; if(((secondary.width|0)!==w)||((secondary.height|0)!==h)) return primary; if((w*h)!==mask.length) return primary; var cxA=primary.getContext('2d',{willReadFrequently:true}); var imgA=cxA.getImageData(0,0,w,h); var dA=imgA.data; var cxB=secondary.getContext('2d',{willReadFrequently:true}); var imgB=cxB.getImageData(0,0,w,h); var dB=imgB.data; for(var i=0,p=0;i<mask.length;i++,p+=4){ var m=mask[i]?1:0; var pickB=pickSecondaryOnMask?m:(1-m); if(pickB){ dA[p]=dB[p]; dA[p+1]=dB[p+1]; dA[p+2]=dB[p+2]; dA[p+3]=dB[p+3]; } } cxA.putImageData(imgA,0,0); return primary; } catch(_){ return primary; } }
+    function mixByWeights(primary, secondary, weights, pickSecondaryOnMask){ try{ var w=primary.width|0,h=primary.height|0; if(w===0||h===0) return primary; if(((secondary.width|0)!==w)||((secondary.height|0)!==h)) return primary; if((w*h)!==weights.length) return primary; var cxA=primary.getContext('2d',{willReadFrequently:true}); var imgA=cxA.getImageData(0,0,w,h); var dA=imgA.data; var cxB=secondary.getContext('2d',{willReadFrequently:true}); var imgB=cxB.getImageData(0,0,w,h); var dB=imgB.data; for(var i=0,p=0;i<weights.length;i++,p+=4){ var wv=weights[i]; if(!isFinite(wv)) wv=0; if(!pickSecondaryOnMask) wv=1-wv; if(wv<=0) continue; if(wv>=1){ dA[p]=dB[p]; dA[p+1]=dB[p+1]; dA[p+2]=dB[p+2]; dA[p+3]=dB[p+3]; continue; } var ia=1-wv; dA[p]=(dA[p]*ia + dB[p]*wv)|0; dA[p+1]=(dA[p+1]*ia + dB[p+1]*wv)|0; dA[p+2]=(dA[p+2]*ia + dB[p+2]*wv)|0; dA[p+3]=(dA[p+3]*ia + dB[p+3]*wv)|0; } cxA.putImageData(imgA,0,0); return primary; } catch(_){ return primary; } }
+    function blurMaskToWeights(mask, w, h, radius){ var r=Math.max(1, radius|0); var out=new Float32Array(w*h); for(var y=0;y<h;y++){ for(var x=0;x<w;x++){ var sum=0, cnt=0; var y0=Math.max(0,y-r), y1=Math.min(h-1,y+r); var x0=Math.max(0,x-r), x1=Math.min(w-1,x+r); for(var yy=y0; yy<=y1; yy++){ var off=yy*w; for(var xx=x0; xx<=x1; xx++){ sum += mask[off+xx]?1:0; cnt++; } } out[y*w+x] = cnt>0 ? (sum/cnt) : 0; } } return out; }
+
+    function preBlur(canvas, mode, radius){ try{ var r=(radius|0); if(!mode||mode==='none'||r<=0) return canvas; if(mode==='box') return boxBlur(canvas,r); if(mode==='gaussian') return gaussianApprox(canvas,r); if(mode==='bilateral') return bilateral(canvas,r); if(mode==='kuwahara') return kuwahara(canvas,r); return canvas; } catch(_){ return canvas; } }
+    function boxBlur(canvas, r){ var w=canvas.width|0,h=canvas.height|0; if(r<=0||w===0||h===0) return canvas; var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var s=img.data; var tmp=new Uint8ClampedArray(s.length); var win=2*r+1; var i=0; for(var y=0;y<h;y++){ var rs=0,gs=0,bs=0,as=0; var yoff=y*w*4; var x0=0; var x1=0; for(var k=-r;k<=r;k++){ var xx=k<0?0:k; var p=(yoff+xx*4); rs+=s[p]; gs+=s[p+1]; bs+=s[p+2]; as+=s[p+3]; } for(var x=0;x<w;x++){ i=yoff+x*4; tmp[i]=(rs/win)|0; tmp[i+1]=(gs/win)|0; tmp[i+2]=(bs/win)|0; tmp[i+3]=(as/win)|0; x0=x-r; x1=x+r+1; if(x0<0) x0=0; if(x1>=w) x1=w-1; var p0=yoff+x0*4; var p1=yoff+x1*4; rs+=s[p1]-s[p0]; gs+=s[p1+1]-s[p0+1]; bs+=s[p1+2]-s[p0+2]; as+=s[p1+3]-s[p0+3]; } } var out=new Uint8ClampedArray(s.length); for(var x=0;x<w;x++){ var rs=0,gs=0,bs=0,as=0; var xoff=x*4; var y0=0; var y1=0; for(var k=-r;k<=r;k++){ var yy=k<0?0:k; var p=(yy*w*4+xoff); rs+=tmp[p]; gs+=tmp[p+1]; bs+=tmp[p+2]; as+=tmp[p+3]; } for(var y=0;y<h;y++){ i=y*w*4+xoff; out[i]=(rs/win)|0; out[i+1]=(gs/win)|0; out[i+2]=(bs/win)|0; out[i+3]=(as/win)|0; y0=y-r; y1=y+r+1; if(y0<0) y0=0; if(y1>=h) y1=h-1; var p0=y0*w*4+xoff; var p1=y1*w*4+xoff; rs+=tmp[p1]-tmp[p0]; gs+=tmp[p1+1]-tmp[p0+1]; bs+=tmp[p1+2]-tmp[p0+2]; as+=tmp[p1+3]-tmp[p0+3]; } } img.data.set(out); cx.putImageData(img,0,0); return canvas; }
+    function gaussianApprox(canvas, r){ var passes=3; for(var i=0;i<passes;i++){ canvas=boxBlur(canvas,Math.max(1,(r|0))); } return canvas; }
+    function bilateral(canvas, r){ var w=canvas.width|0,h=canvas.height|0; if(r<=0||w===0||h===0) return canvas; var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var s=img.data; var out=new Uint8ClampedArray(s.length); var sr=25; var twoSr2=2*sr*sr; var twoSs2=2*r*r; for(var y=0;y<h;y++){ for(var x=0;x<w;x++){ var i=(y*w+x)*4; var r0=s[i],g0=s[i+1],b0=s[i+2],a0=s[i+3]; var wr=0,wg=0,wb=0,wa=0,wSum=0; for(var dy=-r;dy<=r;dy++){ var yy=y+dy; if(yy<0||yy>=h) continue; for(var dx=-r;dx<=r;dx++){ var xx=x+dx; if(xx<0||xx>=w) continue; var j=(yy*w+xx)*4; var dr=r0-s[j], dg=g0-s[j+1], db=b0-s[j+2]; var ds=dx*dx+dy*dy; var rc=dr*dr+dg*dg+db*db; var wgt=Math.exp(-ds/twoSs2)*Math.exp(-rc/twoSr2); wr+=s[j]*wgt; wg+=s[j+1]*wgt; wb+=s[j+2]*wgt; wa+=s[j+3]*wgt; wSum+=wgt; } } out[i]=(wr/wSum)|0; out[i+1]=(wg/wSum)|0; out[i+2]=(wb/wSum)|0; out[i+3]=(wa/wSum)|0; } } img.data.set(out); cx.putImageData(img,0,0); return canvas; }
+
+    function kuwahara(canvas, r){ var w=canvas.width|0,h=canvas.height|0; if(r<=0||w===0||h===0) return canvas; var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var s=img.data; var out=new Uint8ClampedArray(s.length); var sw=w+1; var N=sw*(h+1); var iR=new Float64Array(N), iG=new Float64Array(N), iB=new Float64Array(N), iC=new Float64Array(N), iL=new Float64Array(N), iL2=new Float64Array(N); function id(x,y){ return y*sw+x; }
+      for(var y=0;y<h;y++){ for(var x=0;x<w;x++){ var p=(y*w+x)*4; var a=s[p+3]|0; var c=(a>=128)?1:0; var r0=s[p]|0, g0=s[p+1]|0, b0=s[p+2]|0; var lum=0.299*r0+0.587*g0+0.114*b0; var ii=id(x+1,y+1); var left=id(x,y+1), up=id(x+1,y), upleft=id(x,y); iR[ii]=iR[left]+iR[up]-iR[upleft]+(c?r0:0); iG[ii]=iG[left]+iG[up]-iG[upleft]+(c?g0:0); iB[ii]=iB[left]+iB[up]-iB[upleft]+(c?b0:0); iC[ii]=iC[left]+iC[up]-iC[upleft]+c; iL[ii]=iL[left]+iL[up]-iL[upleft]+(c?lum:0); iL2[ii]=iL2[left]+iL2[up]-iL2[upleft]+(c?lum*lum:0); } }
+      function rect(ii,x0,y0,x1,y1){ var a=id(x0,y0), b=id(x1,y0), c=id(x0,y1), d=id(x1,y1); return ii[d]-ii[b]-ii[c]+ii[a]; }
+      for(var y=0;y<h;y++){ for(var x=0;x<w;x++){ var p=(y*w+x)*4; var a=s[p+3]|0; if(a<128){ out[p]=s[p]; out[p+1]=s[p+1]; out[p+2]=s[p+2]; out[p+3]=a; continue; } var x0=Math.max(0,x-r), x1=x, x2=Math.min(w-1,x+r); var y0=Math.max(0,y-r), y1=y, y2=Math.min(h-1,y+r); var regs=[{x0:x0,y0:y0,x1:x1,y1:y1},{x0:x1,y0:y0,x1:x2,y1:y1},{x0:x0,y0:y1,x1:x1,y1:y2},{x0:x1,y0:y1,x1:x2,y1:y2}]; var best=1e20, mR=s[p], mG=s[p+1], mB=s[p+2]; for(var k=0;k<4;k++){ var rx0=regs[k].x0, ry0=regs[k].y0, rx1=regs[k].x1, ry1=regs[k].y1; var ex0=rx0, ey0=ry0, ex1=rx1+1, ey1=ry1+1; var cnt=rect(iC,ex0,ey0,ex1,ey1); if(cnt<=0) continue; var sumL=rect(iL,ex0,ey0,ex1,ey1); var sumL2=rect(iL2,ex0,ey0,ex1,ey1); var meanL=sumL/cnt; var v=(sumL2/cnt)-meanL*meanL; if(v<best){ best=v; var sr=rect(iR,ex0,ey0,ex1,ey1); var sg=rect(iG,ex0,ey0,ex1,ey1); var sb=rect(iB,ex0,ey0,ex1,ey1); mR=clampByte((sr/cnt)|0); mG=clampByte((sg/cnt)|0); mB=clampByte((sb/cnt)|0); } } out[p]=mR; out[p+1]=mG; out[p+2]=mB; out[p+3]=255; } }
+      img.data.set(out); cx.putImageData(img,0,0); return canvas; }
+
+    function unsharp(canvas, amount, radius, threshold){ try{
+      var w=canvas.width|0,h=canvas.height|0; if(w===0||h===0) return canvas;
+      var a=Math.max(0, Number(amount)||0); var r=(radius|0); var th=(threshold|0);
+      if (a<=0 || r<=0) return canvas;
+      var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var orig=img.data;
+      var bc=new OffscreenCanvas(w,h); var bcx=bc.getContext('2d',{willReadFrequently:true}); bcx.clearRect(0,0,w,h); bcx.drawImage(canvas,0,0);
+      bc=gaussianApprox(bc, r);
+      var bimg=bcx.getImageData(0,0,w,h); var bdat=bimg.data;
+      var k=a/100;
+      for (var i=0;i<orig.length;i+=4){
+        var dr=orig[i]-bdat[i]; var dg=orig[i+1]-bdat[i+1]; var db=orig[i+2]-bdat[i+2];
+        if (Math.abs(dr)>=th) orig[i] = clampByte(orig[i] + k*dr);
+        if (Math.abs(dg)>=th) orig[i+1] = clampByte(orig[i+1] + k*dg);
+        if (Math.abs(db)>=th) orig[i+2] = clampByte(orig[i+2] + k*db);
+      }
+      cx.putImageData(img,0,0); return canvas;
+    } catch(_){ return canvas; } }
+
+    function modeFilter(canvas, radius){ try{
+      var n=(radius|0); if (n<=1) return canvas; var w=canvas.width|0,h=canvas.height|0; if (w===0||h===0) return canvas;
+      var left = Math.floor((n-1)/2); var right = n - left - 1;
+      var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var s=img.data; var out=new Uint8ClampedArray(s.length);
+      for (var y=0;y<h;y++){
+        for (var x=0;x<w;x++){
+          var i=(y*w+x)*4; var a=s[i+3]|0; if (a<128){ out[i]=s[i]; out[i+1]=s[i+1]; out[i+2]=s[i+2]; out[i+3]=a; continue; }
+          var counts={}; var best=0,bR= s[i], bG=s[i+1], bB=s[i+2];
+          for (var dy=-left; dy<=right; dy++){
+            var yy=y+dy; if (yy<0||yy>=h) continue;
+            for (var dx=-left; dx<=right; dx++){
+              var xx=x+dx; if (xx<0||xx>=w) continue; var j=(yy*w+xx)*4; if ((s[j+3]|0)<128) continue;
+              var key=((s[j]|0)<<16)|((s[j+1]|0)<<8)|(s[j+2]|0);
+              var c=(counts[key]||0)+1; counts[key]=c; if (c>best){ best=c; bR=s[j]; bG=s[j+1]; bB=s[j+2]; }
+            }
+          }
+          out[i]=bR; out[i+1]=bG; out[i+2]=bB; out[i+3]=255;
+        }
+      }
+      img.data.set(out); cx.putImageData(img,0,0); return canvas;
+    } catch(_){ return canvas; } }
+
+    function posterize(canvas, levels){ try{
+      var n=(levels|0); if (n<=1) return canvas; var w=canvas.width|0,h=canvas.height|0; if (w===0||h===0) return canvas;
+      var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var d=img.data; var div=255/Math.max(1,(n-1));
+      for (var i=0;i<d.length;i+=4){ var a=d[i+3]|0; if (a<128) continue; var r=d[i], g=d[i+1], b=d[i+2]; var L=0.299*r+0.587*g+0.114*b; var qL=Math.round(L/div)*div; var scale=L>0?(qL/L):0; var nr=r*scale, ng=g*scale, nb=b*scale; d[i]=nr<0?0:nr>255?255:nr|0; d[i+1]=ng<0?0:ng>255?255:ng|0; d[i+2]=nb<0?0:nb>255?255:nb|0; }
+      cx.putImageData(img,0,0); return canvas;
+    } catch(_){ return canvas; } }
+
+    function kuwaharaStage(canvas, radius, sectors, strengthPct, anisotropyPct, blend){ try{
+      var r=(radius|0); var w=canvas.width|0,h=canvas.height|0; if(r<=0||w===0||h===0) return canvas;
+      var cx=canvas.getContext('2d',{willReadFrequently:true}); var img=cx.getImageData(0,0,w,h); var s=img.data; var out=new Uint8ClampedArray(s.length);
+      var sw=w+1; var N=sw*(h+1);
+      var iR=new Float64Array(N), iG=new Float64Array(N), iB=new Float64Array(N), iC=new Float64Array(N), iL=new Float64Array(N), iL2=new Float64Array(N);
+      function id(x,y){ return y*sw+x; }
+      for (var y=0;y<h;y++){
+        for (var x=0;x<w;x++){
+          var p=(y*w+x)*4; var a=s[p+3]|0; var c=(a>=128)?1:0; var r0=s[p]|0, g0=s[p+1]|0, b0=s[p+2]|0; var lum=0.299*r0+0.587*g0+0.114*b0;
+          var ii=id(x+1,y+1), left=id(x,y+1), up=id(x+1,y), upleft=id(x,y);
+          iR[ii]=iR[left]+iR[up]-iR[upleft]+(c?r0:0);
+          iG[ii]=iG[left]+iG[up]-iG[upleft]+(c?g0:0);
+          iB[ii]=iB[left]+iB[up]-iB[upleft]+(c?b0:0);
+          iC[ii]=iC[left]+iC[up]-iC[upleft]+c;
+          iL[ii]=iL[left]+iL[up]-iL[upleft]+(c?lum:0);
+          iL2[ii]=iL2[left]+iL2[up]-iL2[upleft]+(c?lum*lum:0);
+        }
+      }
+      function rect(ii,x0,y0,x1,y1){ var a=id(x0,y0), b=id(x1,y0), c=id(x0,y1), d=id(x1,y1); return ii[d]-ii[b]-ii[c]+ii[a]; }
+      function sobelTheta(x,y){ var gx=0, gy=0; for (var dy=-1;dy<=1;dy++){ var yy=(y+dy); if(yy<0) yy=0; if(yy>=h) yy=h-1; for (var dx=-1;dx<=1;dx++){ var xx=(x+dx); if(xx<0) xx=0; if(xx>=w) xx=w-1; var pp=(yy*w+xx)*4; var L=0.299*s[pp]+0.587*s[pp+1]+0.114*s[pp+2]; var kx=(dx===-1&&dy===-1?-1:dx===0&&dy===-1?0:dx===1&&dy===-1?1:dx===-1&&dy===0?-2:dx===0&&dy===0?0:dx===1&&dy===0?2:dx===-1&&dy===1?-1:dx===0&&dy===1?0:1); var ky=(dx===-1&&dy===-1?-1:dx===0&&dy===-1?-2:dx===1&&dy===-1?-1:dx===-1&&dy===0?0:dx===0&&dy===0?0:dx===1&&dy===0?0:dx===-1&&dy===1?1:dx===0&&dy===1?2:1); gx+=kx*L; gy+=ky*L; } } return Math.atan2(gy,gx); }
+      var an = Math.max(0, Math.min(1, (anisotropyPct|0)/100));
+      var str = Math.max(0, Math.min(1, (strengthPct|0)/100));
+      var useBlend = !!blend;
+      for (var y=0;y<h;y++){
+        for (var x=0;x<w;x++){
+          var p=(y*w+x)*4; var a=s[p+3]|0; if (a<128){ out[p]=s[p]; out[p+1]=s[p+1]; out[p+2]=s[p+2]; out[p+3]=a; continue; }
+          var x0=Math.max(0,x-r), x1=x, x2=Math.min(w-1,x+r);
+          var y0=Math.max(0,y-r), y1=y, y2=Math.min(h-1,y+r);
+          var regs4=[{x0:x0,y0:y0,x1:x1,y1:y1,ang:135},{x0:x1,y0:y0,x1:x2,y1:y1,ang:45},{x0:x0,y0:y1,x1:x1,y1:y2,ang:-135},{x0:x1,y0:y1,x1:x2,y1:y2,ang:-45}];
+          var regs8=regs4.concat([{x0:x0,y0:y0,x1:x2,y1:y1,ang:90},{x0:x1,y0:y0,x1:x2,y1:y2,ang:0},{x0:x0,y0:y1,x1:x2,y1:y2,ang:-90},{x0:x0,y0:y0,x1:x1,y1:y2,ang:180}]);
+          var regs = ((sectors|0)===8)?regs8:regs4;
+          var mR=s[p], mG=s[p+1], mB=s[p+2];
+          var theta=0; if (an>0) theta=sobelTheta(x,y);
+          if (!useBlend){
+            var best=1e20;
+            for (var k=0;k<regs.length;k++){
+              var rx0=regs[k].x0, ry0=regs[k].y0, rx1=regs[k].x1, ry1=regs[k].y1;
+              var ex0=rx0, ey0=ry0, ex1=rx1+1, ey1=ry1+1;
+              var cnt=rect(iC,ex0,ey0,ex1,ey1); if (cnt<=0) continue;
+              var sumL=rect(iL,ex0,ey0,ex1,ey1); var sumL2=rect(iL2,ex0,ey0,ex1,ey1);
+              var meanL=sumL/cnt; var v=(sumL2/cnt)-meanL*meanL;
+              var cost=v;
+              if (an>0){ var ang=regs[k].ang*Math.PI/180; var d=theta-ang; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; var wgt=(1-an)+an*Math.max(0, Math.cos(d)); cost=v/(0.0001+wgt); }
+              if (cost<best){ best=cost; var sr=rect(iR,ex0,ey0,ex1,ey1); var sg=rect(iG,ex0,ey0,ex1,ey1); var sb=rect(iB,ex0,ey0,ex1,ey1); mR=clampByte((sr/cnt)|0); mG=clampByte((sg/cnt)|0); mB=clampByte((sb/cnt)|0); }
+            }
+          } else {
+            var wr=0, wg=0, wb=0, wSum=0;
+            for (var k=0;k<regs.length;k++){
+              var rx0=regs[k].x0, ry0=regs[k].y0, rx1=regs[k].x1, ry1=regs[k].y1;
+              var ex0=rx0, ey0=ry0, ex1=rx1+1, ey1=ry1+1;
+              var cnt=rect(iC,ex0,ey0,ex1,ey1); if (cnt<=0) continue;
+              var sumL=rect(iL,ex0,ey0,ex1,ey1); var sumL2=rect(iL2,ex0,ey0,ex1,ey1);
+              var meanL=sumL/cnt; var v=(sumL2/cnt)-meanL*meanL;
+              var dirW=1; if (an>0){ var ang=regs[k].ang*Math.PI/180; var d=theta-ang; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; dirW=(1-an)+an*Math.max(0, Math.cos(d)); }
+              var wgt=dirW/(0.0001+v);
+              var sr=rect(iR,ex0,ey0,ex1,ey1), sg=rect(iG,ex0,ey0,ex1,ey1), sb=rect(iB,ex0,ey0,ex1,ey1);
+              wr+=wgt*(sr/cnt); wg+=wgt*(sg/cnt); wb+=wgt*(sb/cnt); wSum+=wgt;
+            }
+            if (wSum>0){ mR=clampByte((wr/wSum)|0); mG=clampByte((wg/wSum)|0); mB=clampByte((wb/wSum)|0); }
+          }
+          var rS=s[p], gS=s[p+1], bS=s[p+2];
+          out[p]=clampByte(rS + str*(mR - rS));
+          out[p+1]=clampByte(gS + str*(mG - gS));
+          out[p+2]=clampByte(bS + str*(mB - bS));
+          out[p+3]=255;
+        }
+      }
+      img.data.set(out); cx.putImageData(img,0,0); return canvas;
+    } catch(_){ return canvas; } }
 
     self.onmessage = function(e) {
       try {
@@ -462,10 +626,13 @@ export function generateWorkerCode(): string {
           var paletteSr = Array.isArray(ctxInfoSr.palette) ? ctxInfoSr.palette : [];
           var keySr = ctxInfoSr.key || '';
           try {
+            try { qmethod = String(ctxInfoSr.quantMethod || 'rgb'); } catch(_q) { qmethod = 'rgb'; }
             
             if (ctxInfoSr.colorCorrectionEnabled) {
-              c1 = applyColorCorrection(c1, true, (ctxInfoSr.brightness|0)||0, (ctxInfoSr.contrast|0)||0, (ctxInfoSr.saturation|0)||0, (ctxInfoSr.hue|0)||0);
+              c1 = applyColorCorrection(c1, true, (ctxInfoSr.brightness|0)||0, (ctxInfoSr.contrast|0)||0, (ctxInfoSr.saturation|0)||0, (ctxInfoSr.hue|0)||0, Number(ctxInfoSr.gamma)||1);
             }
+            try { var pzSr=(ctxInfoSr.posterizeLevels|0)||0; var pzPost=!!ctxInfoSr.posterizeAfterPalette; if (pzSr>=2 && !pzPost){ var pzClamped= Math.max(2, Math.min(16, pzSr)); c1 = posterize(c1, pzClamped); } } catch(_pz){}
+            try { if (ctxInfoSr.kwEnabled && !ctxInfoSr.kwAfterPalette){ c1 = kuwaharaStage(c1, (ctxInfoSr.kwRadius|0)||0, ((ctxInfoSr.kwSectors|0)===8)?8:4, (ctxInfoSr.kwStrengthPct|0)||0, (ctxInfoSr.kwAnisotropyPct|0)||0, !!ctxInfoSr.kwBlend); } } catch(_kw){}
             dbg('merge-dither-start', { method: ditherMethodSr, paletteLength: paletteSr ? paletteSr.length : 0, levels: levelsSr });
             var diffusionSet = { floyd:1, falsefloydsteinberg:1, burkes:1, jarvis:1, stucki:1, sierra:1, twosierra:1, sierralite:1, atkinson:1 };
             if (paletteSr && paletteSr.length && diffusionSet[ditherMethodSr]) {
@@ -506,13 +673,19 @@ export function generateWorkerCode(): string {
           
           try {
             var usedPaletteDithering = (paletteSr && paletteSr.length && (diffusionSet[ditherMethodSr] || bayerMethods[ditherMethodSr] || ditherMethodSr==='random'));
-            if (!usedPaletteDithering && Array.isArray(paletteSr) && paletteSr.length && paletteSr.length <= 128) {
-              dbg('merge-quantize-only', 'Applying quantizeToPalette without dithering');
+            if (!usedPaletteDithering && Array.isArray(paletteSr) && paletteSr.length && (paletteSr.length <= 128 || ((ctxInfoSr && (ctxInfoSr.simplifyArea|0) > 0)))) {
+              dbg('merge-quantize-only', 'Applying quantizeToPalette (forced for simplify)');
               c1 = quantizeToPalette(c1, paletteSr);
             } else if (usedPaletteDithering) {
               dbg('merge-skip-quantize', 'Skipping quantizeToPalette - already dithered with palette');
             }
           } catch(_p2){}
+          try { var pzSr2=(ctxInfoSr.posterizeLevels|0)||0; var pzPost2=!!ctxInfoSr.posterizeAfterPalette; if (pzSr2>=2 && pzPost2){ var pzClamped2=Math.max(2,Math.min(16,pzSr2)); c1 = posterize(c1, pzClamped2); } } catch(_pz2){}
+          try { if (ctxInfoSr.kwEnabled && ctxInfoSr.kwAfterPalette){ c1 = kuwaharaStage(c1, (ctxInfoSr.kwRadius|0)||0, ((ctxInfoSr.kwSectors|0)===8)?8:4, (ctxInfoSr.kwStrengthPct|0)||0, (ctxInfoSr.kwAnisotropyPct|0)||0, !!ctxInfoSr.kwBlend); } } catch(_kw2){}
+          try { var sa2 = (ctxInfoSr && ctxInfoSr.simplifyArea ? (ctxInfoSr.simplifyArea|0) : 0); if (sa2>0){ c1 = simplifyRegions(c1, sa2); } } catch(_simp2){}
+          try {
+            var mr = (ctxInfoSr.modeRadius|0)||0; if (mr>0) { c1 = modeFilter(c1, mr); }
+          } catch(_mf){}
           try { self.postMessage({ type: 'progress', jobId: jobIdSr, percent: 85, stage: 'morphology' }); } catch(_e){}
           try { c1 = erodeInward(c1, erodeAmountSr); } catch(_p3){}
           try { c1 = drawBlackOutline(c1, outlineThicknessSr); } catch(_p4){}
@@ -538,6 +711,11 @@ export function generateWorkerCode(): string {
             var bl = msg.blob; var px = Math.max(1, Number(msg.pixelSize) || 1); var key = msg.key || '';
             var method = msg.method || 'nearest'; var ditherMethod = msg.ditherMethod || 'none'; var ditherLevels = (typeof msg.ditherLevels==='number'? msg.ditherLevels : 2);
             var outlineThickness = (msg.outlineThickness|0) || 0; var erodeAmount = (msg.erodeAmount|0) || 0; var palette = Array.isArray(msg.palette) ? msg.palette : [];
+            var blurMode = String(msg.blurMode||'none'); var blurRadius = (msg.blurRadius|0)||0;
+            var sharpenAmount = (msg.sharpenAmount|0)||0; var sharpenRadius = (msg.sharpenRadius|0)||0; var sharpenThreshold = (msg.sharpenThreshold|0)||0;
+            var modeRadius = (msg.modeRadius|0)||0; var posterizeLevels = (msg.posterizeLevels|0)||0; var posterizeAfterPalette = !!msg.posterizeAfterPalette; var gamma = Number(msg.gamma)||1; var kwEnabled=!!msg.kwEnabled; var kwRadius=(msg.kwRadius|0)||0; var kwSectors=(msg.kwSectors|0)||0; var kwStrengthPct=(msg.kwStrengthPct|0)||0; var kwAnisotropyPct=(msg.kwAnisotropyPct|0)||0; var kwAfterPalette=!!msg.kwAfterPalette; var simplifyArea=(msg.simplifyArea|0)||0; var kwBlend=!!msg.kwBlend; var edgeEnabled=!!msg.edgeEnabled; var edgeThreshold=(msg.edgeThreshold|0)||0; var edgeThickness=(msg.edgeThickness|0)||1; var edgeThin=!!msg.edgeThin;
+            var adaptEnabled=!!msg.adaptDitherEnabled; var adaptMethod=String(msg.adaptDitherMethod||'sobel'); var adaptThreshold=(msg.adaptDitherThreshold|0)||0; var adaptThickness=(msg.adaptDitherThickness|0)||1; var adaptThin=!!msg.adaptDitherThin; var adaptInvert=!!msg.adaptDitherInvert; var adaptFeather=(msg.adaptDitherFeather|0)||0;
+            try { qmethod = String(msg.quantMethod||'rgb'); } catch(_q) { qmethod = 'rgb'; }
             currentPreviewJob = jid;
             try { self.postMessage({ type: 'progress', jobId: jid, percent: 10 }); } catch(_e){}
             if (cancelled.has(jid)) { dbg('preview-cancelled-early', { jobId: jid }); return; }
@@ -588,15 +766,17 @@ export function generateWorkerCode(): string {
                     var dstH = Math.max(1, Math.floor(h / factor));
                     
                     var hasDithering = ditherMethod && ditherMethod !== 'none';
-                    var poolAvailable = hasWorkerPool && workerPoolInfo.readyCount >= workerPoolInfo.size && !hasDithering;
-                    dbg('pool-decision', { hasWorkerPool, readyCount: workerPoolInfo.readyCount, size: workerPoolInfo.size, hasDithering, ditherMethod, poolAvailable });
+                    var hasBlur = (blurMode !== 'none' && blurRadius > 0);
+                    var hasSharpen = (sharpenAmount > 0 && sharpenRadius > 0);
+                    var poolAvailable = hasWorkerPool && workerPoolInfo.readyCount >= workerPoolInfo.size && !hasDithering && !hasBlur && !hasSharpen && !edgeEnabled;
+                    dbg('pool-decision', { hasWorkerPool: hasWorkerPool, readyCount: workerPoolInfo.readyCount, size: workerPoolInfo.size, hasDithering: hasDithering, ditherMethod: ditherMethod, hasBlur: hasBlur, blurMode: blurMode, blurRadius: blurRadius, hasSharpen: hasSharpen, sharpenAmount: sharpenAmount, sharpenRadius: sharpenRadius, sharpenThreshold: sharpenThreshold, poolAvailable: poolAvailable });
                     if (poolAvailable) {
                       try {
                         var mergeCanvas = new OffscreenCanvas(dstW, dstH);
                         var mergeCtx = mergeCanvas.getContext('2d', { willReadFrequently: true });
                         try { mergeCtx.imageSmoothingEnabled = false; } catch(_s){}
                         stripeJobs.set(jid, { canvas: mergeCanvas, ctx: mergeCtx, expected: 0, received: 0, factor: factor, dstW: dstW, dstH: dstH });
-                        jobCtx.set(jid, { key: key, ditherLevels: ditherLevels, ditherMethod: ditherMethod, outlineThickness: outlineThickness, erodeAmount: erodeAmount, palette: palette, colorCorrectionEnabled: !!msg.colorCorrectionEnabled, brightness: (msg.brightness|0)||0, contrast: (msg.contrast|0)||0, saturation: (msg.saturation|0)||0, hue: (msg.hue|0)||0 });
+                        jobCtx.set(jid, { key: key, ditherLevels: ditherLevels, ditherMethod: ditherMethod, outlineThickness: outlineThickness, erodeAmount: erodeAmount, simplifyArea: simplifyArea, palette: palette, modeRadius: modeRadius, posterizeLevels: posterizeLevels, posterizeAfterPalette: posterizeAfterPalette, gamma: gamma, kwEnabled: kwEnabled, kwRadius: kwRadius, kwSectors: kwSectors, kwStrengthPct: kwStrengthPct, kwAnisotropyPct: kwAnisotropyPct, kwAfterPalette: kwAfterPalette, kwBlend: kwBlend, quantMethod: String(msg.quantMethod||'rgb'), colorCorrectionEnabled: !!msg.colorCorrectionEnabled, brightness: (msg.brightness|0)||0, contrast: (msg.contrast|0)||0, saturation: (msg.saturation|0)||0, hue: (msg.hue|0)||0 });
                         var stripeHeight = Math.ceil(h / workerPoolInfo.size);
                         var stripePromises = [];
                         for (var i = 0; i < workerPoolInfo.size; i++) {
@@ -640,15 +820,45 @@ export function generateWorkerCode(): string {
                     var x1 = c1.getContext('2d', { willReadFrequently: true });
                     x1.imageSmoothingEnabled = (method !== 'nearest');
                     x1.clearRect(0, 0, dstW, dstH);
-                    x1.drawImage(bmp, 0, 0, dstW, dstH);
+                    var srcCanvas = null;
+                    if (blurMode !== 'none' && blurRadius > 0) {
+                      var pre = new OffscreenCanvas(w, h);
+                      var prex = pre.getContext('2d', { willReadFrequently: true });
+                      try { prex.imageSmoothingEnabled = false; } catch(_s){}
+                      prex.clearRect(0,0,w,h);
+                      prex.drawImage(bmp, 0, 0);
+                      pre = preBlur(pre, blurMode, blurRadius);
+                      if (sharpenAmount > 0 && sharpenRadius > 0) {
+                        pre = unsharp(pre, sharpenAmount, sharpenRadius, sharpenThreshold);
+                      }
+                      srcCanvas = pre;
+                    } else {
+                      if (sharpenAmount > 0 && sharpenRadius > 0) {
+                        var pre2 = new OffscreenCanvas(w, h);
+                        var pre2x = pre2.getContext('2d', { willReadFrequently: true });
+                        try { pre2x.imageSmoothingEnabled = false; } catch(_s){}
+                        pre2x.clearRect(0,0,w,h);
+                        pre2x.drawImage(bmp, 0, 0);
+                        pre2 = unsharp(pre2, sharpenAmount, sharpenRadius, sharpenThreshold);
+                        srcCanvas = pre2;
+                      } else {
+                        srcCanvas = bmp;
+                      }
+                    }
+                    x1.drawImage(srcCanvas, 0, 0, dstW, dstH);
+                    var edgeMask = null; if (edgeEnabled){ try{ var base = new OffscreenCanvas(dstW,dstH); var bx = base.getContext('2d',{willReadFrequently:true}); try{ bx.imageSmoothingEnabled=false; }catch(_){} bx.clearRect(0,0,dstW,dstH); bx.drawImage(bmp,0,0,dstW,dstH); var em = String(msg.edgeMethod||'sobel'); edgeMask = (em==='prewitt'?prewittEdgeMask(base, edgeThreshold|0, !!edgeThin) : (em==='scharr'?scharrEdgeMask(base, edgeThreshold|0, !!edgeThin) : (em==='laplacian'?laplacianEdgeMask(base, edgeThreshold|0) : sobelEdgeMask(base, edgeThreshold|0, !!edgeThin)))); var eth = Math.max(1, edgeThickness|0); if (eth>1 && edgeMask) edgeMask = dilateMask(edgeMask, base.width|0, base.height|0, eth-1); } catch(_ed){} }
+                    var adaptMask = null; var adaptWeights = null; if (adaptEnabled){ try{ var baseA = new OffscreenCanvas(dstW,dstH); var bxa = baseA.getContext('2d',{willReadFrequently:true}); try{ bxa.imageSmoothingEnabled=false; }catch(_){} bxa.clearRect(0,0,dstW,dstH); bxa.drawImage(bmp,0,0,dstW,dstH); adaptMask = (adaptMethod==='prewitt'?prewittEdgeMask(baseA, adaptThreshold|0, !!adaptThin) : (adaptMethod==='scharr'?scharrEdgeMask(baseA, adaptThreshold|0, !!adaptThin) : (adaptMethod==='laplacian'?laplacianEdgeMask(baseA, adaptThreshold|0) : sobelEdgeMask(baseA, adaptThreshold|0, !!adaptThin)))); var ath = Math.max(1, adaptThickness|0); if (ath>1 && adaptMask) adaptMask = dilateMask(adaptMask, baseA.width|0, baseA.height|0, ath-1); if ((adaptFeather|0)>0 && adaptMask){ adaptWeights = blurMaskToWeights(adaptMask, baseA.width|0, baseA.height|0, adaptFeather|0); } } catch(_ad){} }
                     var levels = Math.max(2, Math.min(10, (typeof ditherLevels==='number'? ditherLevels : 2)));
                     
                     if (msg.colorCorrectionEnabled) {
-                      c1 = applyColorCorrection(c1, true, (msg.brightness|0)||0, (msg.contrast|0)||0, (msg.saturation|0)||0, (msg.hue|0)||0);
+                      c1 = applyColorCorrection(c1, true, (msg.brightness|0)||0, (msg.contrast|0)||0, (msg.saturation|0)||0, (msg.hue|0)||0, gamma);
                     }
+                    try { var pz1=(posterizeLevels|0)||0; if (pz1>=2){ var pz1c=Math.max(2, Math.min(16, pz1)); c1 = posterize(c1, pz1c); } } catch(_pz){}
+                    try { if (kwEnabled){ c1 = kuwaharaStage(c1, kwRadius, ((kwSectors|0)===8)?8:4, kwStrengthPct, kwAnisotropyPct, kwBlend); } } catch(_kw){}
                     try {
                       var diffusionSet2 = { floyd:1, falsefloydsteinberg:1, burkes:1, jarvis:1, stucki:1, sierra:1, twosierra:1, sierralite:1, atkinson:1 };
                       dbg('single-dither-check', { ditherMethod, hasPalette: !!(palette && palette.length), isDiffusion: !!diffusionSet2[ditherMethod] });
+                      var canvasNoDither = null; if (adaptMask && palette && palette.length){ try{ var cnd = new OffscreenCanvas(dstW,dstH); var cndx = cnd.getContext('2d',{willReadFrequently:true}); cndx.imageSmoothingEnabled=false; cndx.clearRect(0,0,dstW,dstH); cndx.drawImage(c1,0,0); canvasNoDither = quantizeToPalette(cnd, palette); } catch(_cnd){} }
                       if (palette && palette.length && diffusionSet2[ditherMethod]) {
                         dbg('single-using-diffusion', ditherMethod);
                         
@@ -679,6 +889,7 @@ export function generateWorkerCode(): string {
                         var testCtx2 = c1.getContext('2d',{willReadFrequently:true}); 
                         var testData2 = testCtx2.getImageData(0,0,Math.min(10,c1.width),1).data;
                         dbg('pixels-after-diffusion', { sample: [testData2[0], testData2[1], testData2[2], testData2[4], testData2[5], testData2[6]] });
+                        if (canvasNoDither && (adaptWeights || adaptMask)) { try { c1 = adaptWeights ? mixByWeights(c1, canvasNoDither, adaptWeights, !adaptInvert) : mixByMask(c1, canvasNoDither, adaptMask, !adaptInvert); } catch(_mixd){} }
                       } else {
                         
                         var bayerMethods2 = { bayer2:1, bayer4:1, bayer8:1, custom:1 };
@@ -701,6 +912,7 @@ export function generateWorkerCode(): string {
                           dbg('before-dOrderedPalette2-call', { hasFunc: typeof dOrderedPalette2, hasMatrix: !!matrix2, matrixLen: matrix2.length, strength: bayerStrength, levels });
                           c1 = dOrderedPalette2(c1, palette, matrix2, bayerStrength);
                           dbg('after-dOrderedPalette2-call', 'returned from function');
+                          if (canvasNoDither && (adaptWeights || adaptMask)) { try { c1 = adaptWeights ? mixByWeights(c1, canvasNoDither, adaptWeights, !adaptInvert) : mixByMask(c1, canvasNoDither, adaptMask, !adaptInvert); } catch(_mixb){} }
                           
                           
                           var testCtx2 = c1.getContext('2d',{willReadFrequently:true}); 
@@ -711,6 +923,7 @@ export function generateWorkerCode(): string {
                           
                           var s2 = Math.max(0.1, Math.min(1, levels / 10));
                           c1 = dRandomPalette(c1, palette, s2);
+                          if (canvasNoDither && (adaptWeights || adaptMask)) { try { c1 = adaptWeights ? mixByWeights(c1, canvasNoDither, adaptWeights, !adaptInvert) : mixByMask(c1, canvasNoDither, adaptMask, !adaptInvert); } catch(_mixr){} }
                         } else {
                           dbg('single-using-old-dither', ditherMethod);
                           c1 = dither(c1, levels, ditherMethod);
@@ -721,13 +934,18 @@ export function generateWorkerCode(): string {
                     
                     try {
                       var usedPaletteDithering2 = (palette && palette.length && (diffusionSet2[ditherMethod] || bayerMethods2[ditherMethod] || ditherMethod==='random'));
-                      if (!usedPaletteDithering2 && Array.isArray(palette) && palette.length && palette.length <= 128) {
+                      if (!usedPaletteDithering2 && Array.isArray(palette) && palette.length && (palette.length <= 128 || ((simplifyArea|0) > 0))) {
                         c1 = quantizeToPalette(c1, palette);
                       }
                     } catch(_p2){}
+                    try { var sa=(simplifyArea|0)||0; if (sa>0){ c1 = simplifyRegions(c1, sa); } } catch(_simp){}
+                    
+                    
+                    try { if ((modeRadius|0)>0) { c1 = modeFilter(c1, (modeRadius|0)); } } catch(_mf){}
                     try { self.postMessage({ type: 'progress', jobId: jid, percent: 85, stage: 'morphology' }); } catch(_e){}
                     try { c1 = erodeInward(c1, erodeAmount); } catch(_p3){}
                     try { c1 = drawBlackOutline(c1, outlineThickness); } catch(_p4){}
+                    try { if (edgeMask && palette && palette.length) { var oc = nearestInPalette(palette,0,0,0); c1 = overlayEdges(c1, edgeMask, oc[0]|0, oc[1]|0, oc[2]|0); } } catch(_peo){}
                     try { self.postMessage({ type: 'progress', jobId: jid, percent: 95, stage: 'encode' }); } catch(_e){}
                     (c1.convertToBlob ? c1.convertToBlob({ type: 'image/png' }) : Promise.reject()).then(function(finalBlob){
                       try { self.postMessage({ type: 'preview-final', jobId: jid, key: key, blob: finalBlob, w: c1.width, h: c1.height }); } catch(ePF) { dbg('final-post-error', String(ePF)); }

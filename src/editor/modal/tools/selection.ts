@@ -1,5 +1,29 @@
 
 import type { DisplayMetrics } from './brush';
+import { markElement } from '../../../wguard';
+
+function getThemeHost(): HTMLElement {
+  try {
+    const host: any = (window as any).__wphPortalHost;
+    if (host && host.host instanceof HTMLElement) return host.host as HTMLElement;
+    if (host && host instanceof HTMLElement) return host as HTMLElement;
+    const el = document.getElementById('wph-theme-root');
+    return el || document.documentElement;
+  } catch { return document.documentElement; }
+}
+
+function getPrimary2Hex(): string {
+  try {
+    const el = getThemeHost();
+    let v = getComputedStyle(el).getPropertyValue('--wph-primary2');
+    let s = String(v || '').trim();
+    if (!s) {
+      v = getComputedStyle(el).getPropertyValue('--wph-primary-2');
+      s = String(v || '').trim();
+    }
+    return s || '#55aaff';
+  } catch { return '#55aaff'; }
+}
 
 export type SelectionOp = 'add' | 'sub' | 'replace';
 
@@ -117,7 +141,7 @@ export function refreshSelectionVisFromMask(
   if (!selectionVisCtx) return;
   
   selectionVisCtx.clearRect(0, 0, outW, outH);
-  selectionVisCtx.fillStyle = '#55aaff';
+  selectionVisCtx.fillStyle = getPrimary2Hex();
   
   for (let y = 0; y < outH; y++) {
     const row = y * outW;
@@ -161,10 +185,16 @@ export function refreshSelectionVisSubrect(
       const set = selectionMask[row + xx] ? 1 : 0;
       
       if (set) {
-        data[p] = 0x55;      
-        data[p + 1] = 0xaa;  
-        data[p + 2] = 0xff;  
-        data[p + 3] = 0xff;  
+        const c = getPrimary2Hex();
+        const m = /^#([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(c);
+        if (m) {
+          data[p] = parseInt(m[1], 16);
+          data[p + 1] = parseInt(m[2], 16);
+          data[p + 2] = parseInt(m[3], 16);
+          data[p + 3] = 0xff;
+        } else {
+          data[p] = 0x55; data[p + 1] = 0xaa; data[p + 2] = 0xff; data[p + 3] = 0xff;
+        }
       } else {
         
         data[p] = 0; 
@@ -185,6 +215,7 @@ export function buildSelectionAntsCanvas(
   outH: number,
 ): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
+  markElement(canvas);
   canvas.width = outW; 
   canvas.height = outH;
   const ctx = canvas.getContext('2d')!;
@@ -238,7 +269,7 @@ export function drawSelectionOverlay(
   const half = Math.floor(r / 2);
   
   ctx.save();
-  ctx.strokeStyle = '#55aaff';
+  ctx.strokeStyle = getPrimary2Hex();
   ctx.lineWidth = Math.max(1, Math.floor(s * 0.25));
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = Math.max(2, Math.floor(s * 0.5));

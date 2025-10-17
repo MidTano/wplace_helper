@@ -86,6 +86,38 @@
   import { decodeCodeTile } from '../utils/codeTileDecoder';
   import { setSelectedFile, setOriginCoords, rebuildStencilFromState, setCurrentHistoryId } from '../overlay/state';
   import { addOrUpdate } from '../topmenu/historyStore';
+  import { markElement } from '../wguard';
+
+  function getThemeHost() {
+    try {
+      const host = (window).__wphPortalHost;
+      if (host && host.host instanceof HTMLElement) return host.host;
+      if (host && host instanceof HTMLElement) return host;
+      const el = document.getElementById('wph-theme-root');
+      return el || document.documentElement;
+    } catch { return document.documentElement; }
+  }
+  function getVar(name, fallback) {
+    try {
+      const el = getThemeHost();
+      const v = getComputedStyle(el).getPropertyValue(name);
+      const s = String(v || '').trim();
+      return s || fallback;
+    } catch { return fallback; }
+  }
+  function getPrimaryHex() { return getVar('--wph-primary', '#f05123'); }
+  function hexToRgba(hex, a) {
+    let v = String(hex || '').trim().toLowerCase();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (v.length === 4) { v = `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`; }
+    const m = /^#([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(v);
+    if (!m) return `rgba(240,81,35,${Math.max(0, Math.min(1, a))})`;
+    const r = parseInt(m[1], 16);
+    const g = parseInt(m[2], 16);
+    const b = parseInt(m[3], 16);
+    const al = Math.max(0, Math.min(1, a));
+    return `rgba(${r}, ${g}, ${b}, ${al})`;
+  }
 
   export let open = false;
   const dispatch = createEventDispatcher();
@@ -252,7 +284,7 @@
       ctx.imageSmoothingEnabled = false;
 
       const lw1 = Math.max(1, 2.5 / Math.max(0.5, zoom));
-      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.strokeStyle = getVar('--wph-border', 'rgba(255,255,255,0.28)');
       ctx.lineWidth = lw1;
       for (let gy = 1; gy < gridSize; gy++) {
         const y = gy * tileH + 0.5;
@@ -270,7 +302,7 @@
       }
 
       const half = Math.floor((gridSize - 1) / 2);
-      ctx.strokeStyle = 'rgba(240,81,35,0.6)';
+      ctx.strokeStyle = hexToRgba(getPrimaryHex(), 0.6);
       ctx.lineWidth = Math.max(1, 3 / Math.max(0.5, zoom));
       if (half >= 0) {
         const cx = half * tileW + 0.5 + tileW;
@@ -287,6 +319,7 @@
       const w = (tileW || 256) * gridSize;
       const h = (tileH || 256) * gridSize;
       const canvas = document.createElement('canvas');
+      markElement(canvas);
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.imageSmoothingEnabled = false;
@@ -430,10 +463,11 @@
     try {
       if (!checkerPattern) {
         const pc = document.createElement('canvas');
+        markElement(pc);
         pc.width = 16; pc.height = 16;
         const pctx = pc.getContext('2d');
-        pctx.fillStyle = '#2a2c32'; pctx.fillRect(0,0,16,16);
-        pctx.fillStyle = '#23252b'; pctx.fillRect(0,0,8,8); pctx.fillRect(8,8,8,8);
+        pctx.fillStyle = getVar('--wph-surface2', '#2a2c32'); pctx.fillRect(0,0,16,16);
+        pctx.fillStyle = getVar('--wph-surface', '#23252b'); pctx.fillRect(0,0,8,8); pctx.fillRect(8,8,8,8);
         checkerPattern = prevCtx.createPattern(pc, 'repeat');
       }
       if (checkerPattern) { prevCtx.fillStyle = checkerPattern; prevCtx.fillRect(0, 0, cssW, cssH); }
@@ -487,10 +521,10 @@
           const r = Math.max(8, Math.min(tileW, tileH) * 0.18);
           prevCtx.lineWidth = lw;
 
-          prevCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+          prevCtx.strokeStyle = getVar('--wph-border', 'rgba(255,255,255,0.5)');
           prevCtx.beginPath(); prevCtx.arc(cx, cy, r, ang, ang + arc); prevCtx.stroke();
 
-          prevCtx.strokeStyle = 'rgba(240,81,35,0.9)';
+          prevCtx.strokeStyle = hexToRgba(getPrimaryHex(), 0.9);
           prevCtx.beginPath(); prevCtx.arc(cx, cy, r, ang + arc * 1.2, ang + arc * 2.2); prevCtx.stroke();
         }
         prevCtx.restore();
@@ -511,8 +545,8 @@
         const lw = Math.max(1.5, 2.0 / Math.max(0.5, zoom));
         prevCtx.save();
         prevCtx.lineWidth = lw;
-        prevCtx.strokeStyle = 'rgba(240,81,35,0.95)';
-        prevCtx.fillStyle = 'rgba(240,81,35,0.18)';
+        prevCtx.strokeStyle = hexToRgba(getPrimaryHex(), 0.95);
+        prevCtx.fillStyle = hexToRgba(getPrimaryHex(), 0.18);
         prevCtx.beginPath();
         prevCtx.rect(sx + 0.5, sy + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
         prevCtx.stroke();
@@ -544,7 +578,7 @@
       ctx.save();
       ctx.imageSmoothingEnabled = false;
 
-      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.strokeStyle = getVar('--wph-border', 'rgba(255,255,255,0.28)');
       ctx.lineWidth = 2.5;
       for (let gy = 1; gy < gridSize; gy++) {
         const y = gy * tileH + 0.5;
@@ -562,7 +596,7 @@
       }
       
       const half = Math.floor((gridSize - 1) / 2);
-      ctx.strokeStyle = 'rgba(240,81,35,0.6)';
+      ctx.strokeStyle = hexToRgba(getPrimaryHex(), 0.6);
       ctx.lineWidth = 3;
       if (half >= 0) {
         const cx = half * tileW + 0.5 + tileW; 
@@ -590,6 +624,7 @@
       const { x, y, w, h } = rect;
       if (w <= 0 || h <= 0) return;
       const off = document.createElement('canvas');
+      markElement(off);
       off.width = w; off.height = h;
       const ctx = off.getContext('2d', { willReadFrequently: true });
       ctx.imageSmoothingEnabled = false;
@@ -608,20 +643,20 @@
     try {
       
       
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.strokeStyle = getVar('--wph-border', 'rgba(255,255,255,0.3)');
       ctx.lineWidth = 1.5;
       ctx.strokeRect(px + 0.5, py + 0.5, w - 1, h - 1);
       
       const cx = px + w / 2;
       const cy = py + h / 2;
       const r1 = Math.max(8, Math.min(w, h) * 0.12);
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.strokeStyle = getVar('--wph-border', 'rgba(255,255,255,0.5)');
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(cx, cy, r1, 0, Math.PI * 2);
       ctx.stroke();
       
-      ctx.strokeStyle = 'rgba(240,81,35,0.7)';
+      ctx.strokeStyle = hexToRgba(getPrimaryHex(), 0.7);
       ctx.beginPath();
       ctx.arc(cx, cy, r1, -Math.PI * 0.25, Math.PI * 0.25);
       ctx.stroke();
@@ -815,6 +850,7 @@
       saving = true; saveProgress = 0; saveStage = 'crop'; saveStartMs = Date.now(); saveEtaText = '—';
 
       const off = document.createElement('canvas');
+      markElement(off);
       off.width = w; off.height = h;
       const ctx = off.getContext('2d', { willReadFrequently: true });
       ctx.imageSmoothingEnabled = false;
@@ -1037,7 +1073,7 @@
       tileW = 256; tileH = 256; 
       composedW = tileW * gridSize;
       composedH = tileH * gridSize;
-      if (!composedCanvas) composedCanvas = document.createElement('canvas');
+      if (!composedCanvas) { composedCanvas = document.createElement('canvas'); markElement(composedCanvas); }
       composedCanvas.width = composedW; composedCanvas.height = composedH;
       
       const cctx = composedCanvas.getContext('2d', { willReadFrequently: true });
@@ -1272,6 +1308,7 @@
       let stripeH = Math.floor(maxStripeBytes / Math.max(1, W * 4));
       stripeH = Math.max(8, Math.min(th, stripeH || 8, 256));
       const tileStripeCanvas = document.createElement('canvas');
+      markElement(tileStripeCanvas);
       tileStripeCanvas.width = tw; tileStripeCanvas.height = stripeH;
       const tileStripeCtx = tileStripeCanvas.getContext('2d', { willReadFrequently: true });
       try { tileStripeCtx.imageSmoothingEnabled = false; } catch {}
@@ -1505,6 +1542,7 @@
 
       const sh = Math.max(1, Math.min(256, H));
       const off = document.createElement('canvas');
+      markElement(off);
       off.width = W; off.height = sh;
       const ctx = off.getContext('2d', { willReadFrequently: true });
       ctx.imageSmoothingEnabled = false;
@@ -1782,6 +1820,7 @@
             const h = (dy1 - dy0 + 1) * th;
             console.log('[CopyArt][save] chunk', { cx: cx+1, cy: cy+1, w, h, dx0, dy0, dx1, dy1 });
             const off = document.createElement('canvas');
+            markElement(off);
             off.width = w; off.height = h;
             const ctx = off.getContext('2d', { willReadFrequently: true });
             ctx.imageSmoothingEnabled = false;
@@ -1851,6 +1890,7 @@
         }
       }
       const off = document.createElement('canvas');
+      markElement(off);
       off.width = w; off.height = h;
       const ctx = off.getContext('2d', { willReadFrequently: true });
       ctx.imageSmoothingEnabled = false;
@@ -1947,7 +1987,7 @@
               <div class="hint">{t('copyart.centerHint')}</div>
             {/if}
             <div class="row">
-              <button class="btn" on:click={updateCenterNow}>{t('copyart.updateCenter')}</button>
+              <button class="editor-btn" on:click={updateCenterNow}>{t('copyart.updateCenter')}</button>
             </div>
           </div>
 
@@ -2021,8 +2061,8 @@
           <div class="group card">
             <div class="label">{t('copyart.assembly')}</div>
             <div class="row">
-              <button class="btn btn-primary" on:click={assemble} disabled={assembling || !center}>{t('copyart.assemble')}</button>
-              <button class="btn" on:click={cancelAssemble} disabled={!assembling}>{t('copyart.stop')}</button>
+              <button class="editor-btn editor-primary" on:click={assemble} disabled={assembling || !center}>{t('copyart.assemble')}</button>
+              <button class="editor-btn" on:click={cancelAssemble} disabled={!assembling}>{t('copyart.stop')}</button>
             </div>
           </div>
           {/if}
@@ -2091,10 +2131,10 @@
             <div class="empty-preview">
               <div class="empty-card" transition:scale={{ start: 0.95, opacity: 0.08, duration: 140 }}>
                 <svg class="empty-icon" viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
-                  <rect x="3" y="3" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
-                  <rect x="14" y="3" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
-                  <rect x="3" y="14" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
-                  <rect x="14" y="14" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
+                  <rect x="3" y="3" width="7" height="7" rx="1.8"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1.8"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1.8"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1.8"/>
                 </svg>
                 <div class="empty-title">{t('copyart.title')}</div>
                 <div class="empty-sub">{t('copyart.eco.previewDisabled')}</div>
@@ -2113,10 +2153,10 @@
               <div class="empty-preview">
                 <div class="empty-card" transition:scale={{ start: 0.95, opacity: 0.08, duration: 140 }}>
                   <svg class="empty-icon" viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
-                    <rect x="3" y="3" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
-                    <rect x="14" y="3" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
-                    <rect x="3" y="14" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
-                    <rect x="14" y="14" width="7" height="7" rx="1.8" fill="#2a2c32" stroke="#3a3d45"/>
+                    <rect x="3" y="3" width="7" height="7" rx="1.8"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1.8"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1.8"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1.8"/>
                   </svg>
                   <div class="empty-title">{t('copyart.title')}</div>
                   <div class="empty-sub">{t('copyart.noPreview')}</div>
@@ -2168,9 +2208,9 @@
         <div class="row">
           <div class="hint">{t('copyart.controlsHint')}</div>
           <div style="flex:1"></div>
-          <button class="btn" on:click={clearSelection} disabled={!selectionRect || saving}>{t('copyart.clearSelection')}</button>
-          <button class="btn btn-primary" on:click={saveSelection} disabled={saving}>{t('copyart.save')}</button>
-          <button class="btn btn-primary" on:click={async()=>{ await sendToEditor(); }} disabled={!selectionRect}>{t('copyart.edit')}</button>
+          <button class="editor-btn" on:click={clearSelection} disabled={!selectionRect || saving}>{t('copyart.clearSelection')}</button>
+          <button class="editor-btn editor-primary" on:click={saveSelection} disabled={saving}>{t('copyart.save')}</button>
+          <button class="editor-btn editor-primary" on:click={async()=>{ await sendToEditor(); }} disabled={!selectionRect}>{t('copyart.edit')}</button>
         </div>
       </div>
     </div>
@@ -2209,8 +2249,8 @@
           </div>
         </div>
         <div class="qr-actions">
-          <button class="btn btn-primary" on:click={() => { confirmDialogOpen = false; if (confirmCallback) confirmCallback(true); }}>{t('copyart.confirm.continue')}</button>
-          <button class="btn" on:click={() => { confirmDialogOpen = false; if (confirmCallback) confirmCallback(false); }}>{t('copyart.confirm.cancel')}</button>
+          <button class="editor-btn editor-primary" on:click={() => { confirmDialogOpen = false; if (confirmCallback) confirmCallback(true); }}>{t('copyart.confirm.continue')}</button>
+          <button class="editor-btn" on:click={() => { confirmDialogOpen = false; if (confirmCallback) confirmCallback(false); }}>{t('copyart.confirm.cancel')}</button>
         </div>
       </div>
     </div>
@@ -2232,8 +2272,8 @@
           {/if}
         </div>
         <div class="qr-actions">
-          <button class="btn btn-primary" on:click={placeFromQr}>{t('copyart.qr.place')}</button>
-          <button class="btn" on:click={() => { qrDialogOpen = false; qrCandidate = null; qrPreviewUrl = ''; }}>{t('common.cancel')}</button>
+          <button class="editor-btn editor-primary" on:click={placeFromQr}>{t('copyart.qr.place')}</button>
+          <button class="editor-btn" on:click={() => { qrDialogOpen = false; qrCandidate = null; qrPreviewUrl = ''; }}>{t('common.cancel')}</button>
         </div>
       </div>
     </div>
@@ -2241,17 +2281,17 @@
 {/if}
 
 <style>
-  .ca-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: grid; place-items: center; z-index: 1000004; }
+  .ca-backdrop { position: fixed; inset: 0; background: var(--wph-backdrop, rgba(0,0,0,0.5)); display: grid; place-items: center; z-index: 1000004; }
   
-  .ca-modal { width: min(1000px, 95vw); max-height: min(88vh, 900px); display: flex; flex-direction: column; border-radius: 16px; overflow: auto; background: rgba(17,17,17,0.96); color: #fff; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 16px 36px rgba(0,0,0,0.5); backdrop-filter: blur(8px); }
+  .ca-modal { width: min(1000px, 95vw); max-height: min(88vh, 900px); display: flex; flex-direction: column; border-radius: 16px; overflow: auto; background: var(--wph-surface, rgba(17,17,17,0.96)); color: var(--wph-text, #fff); border: 1px solid var(--wph-border, rgba(255,255,255,0.15)); box-shadow: 0 16px 36px rgba(0,0,0,0.5); backdrop-filter: blur(8px); }
   .ca-header { 
     position: relative; 
     display: flex; 
     align-items: center; 
     justify-content: space-between;
     padding: 16px 20px; 
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--wph-border, rgba(255,255,255,0.1));
+    background: var(--wph-surface2, rgba(255,255,255,0.03));
   }
   .ca-header .title { 
     font-weight: 600; 
@@ -2265,8 +2305,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px; 
-    background: rgba(255,255,255,0.06); 
-    color: #fff; 
+    background: var(--wph-surface, rgba(255,255,255,0.06)); 
+    color: var(--wph-text, #fff); 
     border: none;
     cursor: pointer;
     transition: all .15s ease;
@@ -2276,35 +2316,36 @@
     padding: 0;
   }
   .close-x:hover {
-    background: rgba(255,255,255,0.12);
+    background: var(--wph-surface2, rgba(255,255,255,0.12));
     transform: scale(1.05);
   }
   .ca-body { flex: 1 1 auto; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
-  .left { padding: 12px; display: grid; gap: 12px; border-right: 1px solid rgba(255,255,255,0.12); overflow: auto; }
-  .right { position: relative; display: grid; place-items: center; background: #0f0f12; overflow: auto; }
+  .left { padding: 12px; display: grid; gap: 12px; border-right: 1px solid var(--wph-border, rgba(255,255,255,0.12)); overflow: auto; }
+  .right { position: relative; display: grid; place-items: center; background: var(--wph-background, #0f0f12); overflow: auto; }
   .right canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .empty-preview { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,0.8); font-size: 13px; pointer-events: none; user-select: none; }
-  .empty-card { display: grid; place-items: center; gap: 8px; padding: 18px 20px; max-width: 360px; text-align: center; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 20px rgba(0,0,0,0.35); }
+  .empty-preview { position: absolute; inset: 0; display: grid; place-items: center; color: var(--wph-muted, rgba(255,255,255,0.8)); font-size: 13px; pointer-events: none; user-select: none; }
+  .empty-card { display: grid; place-items: center; gap: 8px; padding: 18px 20px; max-width: 360px; text-align: center; border-radius: 12px; border: 1px solid var(--wph-border, rgba(255,255,255,0.12)); background: linear-gradient(180deg, var(--wph-surface2, rgba(255,255,255,0.04)), var(--wph-surface, rgba(255,255,255,0.02))); box-shadow: inset 0 1px 0 var(--wph-border, rgba(255,255,255,0.04)), 0 8px 20px rgba(0,0,0,0.35); }
   .empty-icon { opacity: 0.9; }
+  .empty-icon rect { fill: var(--wph-surface2, #2a2c32); stroke: var(--wph-border, #3a3d45); }
   .empty-title { font-weight: 700; font-size: 14px; opacity: 0.95; }
   .empty-sub { font-size: 12px; opacity: 0.8; }
-  .ca-footer { position: sticky; bottom: 0; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); backdrop-filter: blur(4px); }
+  .ca-footer { position: sticky; bottom: 0; padding: 10px 12px; border-top: 1px solid var(--wph-border, rgba(255,255,255,0.12)); background: var(--wph-surface2, rgba(255,255,255,0.06)); backdrop-filter: blur(4px); }
 
   .group { display: grid; gap: 8px; }
-  .group.card { padding: 10px; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(255,255,255,0.04); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
+  .group.card { padding: 10px; border: 1px solid var(--wph-border, rgba(255,255,255,0.12)); border-radius: 12px; background: var(--wph-surface, rgba(255,255,255,0.04)); box-shadow: inset 0 1px 0 var(--wph-border, rgba(255,255,255,0.04)); }
   .label { font-size: 12px; opacity: .9; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  .mono { font-size: 12px; }
   .hint { opacity: .85; font-size: 12px; }
 
   
-  .qr-dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: grid; place-items: center; z-index: 1000005; }
-  .qr-dialog { width: min(560px, 92vw); background: rgba(17,17,17,0.97); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; box-shadow: 0 16px 36px rgba(0,0,0,0.5); padding: 12px; display: grid; gap: 10px; }
+  .qr-dialog-backdrop { position: fixed; inset: 0; background: var(--wph-backdrop, rgba(0,0,0,0.55)); display: grid; place-items: center; z-index: 1000005; }
+  .qr-dialog { width: min(560px, 92vw); background: var(--wph-surface, rgba(17,17,17,0.97)); color: var(--wph-text, #fff); border: 1px solid var(--wph-border, rgba(255,255,255,0.15)); border-radius: 14px; box-shadow: 0 16px 36px rgba(0,0,0,0.5); padding: 12px; display: grid; gap: 10px; }
 
-  .save-toast, .assem-toast, .parts-toast { position: absolute; left: 50%; transform: translateX(-50%); width: min(560px, 94%); background: rgba(20,20,24,0.96); color: #fff; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; box-shadow: 0 18px 40px rgba(0,0,0,0.55); padding: 10px 12px; z-index: 10; backdrop-filter: blur(6px); pointer-events: none; }
+  .save-toast, .assem-toast, .parts-toast { position: absolute; left: 50%; transform: translateX(-50%); width: min(560px, 94%); background: var(--wph-surface, rgba(20,20,24,0.96)); color: var(--wph-text, #fff); border: 1px solid var(--wph-border, rgba(255,255,255,0.14)); border-radius: 12px; box-shadow: 0 18px 40px rgba(0,0,0,0.55); padding: 10px 12px; z-index: 10; backdrop-filter: blur(6px); pointer-events: none; }
   .save-toast { bottom: 16px; }
   .assem-toast { bottom: 76px; }
-  .parts-toast { bottom: 76px; background: rgba(76, 175, 80, 0.15); border-color: rgba(129, 199, 132, 0.3); }
-  .save-bar { position: relative; width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); }
+  .parts-toast { bottom: 76px; background: var(--wph-success, rgba(76, 175, 80, 0.15)); border-color: var(--wph-success, rgba(129, 199, 132, 0.3)); }
+  .save-bar { position: relative; width: 100%; height: 8px; background: var(--wph-surface, rgba(255,255,255,0.08)); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); }
   .save-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ff8a3d, #ff6a00); box-shadow: 0 0 12px rgba(255,122,61,0.5); }
   .save-bar-fill-real { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #ff8a3d, #ff6a00); box-shadow: 0 0 12px rgba(255,122,61,0.5); transition: width .3s ease-out; z-index: 2; }
   .save-bar-fill-estimated { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, rgba(255, 138, 61, 0.35), rgba(255, 106, 0, 0.35)); z-index: 1; }
@@ -2315,21 +2356,21 @@
   .save-size { opacity: 0.85; min-width: 80px; text-align: right; margin-left: auto; }
   .qr-title { font-weight: 700; }
   .qr-body { display: grid; grid-template-columns: 180px 1fr; gap: 10px; align-items: center; }
-  .qr-preview { width: 180px; height: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: #0f0f12; }
+  .qr-preview { width: 180px; height: auto; border-radius: 8px; border: 1px solid var(--wph-border, rgba(255,255,255,0.12)); background: var(--wph-background, #0f0f12); }
   .qr-preview { image-rendering: pixelated; image-rendering: crisp-edges; }
   .qr-meta .row { margin: 4px 0; }
   .qr-actions { display: flex; gap: 8px; justify-content: end; }
   .tiles { display: grid; gap: 8px; }
   .sizes-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (min-width: 420px) { .sizes-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  .tile { position: relative; display: block; padding: 8px 10px; border-radius: 12px; border: none; background: rgba(255,255,255,0.04); color: inherit; cursor: pointer; text-align: left; overflow: hidden; }
+  .tile { position: relative; display: block; padding: 8px 10px; border-radius: 12px; border: none; background: var(--wph-surface, rgba(255,255,255,0.04)); color: inherit; cursor: pointer; text-align: left; overflow: hidden; }
   .tile .tile-inner { display: grid; grid-template-columns: 1fr; align-items: center; gap: 10px; }
-  .tile:hover { background: rgba(255,255,255,0.08); }
+  .tile:hover { background: var(--wph-surface2, rgba(255,255,255,0.08)); }
   .tile.selected { border-color: transparent; box-shadow: none; }
   .tile .name { font-size: 12px; line-height: 1.2; opacity: 0.95; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
   
   .ants { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
-  .ants path { stroke: #f3734d; stroke-width: 2; stroke-linecap: butt; stroke-linejoin: round; stroke-dasharray: var(--dash) var(--dash); stroke-dashoffset: 0; filter: drop-shadow(0 0 2px rgba(240,81,35,0.6)); vector-effect: non-scaling-stroke; shape-rendering: geometricPrecision; }
+  .ants path { stroke: var(--wph-primary, #f3734d); stroke-width: 2; stroke-linecap: butt; stroke-linejoin: round; stroke-dasharray: var(--dash) var(--dash); stroke-dashoffset: 0; filter: drop-shadow(0 0 2px var(--wph-primaryGlow, rgba(240,81,35,0.6))); vector-effect: non-scaling-stroke; shape-rendering: geometricPrecision; }
   .tile.selected .ants { opacity: 1; }
   @keyframes antsRun { to { stroke-dashoffset: calc(-2 * var(--dash)); } }
   .tile.selected .ants path { animation: antsRun var(--ants-speed, 1.2s) linear infinite; }
@@ -2339,38 +2380,36 @@
   .row { display: flex; gap: 8px; }
   .row label { flex: 1; white-space: normal; }
   .row .num { flex: 0 0 120px; }
-  .num { height: 28px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #fff; padding: 0 8px; }
-  .btn { height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #fff; cursor: pointer; font-weight: 700; letter-spacing: .2px; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: transform .12s ease, filter .12s ease; }
-  .btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
-  .btn:disabled { opacity: .6; cursor: default; }
-  .btn-primary { background: #f05123; border-color: rgba(255,255,255,0.25); }
-  .btn-primary:hover { filter: brightness(1.05); }
+  .num { height: 28px; border-radius: 8px; border: 1px solid var(--wph-border, rgba(255,255,255,0.14)); background: var(--wph-surface, rgba(255,255,255,0.06)); color: var(--wph-text, #fff); padding: 0 8px; }
+  .editor-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.07); color: #fff; cursor: pointer; }
+  .editor-btn:disabled { opacity: .6; cursor: default; }
+  .editor-btn.editor-primary { background: var(--wph-primary, #f05123); border-color: rgba(255,255,255,0.25); }
 
  
   .custom-input-row { display: grid; gap: 6px; margin-top: 4px; }
   .custom-size-input { 
     height: 32px; 
     border-radius: 8px; 
-    border: 1px solid rgba(255,255,255,0.18); 
-    background: rgba(255,255,255,0.08); 
-    color: #fff; 
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.18)); 
+    background: var(--wph-surface, rgba(255,255,255,0.08)); 
+    color: var(--wph-text, #fff); 
     padding: 0 10px; 
     font-size: 13px;
     text-align: center;
   }
   .custom-size-input:focus { 
     outline: none; 
-    border-color: #f05123; 
-    box-shadow: 0 0 0 2px rgba(240,81,35,0.2); 
+    border-color: var(--wph-primary, #f05123); 
+    box-shadow: 0 0 0 2px var(--wph-focusRing, rgba(240,81,35,0.2)); 
   }
   .custom-hint { 
     font-size: 11px; 
     opacity: 0.7; 
     text-align: center; 
-    color: rgba(255,255,255,0.65);
+    color: var(--wph-muted, rgba(255,255,255,0.65));
   }
   .custom-tile .name { 
-    color: rgba(255,255,255,0.9); 
+    color: var(--wph-text, rgba(255,255,255,0.9)); 
     font-weight: 500; 
   }
 
@@ -2388,7 +2427,7 @@
   }
   .eco-text {
     font-size: 12px;
-    color: rgba(255,255,255,0.8);
+    color: var(--wph-text, rgba(255,255,255,0.8));
     line-height: 1.4;
     margin-bottom: 8px;
   }
@@ -2405,7 +2444,7 @@
     font-size: 11px;
   }
   .stat-label {
-    color: rgba(255,255,255,0.7);
+    color: var(--wph-muted, rgba(255,255,255,0.7));
   }
   .stat-value {
     color: #81c784;
@@ -2425,13 +2464,13 @@
   .confirm-icon {
     width: 28px;
     height: 28px;
-    fill: #f05123;
+    fill: var(--wph-primary, #f05123);
     flex-shrink: 0;
   }
   .confirm-title {
     font-size: 20px;
     font-weight: 700;
-    color: #fff;
+    color: var(--wph-text, #fff);
     letter-spacing: -0.01em;
   }
   .confirm-body {
@@ -2440,7 +2479,7 @@
   }
   .confirm-message {
     font-size: 15px;
-    color: rgba(255,255,255,0.8);
+    color: var(--wph-text, rgba(255,255,255,0.8));
     margin-bottom: 20px;
     line-height: 1.5;
   }
@@ -2454,18 +2493,18 @@
     justify-content: space-between;
     align-items: center;
     padding: 14px 18px;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--wph-surface, rgba(0, 0, 0, 0.25));
+    border: 1px solid var(--wph-border, rgba(255, 255, 255, 0.06));
     border-radius: 6px;
   }
   .confirm-stat-label {
     font-size: 14px;
-    color: rgba(255,255,255,0.65);
+    color: var(--wph-muted, rgba(255,255,255,0.65));
     font-weight: 400;
   }
   .confirm-stat-value {
     font-size: 15px;
-    color: #f05123;
+    color: var(--wph-primary, #f05123);
     font-weight: 700;
   }
   .confirm-warning {
@@ -2477,7 +2516,7 @@
     border: 1px solid rgba(180, 140, 60, 0.3);
     border-radius: 6px;
     font-size: 13px;
-    color: rgba(255,255,255,0.85);
+    color: var(--wph-text, rgba(255,255,255,0.85));
   }
   .warning-icon {
     width: 18px;
@@ -2495,7 +2534,7 @@
     border: 1px solid rgba(255, 193, 7, 0.2);
     border-radius: 6px;
     font-size: 11px;
-    color: rgba(255,255,255,0.8);
+    color: var(--wph-text, rgba(255,255,255,0.8));
   }
   .cooldown-icon {
     width: 16px;

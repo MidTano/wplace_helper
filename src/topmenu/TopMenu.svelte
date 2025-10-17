@@ -50,7 +50,7 @@
 
     
       <div class="tm-group drip" style="--drip-delay: 40ms" aria-label={t('topmenu.group.art')}>
-      <button class="tm-fab tm-primary tm-tip" type="button" on:click={onPick} aria-label={L_pick} data-label={L_pick}>
+      <button class="tm-fab tm-primary tm-tip" type="button" on:click={onPick} aria-label={L_pick} data-label={L_pick} data-tutorial="pick-button">
         <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
           <path d="M19,14a3,3,0,1,0-3-3A3,3,0,0,0,19,14Zm0-4a1,1,0,1,1-1,1A1,1,0,0,1,19,10Z"/>
           
@@ -105,12 +105,12 @@
     top: 10px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 1000002;
+    z-index: var(--z-menu);
     pointer-events: auto;
     font-size: 12px;
     line-height: 1.4;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     color: #fff;
+    overflow: visible;
   }
   .topmenu-bar {
     display: flex;
@@ -123,6 +123,7 @@
     box-shadow: 0 8px 20px rgba(0,0,0,0.35);
     will-change: transform;
     transition: transform .28s cubic-bezier(.4,0,.2,1);
+    overflow: visible;
   }
   .topmenu-bar.collapsed { transform: translateY(calc(-100% - 60px)); }
   .tm-row {
@@ -193,12 +194,12 @@
     transition: filter .15s ease, transform .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
   }
   :global(.tm-fab:hover) { filter: brightness(1.03); transform: translateY(-1px); }
-  :global(.tm-fab:focus-visible) { outline: 2px solid #f05123; outline-offset: 1px; }
+  :global(.tm-fab:focus-visible) { outline: 2px solid var(--wph-focusRing, #f05123); outline-offset: 1px; }
   :global(.tm-fab svg) { display: block; }
-  :global(.tm-fab.tm-primary) { background: #f05123; color: #fff; border-color: rgba(255,255,255,0.25); box-shadow: 0 8px 24px rgba(240,81,35,0.45); }
+  :global(.tm-fab.tm-primary) { background: var(--wph-primary, #f05123); color: var(--wph-onPrimary, #fff); border-color: var(--wph-border, rgba(255,255,255,0.25)); box-shadow: 0 8px 24px var(--wph-primaryGlow, rgba(240,81,35,0.45)); }
   :global(.tm-fab.tm-primary:hover) { filter: brightness(1.05); }
   
-  :global(.tm-fab.tm-danger) { background: #e53935; color: #fff; border-color: rgba(255,255,255,0.25); box-shadow: 0 8px 24px rgba(229,57,53,0.45); }
+  :global(.tm-fab.tm-danger) { background: var(--wph-error, #e53935); color: var(--wph-onError, #fff); border-color: rgba(255,255,255,0.25); box-shadow: 0 8px 24px rgba(229,57,53,0.45); }
   :global(.tm-fab.tm-danger:hover) { filter: brightness(1.05); }
 
   
@@ -213,7 +214,7 @@
     box-shadow: 0 6px 16px rgba(0,0,0,0.35);
     white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none;
     transition: opacity .12s ease, transform .12s ease, visibility .12s;
-    z-index: 1000010;
+    z-index: var(--z-popover);
   }
   :global(.tm-fab[data-label]:hover::after),
   :global(.tm-fab[data-label]:focus-visible::after) {
@@ -247,7 +248,7 @@
     border-top: none;
     border-radius: 0 0 10px 10px;
     box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-    z-index: 1000003;
+    z-index: var(--z-menu);
     cursor: pointer;
     transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -269,9 +270,9 @@
     }
     
     8% { 
-      background: rgba(240,81,35,0.85);
-      border-color: rgba(240,81,35,0.9);
-      box-shadow: 0 8px 32px rgba(240,81,35,0.6), 0 0 24px rgba(240,81,35,0.4);
+      background: var(--wph-primary, #f05123);
+      border-color: var(--wph-primary, #f05123);
+      box-shadow: 0 8px 32px var(--wph-primaryGlow, rgba(240,81,35,0.6)), 0 0 24px var(--wph-primaryGlow, rgba(240,81,35,0.4));
       transform: translateX(-50%) scale(1.03);
     }
     
@@ -290,9 +291,9 @@
     }
     
     38% { 
-      background: rgba(240,81,35,0.75);
-      border-color: rgba(240,81,35,0.85);
-      box-shadow: 0 8px 28px rgba(240,81,35,0.5), 0 0 20px rgba(240,81,35,0.35);
+      background: var(--wph-primary, #f05123);
+      border-color: var(--wph-primary, #f05123);
+      box-shadow: 0 8px 28px var(--wph-primaryGlow, rgba(240,81,35,0.5)), 0 0 20px var(--wph-primaryGlow, rgba(240,81,35,0.35));
       transform: translateX(-50%) scale(1.025);
     }
     

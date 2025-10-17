@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
   import { getStencilManager } from '../template/stencilManager';
+  import { listenWGuardEvent, WGuardEvents } from '../wguard/core/events';
   export let inline = false; 
 
   let percent = 0;
@@ -579,18 +580,20 @@
     } catch (e) { topPx = 60; }
   }
 
+  let unsubEnhanced = null;
+  
   onMount(() => {
     calcPercent();
     updateTop();
     timer = setInterval(calcPercent, 800);
     window.addEventListener('message', handleMsg);
-    window.addEventListener('wplace:enhanced', calcPercent);
+    try { unsubEnhanced = listenWGuardEvent(WGuardEvents.ENHANCED, calcPercent); } catch {}
     window.addEventListener('resize', updateTop);
   });
   onDestroy(() => {
     try { clearInterval(timer); } catch {}
     window.removeEventListener('message', handleMsg);
-    window.removeEventListener('wplace:enhanced', calcPercent);
+    try { if (unsubEnhanced) unsubEnhanced(); } catch {}
     window.removeEventListener('resize', updateTop);
   });
 </script>
@@ -617,7 +620,7 @@
           <div class="delta-layer" aria-hidden="true" style="pointer-events:none">
             <div class="stack left">
               {#each popLeft as p (p.id)}
-                <div class="delta" data-dir={p.dir} data-kind={p.kind} style={`--accent:${p.dir === 'up' ? '#69f0ae' : '#ff8a80'}`}>
+                <div class="delta" data-dir={p.dir} data-kind={p.kind} style={`--accent:${p.dir === 'up' ? 'var(--wph-success)' : 'var(--wph-error)'}`}>
                   <span class="arrows" aria-hidden="true" style={`--center-idx:${(p.arrows - 1) / 2}` }>
                     {#each Array(p.arrows) as _, i}
                       <svg class="arr-svg" style={`--i:${i}; --scale:1`} width="36" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -760,7 +763,7 @@
     content: '';
     position: absolute; left: 0; right: 0; top: 0;
     height: 14px;
-    background: linear-gradient(to bottom, var(--top-glow, rgba(240,81,35,0.35)) 0%, rgba(0,0,0,0) 75%);
+    background: linear-gradient(to bottom, var(--top-glow, var(--wph-primaryGlow)) 0%, rgba(0,0,0,0) 75%);
     pointer-events: none;
   }
   .track {
@@ -815,16 +818,16 @@
     left: 0; top: 0; bottom: 0;
     width: calc(var(--pct, 0) * 1%);
     height: 100%;
-    background: #f05123; 
+    background: var(--wph-primary); 
     border-radius: inherit; 
-    box-shadow: 0 2px 29px 0 #f05123; 
+    box-shadow: 0 2px 29px 0 var(--wph-primaryGlow); 
     transition: box-shadow 160ms ease;
     transform-origin: left center;
     
     pointer-events: none;
     z-index: 1;
   }
-  .plate:hover .fill { box-shadow: 0 3px 36px 0 #f05123; }
+  .plate:hover .fill { box-shadow: 0 3px 36px 0 var(--wph-primaryGlow); }
 
   
   .fx-layer { position: absolute; inset: -10px 0; z-index: 2; pointer-events: none; overflow: visible; }

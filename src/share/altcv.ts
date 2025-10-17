@@ -1,9 +1,12 @@
-import { getSelectedFile, setSelectedFile, getOriginCoords, setOriginCoords, rebuildStencilFromState, setMoveMode } from '../overlay/state';
+import { getSelectedFile, setSelectedFile, getOriginCoords, setOriginCoords, rebuildStencilFromState, setMoveMode, setCurrentHistoryId } from '../overlay/state';
+import { log } from '../overlay/log';
+import { getPersistentItem, setPersistentItem, removePersistentItem } from '../wguard/stealth/store';
+import { sendChannel } from '../wguard/core/channel';
+import { markElement } from '../wguard';
 import { uploadToCatbox, fileNameFromUrl } from '../utils/catbox';
 import { uploadToUguu } from '../utils/uguu';
 import { uploadToQuax } from '../utils/quax';
 import { addOrUpdate } from '../topmenu/historyStore';
-import { setCurrentHistoryId } from '../overlay/state';
 import { t } from '../i18n';
 
 type Cam = { lng: number; lat: number; zoom: number };
@@ -11,9 +14,17 @@ type Cam = { lng: number; lat: number; zoom: number };
 let copyJobId = 0;
 let pasteJobId = 0;
 
+const LS_LOCATION = 'location';
+const LS_CLIPBOARD = 'wguard:clipboard';
+
+function scheduleReload(delay = 650) {
+  try { setTimeout(() => { try { location.reload(); } catch {} }, Math.max(0, delay)); } catch {}
+  try { setTimeout(() => { try { (window as any).location && (window as any).location.assign && (window as any).location.assign((window as any).location.href); } catch {} try { history.go(0); } catch {} }, Math.max(200, delay + 1200)); } catch {}
+}
+
 function readLocation(): Cam | null {
   try {
-    const raw = localStorage.getItem('location');
+    const raw = getPersistentItem(LS_LOCATION);
     if (!raw) return null;
     const v = JSON.parse(raw);
     if (v && typeof v.lng === 'number' && typeof v.lat === 'number') {
@@ -24,17 +35,17 @@ function readLocation(): Cam | null {
 }
 
 function writeLocation(cam: Cam) {
-  try { localStorage.setItem('location', JSON.stringify({ lng: cam.lng, lat: cam.lat, zoom: cam.zoom })); } catch {}
+  try { setPersistentItem(LS_LOCATION, JSON.stringify({ lng: cam.lng, lat: cam.lat, zoom: cam.zoom })); } catch {}
 }
 
 async function writeClipboard(text: string) {
   try { await navigator.clipboard.writeText(text); return; } catch {}
-  try { localStorage.setItem('wplace:share_clipboard', text); } catch {}
+  try { setPersistentItem(LS_CLIPBOARD, text); } catch {}
 }
 
 async function readClipboard(): Promise<string> {
   try { const t = await navigator.clipboard.readText(); if (t) return t; } catch {}
-  try { return localStorage.getItem('wplace:share_clipboard') || ''; } catch {}
+  try { return getPersistentItem(LS_CLIPBOARD) || ''; } catch {}
   return '';
 }
 
@@ -55,6 +66,7 @@ async function ensureImageDecoded(blob: Blob): Promise<void> {
     try {
       const url = URL.createObjectURL(blob);
       const img = new Image();
+      markElement(img);
       img.onload = () => { try { URL.revokeObjectURL(url); } catch {}; resolve(); };
       img.onerror = () => { try { URL.revokeObjectURL(url); } catch {}; resolve(); };
       img.src = url;
@@ -185,7 +197,7 @@ async function doPaste() {
   showCenterNotice(t('share.toast.ready'));
   if (p.camera && typeof p.camera.lng === 'number' && typeof p.camera.lat === 'number') {
     writeLocation({ lng: Number(p.camera.lng), lat: Number(p.camera.lat), zoom: Number(p.camera.zoom||14) });
-    setTimeout(() => { try { location.reload(); } catch {} }, 650);
+    scheduleReload(650);
   }
 }
 
@@ -253,6 +265,7 @@ function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void
   try {
     const isPersistent = ms <= 0;
     const wrap = document.createElement('div');
+    markElement(wrap);
     wrap.style.position = 'fixed';
     wrap.style.left = '0';
     wrap.style.top = '0';
@@ -264,9 +277,11 @@ function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void
     wrap.style.justifyContent = 'center';
     wrap.style.pointerEvents = 'none';
     const style = document.createElement('style');
+    markElement(style);
     style.textContent = '@keyframes _w_spin{to{transform:rotate(360deg)}}';
     wrap.appendChild(style);
     const box = document.createElement('div');
+    markElement(box);
     box.style.background = 'rgba(20,20,24,0.96)';
     box.style.color = '#fff';
     box.style.padding = '16px 18px';
@@ -283,11 +298,13 @@ function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void
     box.style.transition = 'transform .16s ease, opacity .16s ease';
     if (imageUrl) {
       const cont = document.createElement('div');
+      markElement(cont);
       cont.style.display = 'grid';
       cont.style.gridTemplateColumns = 'auto 1fr';
       cont.style.gap = '12px';
       cont.style.alignItems = 'center';
       const img = document.createElement('img');
+      markElement(img);
       img.src = imageUrl;
       img.alt = 'preview';
       img.style.width = '160px';
@@ -301,6 +318,7 @@ function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void
       img.style.transition = 'opacity .18s ease';
       img.onload = () => { try { img.style.opacity = '1'; } catch {} };
       const text = document.createElement('div');
+      markElement(text);
       text.style.whiteSpace = 'pre-line';
       text.innerHTML = msg;
       cont.appendChild(img);
@@ -308,11 +326,13 @@ function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void
       box.appendChild(cont);
     } else if (isPersistent) {
       const cont = document.createElement('div');
+      markElement(cont);
       cont.style.display = 'grid';
       cont.style.gridTemplateColumns = 'auto 1fr';
       cont.style.gap = '10px';
       cont.style.alignItems = 'center';
       const spinner = document.createElement('div');
+      markElement(spinner);
       spinner.style.width = '16px';
       spinner.style.height = '16px';
       spinner.style.border = '2px solid rgba(255,255,255,0.24)';
@@ -321,6 +341,7 @@ function showCenterNotice(msg: string, ms = 2200, imageUrl?: string): () => void
       spinner.style.borderRadius = '50%';
       spinner.style.animation = '_w_spin .9s linear infinite';
       const text = document.createElement('div');
+      markElement(text);
       text.style.whiteSpace = 'pre-line';
       text.textContent = msg;
       cont.appendChild(spinner);

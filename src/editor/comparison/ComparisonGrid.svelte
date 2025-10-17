@@ -141,12 +141,12 @@
     overflow: hidden;
     
     
-    background-color: #0a0a0a;
+    background-color: var(--wph-background, #0a0a0a);
     background-image:
-      linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.04) 75%),
-      linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.04) 75%);
+      linear-gradient(45deg, var(--wph-surface2, rgba(255,255,255,0.04)) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--wph-surface2, rgba(255,255,255,0.04)) 75%),
+      linear-gradient(45deg, var(--wph-surface2, rgba(255,255,255,0.04)) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--wph-surface2, rgba(255,255,255,0.04)) 75%);
     background-size: 12px 12px;
     background-position: 0 0, 0 0, 6px 6px, 6px 6px;
   }

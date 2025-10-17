@@ -1,4 +1,27 @@
 
+function getThemeHost(): HTMLElement {
+  try {
+    const host: any = (window as any).__wphPortalHost;
+    if (host && host.host instanceof HTMLElement) return host.host as HTMLElement;
+    if (host && host instanceof HTMLElement) return host as HTMLElement;
+    const el = document.getElementById('wph-theme-root');
+    return el || document.documentElement;
+  } catch { return document.documentElement; }
+}
+
+function getPrimary2Hex(): string {
+  try {
+    const el = getThemeHost();
+    let v = getComputedStyle(el).getPropertyValue('--wph-primary2');
+    let s = String(v || '').trim();
+    if (!s) {
+      v = getComputedStyle(el).getPropertyValue('--wph-primary-2');
+      s = String(v || '').trim();
+    }
+    return s || '#55aaff';
+  } catch { return '#55aaff'; }
+}
+
 export type GradientMode = 'bayer2'|'bayer4'|'lines'|'noise'|'checker'|'dots'|'hatch'|'radial'|'rings'|'spiral'|'diamond'|'ornament';
 
 export function applyGradientOnCanvas(
@@ -220,7 +243,7 @@ export function drawGradientPreviewOverlay(
   ctx.save();
   
   
-  ctx.strokeStyle = '#55aaff';
+  ctx.strokeStyle = getPrimary2Hex();
   ctx.lineWidth = 1;
   ctx.setLineDash([6, 4]);
   ctx.beginPath(); 

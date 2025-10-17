@@ -1,14 +1,10 @@
-import { MASTER_COLORS } from '../editor/palette';
+import { getPalette } from '../editor/palette';
+import { markElement } from '../wguard';
 
 export type QrCoords = [number, number, number, number]; 
 
 export function getFreePalette(): [number, number, number][] {
-  const free = MASTER_COLORS.filter(c => !c.paid).map(c => c.rgb);
-  if (free.length < 32) {
-    
-    while (free.length < 32) free.push(free[free.length - 1] || [0,0,0]);
-  }
-  return free.slice(0, 32) as any;
+  return getPalette('free') as [number, number, number][];
 }
 
 function toBytesLE(num: number, bytes: number): number[] {
@@ -72,8 +68,9 @@ export async function buildCodeCanvas(fileName: string, coords: QrCoords): Promi
   const payload = packPayload(fileName, coords);
   const base32 = bytesToBase32(payload);
   const dim = chooseDim(base32.length);
-  const palette = getFreePalette();
+  const palette = getPalette('free');
   const cvs = document.createElement('canvas');
+  markElement(cvs);
   cvs.width = dim; cvs.height = dim;
   const ctx = cvs.getContext('2d', { willReadFrequently: true })!;
   

@@ -1,5 +1,7 @@
 import { setOriginCoords, rebuildStencilFromState, isMoveMode, setMoveMode } from './state';
 import { getStencilManager } from '../template/stencilManager';
+import { readChannelPayload } from '../wguard/core/channel';
+import { markElement } from '../wguard';
 
 function canonicalizeTileUrl(url: string): string | null {
   try {
@@ -8,15 +10,12 @@ function canonicalizeTileUrl(url: string): string | null {
     const parts = u.pathname.split('/').filter(Boolean);
     const tilesIdx = parts.findIndex(p => p === 'tiles');
     if (tilesIdx === -1 || tilesIdx + 2 >= parts.length) return null;
-    let i = 0;
     const segs: string[] = [];
     
     if (parts[0] === 'files' && /^s\d+$/i.test(parts[1] || '')) {
       segs.push('files', parts[1]);
-      i = 2;
     } else if (/^s\d+$/i.test(parts[0] || '')) {
       segs.push('files', parts[0]);
-      i = 1;
     }
     
     const x = parts[tilesIdx + 1];
@@ -64,6 +63,7 @@ function extractTilePixelFromPixel(url: string): [number, number, number, number
 
 function inject(callback: () => void) {
   const script = document.createElement('script');
+  markElement(script);
   try {
     const withNonce = document.querySelector('script[nonce]') as HTMLScriptElement | null;
     const nonce = (withNonce && (withNonce.nonce || withNonce.getAttribute('nonce'))) || '';
@@ -80,11 +80,43 @@ function inject(callback: () => void) {
 
 function installPageFetchInjection() {
   inject(() => {
+    const LEGACY_CHANNEL_SOURCE = 'wplace-svelte';
+    function readChannel(){
+      try{
+        const raw = sessionStorage.getItem('wguard:user-config');
+        if(raw){
+          const data = JSON.parse(raw);
+          const ch = data && data.config && data.config.obfuscation && data.config.obfuscation.channelSource;
+          if(typeof ch === 'string' && ch) return ch;
+        }
+      }catch{}
+      return 'wguard-svelte';
+    }
+    const WGUARD_CHANNEL_SOURCE = readChannel();
+    
+    function normalizeChannelData(data: any): any {
+      if (!data || typeof data !== 'object') return null;
+      const source = data.source;
+      if (source !== LEGACY_CHANNEL_SOURCE && source !== WGUARD_CHANNEL_SOURCE) return null;
+      return { ...data, source: WGUARD_CHANNEL_SOURCE };
+    }
+    
+    function readChannelPayload(event: any): any {
+      return normalizeChannelData(event?.data);
+    }
+    
+    function sendChannel(payload: any): void {
+      try {
+        window.postMessage({ ...payload, source: WGUARD_CHANNEL_SOURCE }, '*');
+      } catch {}
+    }
+    
     const fetchedBlobQueue = new Map();
     let __bm_interceptActive = false;
     let __bm_cachedContext: any = null;
     let __bm_ctxTs = 0;
     let __bm_pendingIntercept: any = null;
+    let __bm_formatValid = true;
     
 
     
@@ -145,8 +177,8 @@ function installPageFetchInjection() {
       return isEditModeOpen();
     }
     window.addEventListener('message', (event) => {
-      const data = event?.data;
-      if (!data || data.source !== 'wplace-svelte') return;
+      const data = readChannelPayload(event);
+      if (!data) return;
       
       if (data.blobID && data.blobData && !data.endpoint) {
         const cb = fetchedBlobQueue.get(data.blobID);
@@ -177,7 +209,7 @@ function installPageFetchInjection() {
       
       if (data.action === 'bm:interceptStart') {
         __bm_interceptActive = true;
-        try { window.postMessage({ source: 'wplace-svelte', action: 'bm:interceptArmed' }, '*'); } catch {}
+        sendChannel({ action: 'bm:interceptArmed' });
       }
       if (data.action === 'bm:triggerPaint') {
         (async () => {
@@ -189,8 +221,7 @@ function installPageFetchInjection() {
               await new Promise(r => setTimeout(r, 80));
               openBtn.click();
               await new Promise(r => setTimeout(r, 120));
-              const ok = await waitForEditUI(2000);
-            } else {
+              await waitForEditUI(2000);
             }
           } catch {}
         })();
@@ -220,7 +251,7 @@ function installPageFetchInjection() {
             if (editOk) {
               const center = getCanvasCenter();
               if (center) {
-                try { window.postMessage({ source: 'wplace-svelte', action: 'pageClick', x: center.x, y: center.y }, '*'); } catch {}
+                sendChannel({ action: 'pageClick', x: center.x, y: center.y });
                 await new Promise(r => setTimeout(r, 200));
               }
               let finalBtn = findConfirmButton();
@@ -237,17 +268,28 @@ function installPageFetchInjection() {
           } catch {}
         })();
       }
-      if (data.action === 'bm:place' && data && typeof data.chunkX === 'number' && typeof data.chunkY === 'number' && Array.isArray(data.coords) && Array.isArray(data.colors)) {
+      if (data.action === 'bm:place' && typeof (data as any)?.chunkX === 'number' && typeof (data as any)?.chunkY === 'number' && Array.isArray((data as any)?.coords) && Array.isArray((data as any)?.colors)) {
         (async () => {
           try {
+            if (!__bm_formatValid) {
+              sendChannel({ action: 'bm:placed', ok: false, status: 0, reason: 'format_error' });
+              return;
+            }
             if (!__bm_cachedContext || !__bm_ctxTs || (Date.now() - __bm_ctxTs) > 10000) {
-              window.postMessage({ source: 'wplace-svelte', action: 'bm:placed', ok: false, status: 0, reason: 'noctx' }, '*');
+              sendChannel({ action: 'bm:placed', ok: false, status: 0, reason: 'noctx' });
+              return;
+            }
+            if (!__bm_cachedContext.fp) {
+              sendChannel({ action: 'bm:placed', ok: false, status: 0, reason: 'no_fp' });
               return;
             }
             const opts = JSON.parse(JSON.stringify(__bm_cachedContext.requestOptions || {}));
+            const coords = ((data as any).coords as unknown[]).slice();
+            const colors = ((data as any).colors as unknown[]).slice();
             const body = { 
-              colors: data.colors.slice(), 
-              coords: data.coords.slice(), 
+              colors,
+              coords,
+              fp: __bm_cachedContext.fp,
               t: __bm_cachedContext.token 
             };
             opts.method = 'POST';
@@ -255,9 +297,9 @@ function installPageFetchInjection() {
             const url = `https://backend.wplace.live/s0/pixel/${Number(data.chunkX)||0}/${Number(data.chunkY)||0}`;
             const resp = await fetch(url, opts);
             const ok = resp && (resp.status >= 200 && resp.status < 300);
-            window.postMessage({ source: 'wplace-svelte', action: 'bm:placed', ok, status: resp.status }, '*');
+            sendChannel({ action: 'bm:placed', ok, status: resp.status });
           } catch (e) {
-            window.postMessage({ source: 'wplace-svelte', action: 'bm:placed', ok: false, status: 0 }, '*');
+            sendChannel({ action: 'bm:placed', ok: false, status: 0 });
           }
         })();
       }
@@ -318,23 +360,37 @@ function installPageFetchInjection() {
             
               let rgb: [number, number, number] = [0,0,0];
               const inline = (btn.getAttribute('style') || '').toLowerCase();
-              const m = inline.match(/rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/);
-              if (m) {
-                rgb = [Number(m[1])||0, Number(m[2])||0, Number(m[3])||0];
-              } else {
+              const re = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/;
+              let m = inline.match(re);
+              if (!m) {
                 const cs = getComputedStyle(btn);
-                const bc = (cs.getPropertyValue('background-color') || '').toLowerCase();
-                const mc = bc.match(/rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/);
-                if (mc) rgb = [Number(mc[1])||0, Number(mc[2])||0, Number(mc[3])||0];
+                const bc = (cs.getPropertyValue('background') || cs.getPropertyValue('background-color') || '').toLowerCase();
+                m = bc.match(re);
               }
+              if (m) rgb = [Number(m[1])||0, Number(m[2])||0, Number(m[3])||0];
               const label = btn.getAttribute('aria-label') || '';
-              const paid = !!btn.querySelector('svg');
+              let paid = false;
+              try {
+                const svgs = Array.from(btn.getElementsByTagName('svg')) as SVGElement[];
+                for (const el of svgs) {
+                  const cs2 = getComputedStyle(el as any);
+                  const rect = (el as any).getBoundingClientRect ? (el as any).getBoundingClientRect() : { width: 0, height: 0 };
+                  if (cs2 && cs2.display !== 'none' && cs2.visibility !== 'hidden' && rect.width > 0 && rect.height > 0) { paid = true; break; }
+                }
+              } catch {}
               out.push({ id: idNum, rgb, paid, label });
             } catch {}
           }
-          window.postMessage({ source: 'wplace-svelte', action: 'colorButtons', reqId: data.reqId, buttons: out }, '*');
+          try {
+            const freeRgbKeys = out.filter(v => v && !v.paid && Array.isArray(v.rgb))
+              .map(v => `${v.rgb[0]},${v.rgb[1]},${v.rgb[2]}`);
+            (window as any).__wph_lastColorButtons = out;
+            (window as any).__wph_lastFreeRgbKeys = freeRgbKeys;
+            
+          } catch {}
+          sendChannel({ action: 'colorButtons', reqId: data.reqId, buttons: out, freeRgbKeys: (window as any).__wph_lastFreeRgbKeys || [] });
         } catch {
-          window.postMessage({ source: 'wplace-svelte', action: 'colorButtons', reqId: data.reqId, buttons: [] }, '*');
+          sendChannel({ action: 'colorButtons', reqId: data.reqId, buttons: [] });
         }
       }
      
@@ -385,32 +441,46 @@ function installPageFetchInjection() {
         const options = args[1] || {};
         const method = (options.method || 'GET').toUpperCase();
         
-        if (__bm_interceptActive && method === 'POST' && typeof url === 'string' && url.includes('/pixel/')) {
+        if (__bm_interceptActive && method === 'POST' && typeof url === 'string' && /\/s0\/pixel\/[0-9]+\/[0-9]+(\b|\/|\?)/.test(url)) {
           try {
             const originalBody = JSON.parse(String(options.body || '{}'));
             const token = originalBody['t'];
-            if (!token) {
-              throw new Error("Could not find security token 't'");
+            const fp = originalBody['fp'];
+            const colors = originalBody['colors'];
+            const coords = originalBody['coords'];
+            
+            if (!token || !fp || !Array.isArray(colors) || !Array.isArray(coords)) {
+              __bm_formatValid = false;
+              __bm_interceptActive = false;
+              if (__bm_pendingIntercept) {
+                sendChannel({ action: 'bm:formatError', reason: 'Invalid request format detected' });
+              }
+              return (originalFetch as any).apply(this, args);
             }
+            
+            __bm_formatValid = true;
             const baseOpts = { method: 'POST', headers: options.headers || {} } as any;
-            __bm_cachedContext = { token, originalBody: options.body, requestOptions: baseOpts };
+            __bm_cachedContext = { token, fp, originalBody: options.body, requestOptions: baseOpts };
             __bm_ctxTs = Date.now();
-            try { (window as any).__bmRequestContext = { token, originalBody: String(options.body||''), requestOptions: baseOpts, timestamp: __bm_ctxTs }; } catch {}
+            try { (window as any).__bmRequestContext = { token, fp, originalBody: String(options.body||''), requestOptions: baseOpts, timestamp: __bm_ctxTs }; } catch {}
             if (__bm_pendingIntercept && Array.isArray(__bm_pendingIntercept.coords) && Array.isArray(__bm_pendingIntercept.colors)) {
-              const body = { colors: __bm_pendingIntercept.colors.slice(), coords: __bm_pendingIntercept.coords.slice(), t: token } as any;
+              const body = { colors: __bm_pendingIntercept.colors.slice(), coords: __bm_pendingIntercept.coords.slice(), fp: fp, t: token } as any;
               const newUrl = `https://backend.wplace.live/s0/pixel/${Number(__bm_pendingIntercept.chunkX)||0}/${Number(__bm_pendingIntercept.chunkY)||0}`;
               const newOptions = { ...options, body: JSON.stringify(body) } as any;
               __bm_interceptActive = false;
               const resp = await (originalFetch as any).call(window, newUrl, newOptions);
-              try { window.postMessage({ source: 'wplace-svelte', action: 'bm:context', ok: true }, '*'); } catch {}
-              try { window.postMessage({ source: 'wplace-svelte', action: 'bm:placed', ok: resp && resp.status >= 200 && resp.status < 300, status: resp.status }, '*'); } catch {}
+              sendChannel({ action: 'bm:context', ok: true });
+              sendChannel({ action: 'bm:placed', ok: resp && resp.status >= 200 && resp.status < 300, status: resp.status });
               __bm_pendingIntercept = null;
               return resp;
             } else {
               __bm_interceptActive = false;
-              try { window.postMessage({ source: 'wplace-svelte', action: 'bm:context', ok: true }, '*'); } catch {}
+              sendChannel({ action: 'bm:context', ok: true });
             }
-          } catch (e) {}
+          } catch (e) {
+            __bm_interceptActive = false;
+            return (originalFetch as any).apply(this, args);
+          }
         }
       } catch {}
       const response = await originalFetch.apply(this, args);
@@ -432,7 +502,9 @@ function installPageFetchInjection() {
         } catch {}
       
         if (/\/pixel\//i.test(String(endpoint))) {
-          window.postMessage({ source: 'wplace-svelte', endpoint: String(endpoint) }, '*');
+          const endpointStr = String(endpoint);
+          window.postMessage({ source: 'wplace-svelte', endpoint: endpointStr }, '*');
+          try { window.dispatchEvent(new CustomEvent('tutorial:map-pixel-clicked', { detail: { endpoint: endpointStr } })); } catch {}
         }
        
         if (ct.includes('image/') && !String(endpoint).includes('openfreemap') && !String(endpoint).includes('maps')) {
@@ -443,7 +515,7 @@ function installPageFetchInjection() {
             fetchedBlobQueue.set(id, (processed: any) => {
               resolve(new Response(processed, { headers: cloned.headers, status: cloned.status, statusText: cloned.statusText }));
             });
-            window.postMessage({ source: 'wplace-svelte', endpoint: String(endpoint), blobID: id, blobData: blob, blink, status: cloned.status, ok: (cloned as any).ok === true }, '*');
+            sendChannel({ endpoint: String(endpoint), blobID: id, blobData: blob, blink, status: cloned.status, ok: (cloned as any).ok === true });
           });
         }
       } catch {}
@@ -454,6 +526,25 @@ function installPageFetchInjection() {
 
 function installPageXHRInjection() {
   inject(() => {
+    function readChannel(){
+      try{
+        const raw = sessionStorage.getItem('wguard:user-config');
+        if(raw){
+          const data = JSON.parse(raw);
+          const ch = data && data.config && data.config.obfuscation && data.config.obfuscation.channelSource;
+          if(typeof ch === 'string' && ch) return ch;
+        }
+      }catch{}
+      return 'wguard-svelte';
+    }
+    const WGUARD_CHANNEL_SOURCE = readChannel();
+    
+    function sendChannel(payload: any): void {
+      try {
+        window.postMessage({ ...payload, source: WGUARD_CHANNEL_SOURCE }, '*');
+      } catch {}
+    }
+    
     try {
       const originalOpen = XMLHttpRequest.prototype.open;
       const originalSend = XMLHttpRequest.prototype.send;
@@ -482,13 +573,13 @@ function installPageXHRInjection() {
                     }
                   } catch {}
                   if (json) {
-                    window.postMessage({ source: 'wplace-svelte', endpoint: urlStr, jsonData: json }, '*');
+                    sendChannel({ endpoint: urlStr, jsonData: json });
                   }
                 }
               } catch {}
               
               if (/\/pixel\//i.test(urlStr)) {
-                window.postMessage({ source: 'wplace-svelte', endpoint: urlStr }, '*');
+                sendChannel({ endpoint: urlStr });
               }
             } catch {}
           });
@@ -504,17 +595,18 @@ export function installInterceptors() {
   installPageXHRInjection();
 
   window.addEventListener('message', async (event: MessageEvent) => {
-    const data = (event as any)?.data;
-    if (!data || data.source !== 'wplace-svelte') return;
+    const data = readChannelPayload(event);
+    if (!data) return;
     try {
       if (typeof data.endpoint === 'string' && /\/pixel\//i.test(data.endpoint)) {
-     
+        try { window.dispatchEvent(new CustomEvent('tutorial:map-pixel-clicked', { detail: { endpoint: data.endpoint } })); } catch {}
+
         if (isMoveMode && isMoveMode()) {
           const coords = extractTilePixelFromPixel(data.endpoint);
           if (coords) {
             setOriginCoords(coords);
             try { await rebuildStencilFromState(); } catch {}
-         
+
             try { setMoveMode && setMoveMode(false); } catch {}
           }
         }
@@ -526,7 +618,7 @@ export function installInterceptors() {
           try {
             const outBlob = await getStencilManager().drawOnTile(data.blobData as Blob, tileXY);
             window.postMessage({ source: 'wplace-svelte', blobID: data.blobID, blobData: outBlob, blink: data.blink }, '*');
-          
+
             try {
               const status = typeof data.status === 'number' ? Number(data.status) : undefined;
               const ok = (data.ok === true) || (typeof status === 'number' && status >= 200 && status < 300);

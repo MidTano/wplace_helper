@@ -4,6 +4,14 @@
   import { t, lang } from '../i18n';
   import { getStencilManager } from '../template/stencilManager';
   import CustomSelect from '../editor/CustomSelect.svelte';
+  import { tutorialStore } from '../tutorial/store/tutorialStore';
+  import { restartTutorial } from '../tutorial/store/tutorialProgress';
+  import { dispatchWGuardEvent, WGuardEvents } from '../wguard/core/events';
+  import { appendToBody } from '../editor/modal/utils/appendToBody';
+  import ThemeModal from '../theme/ThemeModal.svelte';
+  import IdleSettingsModal from '../idle/IdleSettingsModal.svelte';
+  import { showToast } from '../ui/toast';
+  import ColorPicker from '../ui/ColorPicker.svelte';
 
   let open = false;
   let cfg = getAutoConfig();
@@ -23,6 +31,8 @@
   let pickerV = 3;
   let isDraggingSV = false;
   let isDraggingHue = false;
+  let showThemeModal = false;
+  let showIdleModal = false;
   
   function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -31,6 +41,9 @@
       g: parseInt(result[2], 16),
       b: parseInt(result[3], 16)
     } : { r: 8, g: 8, b: 8 };
+  }
+  function openThemeModal() {
+    showThemeModal = true;
   }
   
   function rgbToHex(r, g, b) {
@@ -123,6 +136,7 @@
 
   function toggle() { open = !open; }
   function close() { open = false; }
+  function onIdleNoFav() { try { showToast(t('idle.toast.noFavorites'), 4000); } catch {} }
 
   function onChangeNumber(key, ev) {
     const v = Number(ev?.currentTarget?.value || ev?.target?.value || 0) || 0;
@@ -131,6 +145,9 @@
   function onChangeBool(key, ev) {
     const v = !!(ev?.currentTarget?.checked ?? ev?.target?.checked);
     cfg = updateAutoConfig({ [key]: v });
+    if (key === 'bmMultiColor') {
+      try { triggerRedrawDebounced(); } catch {}
+    }
   }
   function onChangeString(key, ev) {
     const v = String(ev?.currentTarget?.value ?? ev?.target?.value ?? '');
@@ -148,19 +165,19 @@
   
   function openColorPicker(ev) {
     try {
-      const rgb = hexToRgb(cfg.enhancedBackgroundColor || '#080808');
-      pickerR = rgb.r;
-      pickerG = rgb.g;
-      pickerB = rgb.b;
-      const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
-      pickerH = hsv.h;
-      pickerS = hsv.s;
-      pickerV = hsv.v;
-      
       const rect = ev.currentTarget.getBoundingClientRect();
-      pickerX = rect.left;
-      pickerY = rect.bottom + 8;
-      showColorPicker = true;
+      const W = Math.max(0, window.innerWidth || 0);
+      const H = Math.max(0, window.innerHeight || 0);
+      const pad = 10;
+      const topMenuHeight = 110;
+      const pickerWidth = 260;
+      const pickerHeight = 420;
+      let px = rect.left;
+      let py = rect.bottom + 8;
+      if (px + pickerWidth > W - pad) px = Math.max(pad, W - pickerWidth - pad);
+      if (py + pickerHeight > H - pad) py = Math.max(topMenuHeight + pad, H - pickerHeight - pad);
+      py = Math.max(topMenuHeight + pad, py);
+      pickerX = px; pickerY = py; showColorPicker = true;
     } catch {}
   }
   
@@ -216,7 +233,7 @@
       try {
         const sm = getStencilManager();
         if (sm.enhanced) {
-          window.dispatchEvent(new CustomEvent('wplace:redraw-tiles'));
+          dispatchWGuardEvent(WGuardEvents.REDRAW_TILES);
         }
       } catch {}
     }, 1000);
@@ -225,22 +242,24 @@
     cfg = resetAutoConfig();
   }
 
-  function portal(node) {
-    try { document.body.appendChild(node); } catch {}
-    return { destroy() { try { node.remove(); } catch {} } };
-  }
-
   async function updatePosition() {
     try {
       await tick();
       const r = btnEl?.getBoundingClientRect?.();
       const W = Math.max(0, window.innerWidth || 0);
+      const H = Math.max(0, window.innerHeight || 0);
       const pad = 10;
+      const topMenuHeight = 110;
       const mwRaw = popEl?.offsetWidth || 0;
       const mhRaw = popEl?.offsetHeight || 0;
       const mw = Math.max(260, mwRaw || 300);
+      const mh = mhRaw || 500;
       const nx = Math.max(pad, Math.min(Math.round((r?.left || 0) + (r?.width || 0)/2 - mw/2), W - mw - pad));
-      const ny = Math.round((r?.bottom || 0) + 8);
+      let ny = Math.round((r?.bottom || 0) + 8);
+      if (ny + mh > H - pad) {
+        ny = Math.max(topMenuHeight + pad, H - mh - pad);
+      }
+      ny = Math.max(topMenuHeight + pad, ny);
       posX = nx; posY = ny;
     } catch {}
   }
@@ -248,7 +267,11 @@
   onMount(() => {
     cfg = getAutoConfig();
     try { window.addEventListener('resize', updatePosition); } catch {}
-    return () => { try { window.removeEventListener('resize', updatePosition); } catch {} };
+    try { document.addEventListener('wph:idle:noFavorites', onIdleNoFav); } catch {}
+    return () => { 
+      try { window.removeEventListener('resize', updatePosition); } catch {}
+      try { document.removeEventListener('wph:idle:noFavorites', onIdleNoFav); } catch {}
+    };
   });
   $: if (open) { updatePosition(); }
   
@@ -257,7 +280,7 @@
 </script>
 
 <div class="tm-settings-wrap" role="group">
-<button bind:this={btnEl} class="tm-fab" aria-label={L_settings} data-label={L_settings} aria-expanded={open} aria-controls="tm-settings-popover" on:click={toggle}>
+<button bind:this={btnEl} class="tm-fab" aria-label={L_settings} data-label={L_settings} aria-expanded={open} aria-controls="tm-settings-popover" on:click={toggle} data-tutorial="settings">
   <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
     <path d="M27,16.76c0-.25,0-.5,0-.76s0-.51,0-.77l1.92-1.68A2,2,0,0,0,29.3,11L26.94,7a2,2,0,0,0-1.73-1,2,2,0,0,0-.64.1l-2.43.82a11.35,11.35,0,0,0-1.31-.75l-.51-2.52a2,2,0,0,0-2-1.61H13.64a2,2,0,0,0-2,1.61l-.51,2.52a11.48,11.48,0,0,0-1.32.75L7.43,6.06A2,2,0,0,0,6.79,6,2,2,0,0,0,5.06,7L2.7,11a2,2,0,0,0,.41,2.51L5,15.24c0,.25,0,.5,0,.76s0,.51,0,.77L3.11,18.45A2,2,0,0,0,2.7,21L5.06,25a2,2,0,0,0,1.73,1,2,2,0,0,0,.64-.1l2.43-.82a11.35,11.35,0,0,0,1.31.75l.51,2.52a2,2,0,0,0,2,1.61h4.72a2,2,0,0,0,2-1.61l.51-2.52a11.48,11.48,0,0,0,1.32-.75l2.42.82a2,2,0,0,0,.64.1,2,2,0,0,0,1.73-1L29.3,21a2,2,0,0,0-.41-2.51ZM25.21,24l-3.43-1.16a8.86,8.86,0,0,1-2.71,1.57L18.36,28H13.64l-.71-3.55a9.36,9.36,0,0,1-2.7-1.57L6.79,24,4.43,20l2.72-2.4a8.9,8.9,0,0,1,0-3.13L4.43,12,6.79,8l3.43,1.16a8.86,8.86,0,0,1,2.71-1.57L13.64,4h4.72l.71,3.55a9.36,9.36,0,0,1,2.7,1.57L25.21,8,27.57,12l-2.72,2.4a8.9,8.9,0,0,1,0,3.13L27.57,20Z" />
     <path d="M16,22a6,6,0,1,1,6-6A5.94,5.94,0,0,1,16,22Zm0-10a3.91,3.91,0,0,0-4,4,3.91,3.91,0,0,0,4,4,3.91,3.91,0,0,0,4-4A3.91,3.91,0,0,0,16,12Z" />
@@ -266,7 +289,7 @@
 
 {#if open}
   <div 
-    use:portal 
+    use:appendToBody 
     bind:this={popEl} 
     id="tm-settings-popover" 
     class="tm-settings-popover" 
@@ -282,22 +305,45 @@
       <input id="cfg-series-wait" type="number" min="0" step="1" bind:value={cfg.seriesWaitSec} on:input={(e)=>onChangeNumber('seriesWaitSec', e)} />
     </div>
     <div class="row">
+      <label for="cfg-rand-extra">Случайная добавка (сек, 0=выкл)</label>
+      <input id="cfg-rand-extra" type="number" min="0" step="1" bind:value={cfg.randomExtraWaitMaxSec} on:input={(e)=>onChangeNumber('randomExtraWaitMaxSec', e)} />
+    </div>
+    <div class="row vertical">
       <label for="cfg-bm-mode">{t('settings.bm.mode')}</label>
-      <CustomSelect 
-        bind:value={cfg.bmMode}
-        options={[
-          { value: 'scan', label: t('settings.bm.mode.scan') },
-          { value: 'random', label: t('settings.bm.mode.random') }
-        ]}
-        onChange={() => onChangeString('bmMode', { target: { value: cfg.bmMode } })}
-      />
+      <div class="field-control">
+        <CustomSelect 
+          bind:value={cfg.bmMode}
+          showModePreview={true}
+          options={[
+            { value: 'random', label: t('settings.bm.mode.random') },
+            { value: 'topDown', label: t('settings.bm.mode.topDown') },
+            { value: 'bottomUp', label: t('settings.bm.mode.bottomUp') },
+            { value: 'leftRight', label: t('settings.bm.mode.leftRight') },
+            { value: 'rightLeft', label: t('settings.bm.mode.rightLeft') },
+            { value: 'snakeRow', label: t('settings.bm.mode.snakeRow') },
+            { value: 'snakeCol', label: t('settings.bm.mode.snakeCol') },
+            { value: 'diagDown', label: t('settings.bm.mode.diagDown') },
+            { value: 'diagUp', label: t('settings.bm.mode.diagUp') },
+            { value: 'diagDownRight', label: t('settings.bm.mode.diagDownRight') },
+            { value: 'diagUpRight', label: t('settings.bm.mode.diagUpRight') },
+            { value: 'centerOut', label: t('settings.bm.mode.centerOut') },
+            { value: 'edgesIn', label: t('settings.bm.mode.edgesIn') },
+          ]}
+          onChange={() => onChangeString('bmMode', { target: { value: cfg.bmMode } })}
+        />
+      </div>
     </div>
     <div class="row">
       <label for="cfg-bm-batch">{t('settings.bm.batchLimit')}</label>
       <input id="cfg-bm-batch" type="number" min="0" step="1" bind:value={cfg.bmBatchLimit} on:input={(e)=>onChangeNumber('bmBatchLimit', e)} />
     </div>
-    <div class="hint">{t('settings.bm.colorsHint')}</div>
-    
+    <div class="row toggle-row">
+      <label for="cfg-bm-multi">{t('settings.bm.multiColor')}</label>
+      <label class="toggle-control" aria-label={t('settings.bm.multiColor')}>
+        <input id="cfg-bm-multi" type="checkbox" checked={cfg.bmMultiColor} on:change={(e)=>onChangeBool('bmMultiColor', e)} />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
     <div class="color-section" role="group" aria-labelledby="color-section-label">
       <div class="color-label" id="color-section-label">{t('settings.enhancedBackground')}</div>
       <div class="color-presets">
@@ -329,125 +375,60 @@
           class="color-hex-input" 
           bind:value={cfg.enhancedBackgroundColor} 
           on:input={(e)=>onChangeString('enhancedBackgroundColor', e)}
-          placeholder="#000000"
-          pattern="^#[0-9A-Fa-f]{6}$"
+          placeholder="#000000 или rgba(0,0,0,1)"
         />
       </div>
+      <div class="color-actions">
+        <button class="editor-btn editor-primary" on:click={onReset}>{t('editor.reset')}</button>
+      </div>
     </div>
-    <div class="row" style="justify-content:end">
-      <button class="btn btn-primary" on:click={onReset}>{t('editor.reset')}</button>
+    <div class="color-section" role="group" aria-labelledby="theme-section-label">
+      <div class="color-label" id="theme-section-label">Настройки интерфейса</div>
+      <div class="quick-actions" role="group" aria-label="actions">
+        <button class="editor-btn qa-btn" title="Тема" aria-label="Тема" on:click={openThemeModal}>
+          <svg viewBox="0 0 32 32" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <circle cx="10" cy="12" r="2"/>
+            <circle cx="16" cy="9" r="2"/>
+            <circle cx="22" cy="12" r="2"/>
+            <circle cx="23" cy="18" r="2"/>
+            <circle cx="19" cy="23" r="2"/>
+            <path d="M16.54,2A14,14,0,0,0,2,16a4.82,4.82,0,0,0,6.09,4.65l1.12-.31A3,3,0,0,1,13,23.24V27a3,3,0,0,0,3,3A14,14,0,0,0,30,15.46,14.05,14.05,0,0,0,16.54,2Zm8.11,22.31A11.93,11.93,0,0,1,16,28a1,1,0,0,1-1-1V23.24a5,5,0,0,0-5-5,5.07,5.07,0,0,0-1.33.18l-1.12.31A2.82,2.82,0,0,1,4,16,12,12,0,0,1,16.47,4,12.18,12.18,0,0,1,28,15.53,11.89,11.89,0,0,1,24.65,24.32Z"/>
+          </svg>
+        </button>
+        <button class="editor-btn editor-primary qa-btn" title={t('idle.settings.open')} aria-label={t('idle.settings.open')} on:click={() => { showIdleModal = true; }}>
+          <svg viewBox="0 0 32 32" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M2,12v8a3,3,0,0,0,3,3h5V15H6v2H8v4H5a1,1,0,0,1-1-1V12a1,1,0,0,1,1-1h5V9H5A3,3,0,0,0,2,12Z"/>
+            <polygon points="30 11 30 9 22 9 22 23 24 23 24 17 29 17 29 15 24 15 24 11 30 11"/>
+            <polygon points="12 9 12 11 15 11 15 21 12 21 12 23 20 23 20 21 17 21 17 11 20 11 20 9 12 9"/>
+          </svg>
+        </button>
+      </div>
     </div>
-    <div class="hint">{t('settings.hint.enhancedRequired')}</div>
+    
+    
+    <div class="section-divider"></div>
+    
+    <div class="tutorial-section">
+      <div class="section-label">{t('tutorial.settings.restart')}</div>
+      <div class="tutorial-hint">{t('tutorial.settings.restartHint')}</div>
+      <button class="editor-btn editor-primary" on:click={() => { restartTutorial(); tutorialStore.restart(); open = false; }}>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+        </svg>
+        {t('tutorial.settings.restart')}
+      </button>
+    </div>
   </div>
 {/if}
 
+<ThemeModal bind:open={showThemeModal} />
+<IdleSettingsModal bind:open={showIdleModal} />
+
 {#if showColorPicker}
-  <div class="color-picker-backdrop" use:portal on:click={closeColorPicker} role="button" tabindex="-1" on:keydown={(e)=>{if(e.key==='Escape')closeColorPicker();}}></div>
-  <div class="custom-color-picker" use:portal style="left: {pickerX}px; top: {pickerY}px;">
-    <div class="picker-header">
-      <span>{t('settings.colorPicker.title')}</span>
-      <button class="picker-close" on:click={closeColorPicker}>×</button>
-    </div>
-    
-    <div class="picker-body">
-      <div 
-        class="picker-sv-area"
-        style="background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl({pickerH}, 100%, 50%));"
-        on:mousedown={handleSVMouseDown}
-        on:mousemove={handleSVMouseMove}
-        on:mouseup={handleSVMouseUp}
-        on:mouseleave={handleSVMouseUp}
-        role="slider"
-        tabindex="0"
-        aria-label="Выбор насыщенности и яркости"
-        aria-valuenow="{Math.round(pickerS)}"
-      >
-        <div 
-          class="picker-sv-cursor" 
-          style="left: {pickerS}%; top: {100 - pickerV}%;"
-        ></div>
-      </div>
-      
-      <div class="picker-sliders">
-        <div class="slider-row">
-          <span class="slider-label">HUE</span>
-          <input 
-            type="range" 
-            min="0" 
-            max="360" 
-            bind:value={pickerH} 
-            on:input={updateColorFromHsv}
-            class="color-slider hue-slider"
-          />
-        </div>
-        
-        <div class="slider-row">
-          <span class="slider-label">R</span>
-          <input 
-            type="range" 
-            min="0" 
-            max="255" 
-            bind:value={pickerR} 
-            on:input={updateColorFromRgb}
-            class="color-slider red-slider"
-          />
-          <input 
-            type="number" 
-            min="0" 
-            max="255" 
-            bind:value={pickerR} 
-            on:input={updateColorFromRgb}
-            class="color-input"
-          />
-        </div>
-        
-        <div class="slider-row">
-          <span class="slider-label">G</span>
-          <input 
-            type="range" 
-            min="0" 
-            max="255" 
-            bind:value={pickerG} 
-            on:input={updateColorFromRgb}
-            class="color-slider green-slider"
-          />
-          <input 
-            type="number" 
-            min="0" 
-            max="255" 
-            bind:value={pickerG} 
-            on:input={updateColorFromRgb}
-            class="color-input"
-          />
-        </div>
-        
-        <div class="slider-row">
-          <span class="slider-label">B</span>
-          <input 
-            type="range" 
-            min="0" 
-            max="255" 
-            bind:value={pickerB} 
-            on:input={updateColorFromRgb}
-            class="color-slider blue-slider"
-          />
-          <input 
-            type="number" 
-            min="0" 
-            max="255" 
-            bind:value={pickerB} 
-            on:input={updateColorFromRgb}
-            class="color-input"
-          />
-        </div>
-      </div>
-      
-      <div class="picker-hex">
-        <span class="hex-label">HEX</span>
-        <span class="hex-value">{rgbToHex(pickerR, pickerG, pickerB)}</span>
-      </div>
-    </div>
-  </div>
+  <div class="color-picker-backdrop" use:appendToBody on:click={closeColorPicker} role="button" tabindex="-1" on:keydown={(e)=>{if(e.key==='Escape')closeColorPicker();}}></div>
+  <ColorPicker x={pickerX} y={pickerY} value={cfg.enhancedBackgroundColor}
+    on:change={(e)=>{ cfg = updateAutoConfig({ enhancedBackgroundColor: e.detail.value }); triggerRedrawDebounced(); }}
+    on:close={closeColorPicker} />
 {/if}
 </div>
 
@@ -455,17 +436,54 @@
   .tm-settings-wrap { position: relative; display: inline-block; }
   .tm-settings-popover {
     position: fixed;
-    z-index: 1000003;
+    z-index: 1000011;
     min-width: 280px;
-    max-width: 360px;
-    padding: 12px;
-    border-radius: 10px;
-    background: rgba(17,17,17,0.96);
+    max-width: min(420px, calc(100vw - 32px));
+    max-height: min(calc(100vh * 0.67), calc(100vh - 120px));
+    padding: 18px 20px 24px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: var(--wph-surface, rgba(8,8,12,0.92));
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45);
     color: #fff;
-    border: 1px solid rgba(255,255,255,0.15);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    font-size: 13px;
+    line-height: 1.45;
     backdrop-filter: blur(6px);
-    overflow: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.35) transparent;
+  }
+
+  .tm-settings-popover::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .tm-settings-popover::-webkit-scrollbar-track {
+    background: var(--wph-surface, rgba(255,255,255,0.08));
+    border-radius: 8px;
+  }
+
+  .tm-settings-popover::-webkit-scrollbar-thumb {
+    background: var(--wph-border, rgba(255,255,255,0.35));
+    border-radius: 8px;
+  }
+
+  .tm-settings-popover::-webkit-scrollbar-thumb:hover {
+    background: var(--wph-border, rgba(255,255,255,0.4));
+  }
+
+  .tm-settings-popover::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+    border: 0;
+  }
+
+  .tm-settings-popover {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.35) transparent;
   }
   .tm-settings-popover .title {
     font-weight: 600;
@@ -478,26 +496,99 @@
     align-items: center;
     margin: 8px 0;
   }
+
+  .tm-settings-popover .row.vertical {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .tm-settings-popover .row.vertical label {
+    margin-bottom: 2px;
+  }
+
+  .tm-settings-popover .row.vertical .field-control {
+    width: 100%;
+  }
+
+  .tm-settings-popover .row.vertical .field-control :global(.custom-select) {
+    width: 100%;
+  }
+
+  .tm-settings-popover .row.toggle-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .tm-settings-popover .row.toggle-row label {
+    margin-bottom: 0;
+  }
+
+  .toggle-control {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .toggle-control input[type="checkbox"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+
+  .toggle-track {
+    width: 40px;
+    height: 22px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.25);
+    transition: all .2s ease;
+    position: relative;
+  }
+
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    transition: all .2s ease;
+  }
+
+  .toggle-control input:checked + .toggle-track {
+    background: var(--wph-primary, #f05123);
+    border-color: var(--wph-primary, #f05123);
+  }
+
+  .toggle-control input:checked + .toggle-track::after {
+    transform: translateX(18px);
+  }
   .tm-settings-popover .row label { font-size: 12px; opacity: 0.95; }
   .tm-settings-popover input {
     width: 100%;
     padding: 6px 8px;
     border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.14);
-    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.14));
+    background: var(--wph-surface, rgba(255,255,255,0.06));
     color: inherit;
     outline: none;
     transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
   }
-  .tm-settings-popover input:hover { background: rgba(255,255,255,0.1); }
-  .tm-settings-popover input:focus { border-color: rgba(255,255,255,0.28); box-shadow: 0 0 0 2px rgba(255,255,255,0.08) inset; }
+  .tm-settings-popover input:hover { background: var(--wph-surface2, rgba(255,255,255,0.1)); }
+  .tm-settings-popover input:focus { border-color: var(--wph-border, rgba(255,255,255,0.28)); box-shadow: 0 0 0 2px var(--wph-surface, rgba(255,255,255,0.08)) inset; }
   
   .tm-settings-popover .color-section {
     margin: 12px 0;
     padding: 12px;
     border-radius: 10px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--wph-surface, rgba(255,255,255,0.03));
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.08));
   }
   .tm-settings-popover .color-label {
     display: block;
@@ -506,16 +597,21 @@
     margin-bottom: 10px;
     opacity: 0.95;
   }
+  .tm-settings-popover .quick-actions { display: flex; gap: 8px; }
+  .tm-settings-popover .editor-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.07); color: #fff; cursor: pointer; }
+  .tm-settings-popover .editor-btn.editor-primary { background: var(--wph-primary, #f05123); border-color: rgba(255,255,255,0.25); }
+  .tm-settings-popover .qa-btn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
   .tm-settings-popover .color-presets {
     display: flex;
     gap: 8px;
     margin-bottom: 10px;
   }
+  .tm-settings-popover .color-actions { margin-top: 16px; }
   .tm-settings-popover .color-preset {
     width: 40px;
     height: 40px;
     border-radius: 8px;
-    border: 2px solid rgba(255,255,255,0.2);
+    border: 2px solid var(--wph-border, rgba(255,255,255,0.2));
     cursor: pointer;
     transition: all .2s ease;
     display: flex;
@@ -525,7 +621,7 @@
   }
   .tm-settings-popover .color-preset:hover {
     transform: scale(1.1);
-    border-color: rgba(255,255,255,0.4);
+    border-color: var(--wph-border, rgba(255,255,255,0.4));
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   }
   .tm-settings-popover .color-preset .ants {
@@ -539,13 +635,13 @@
     top: -4px;
   }
   .tm-settings-popover .color-preset .ants path {
-    stroke: #f3734d;
+    stroke: var(--wph-primary, #f3734d);
     stroke-width: 2.5;
     stroke-linecap: butt;
     stroke-linejoin: round;
     stroke-dasharray: 6 6;
     stroke-dashoffset: 0;
-    filter: drop-shadow(0 0 3px rgba(240,81,35,0.8));
+    filter: drop-shadow(0 0 3px var(--wph-primaryGlow, rgba(240,81,35,0.8)));
     vector-effect: non-scaling-stroke;
   }
   .tm-settings-popover .color-preset.active .ants {
@@ -566,7 +662,7 @@
     width: 36px;
     height: 36px;
     border-radius: 6px;
-    border: 2px solid rgba(255,255,255,0.2);
+    border: 2px solid var(--wph-border, rgba(255,255,255,0.2));
     flex-shrink: 0;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
     cursor: pointer;
@@ -579,50 +675,50 @@
   }
   .tm-settings-popover .color-preview:hover {
     transform: scale(1.05);
-    border-color: rgba(255,255,255,0.4);
+    border-color: var(--wph-border, rgba(255,255,255,0.4));
     box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(0,0,0,0.2);
   }
   .tm-settings-popover .color-hex-input {
     flex: 1;
     padding: 8px 10px;
     border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.14);
-    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.14));
+    background: var(--wph-surface, rgba(255,255,255,0.06));
     color: inherit;
-    font-family: monospace;
     font-size: 13px;
     text-transform: uppercase;
     outline: none;
     transition: all .15s ease;
   }
   .tm-settings-popover .color-hex-input:hover { 
-    background: rgba(255,255,255,0.1); 
-    border-color: rgba(255,255,255,0.2);
+    background: var(--wph-surface2, rgba(255,255,255,0.1)); 
+    border-color: var(--wph-border, rgba(255,255,255,0.2));
   }
   .tm-settings-popover .color-hex-input:focus { 
-    border-color: #f05123; 
-    box-shadow: 0 0 0 2px rgba(240,81,35,0.2);
+    border-color: var(--wph-primary, #f05123); 
+    box-shadow: 0 0 0 2px var(--wph-primaryGlow, rgba(240,81,35,0.2));
   }
   
-  .tm-settings-popover .hint { margin-top: 10px; opacity: .8; font-size: 12px; }
+  
 
+  .section-divider {
+    height: 1px;
+    background: var(--wph-border, rgba(255, 255, 255, 0.1));
+    margin: 20px 0;
+  }
+
+  .tutorial-section {
+    margin-top: 16px;
+  }
+
+  .tutorial-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 8px 0 12px;
+  }
+  .tm-settings-popover .tutorial-section .editor-btn { display: inline-flex; align-items: center; gap: 6px; }
   
-  .tm-settings-popover .btn {
-    padding: 6px 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.18);
-    background: rgba(255,255,255,0.07);
-    color: #fff;
-    cursor: pointer;
-    transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease, transform .15s ease;
-  }
-  .tm-settings-popover .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-  .tm-settings-popover .btn:disabled { opacity: .55; cursor: default; filter: none; transform: none; }
-  .tm-settings-popover .btn.btn-primary {
-    background: #f05123;
-    border-color: rgba(255,255,255,0.25);
-    color: #fff;
-  }
+  
   
   .color-picker-backdrop {
     position: fixed;
@@ -631,222 +727,4 @@
     background: rgba(0,0,0,0.3);
     backdrop-filter: blur(2px);
   }
-  
-  .custom-color-picker {
-    position: fixed;
-    z-index: 1000021;
-    min-width: 240px;
-    padding: 0;
-    border-radius: 12px;
-    background: rgba(20,20,20,0.98);
-    border: 1px solid rgba(255,255,255,0.2);
-    box-shadow: 0 16px 40px rgba(0,0,0,0.6);
-    backdrop-filter: blur(8px);
-    overflow: hidden;
-  }
-  
-  .picker-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.03);
-  }
-  
-  .picker-header span {
-    font-size: 13px;
-    font-weight: 500;
-    opacity: 0.95;
-  }
-  
-  .picker-close {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: none;
-    background: rgba(255,255,255,0.06);
-    color: #fff;
-    cursor: pointer;
-    font-size: 20px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all .15s ease;
-  }
-  
-  .picker-close:hover {
-    background: rgba(255,255,255,0.12);
-    transform: scale(1.05);
-  }
-  
-  .picker-body {
-    padding: 16px;
-  }
-  
-  .picker-sv-area {
-    width: 100%;
-    height: 180px;
-    border-radius: 8px;
-    border: 2px solid rgba(255,255,255,0.2);
-    position: relative;
-    cursor: crosshair;
-    margin-bottom: 16px;
-    user-select: none;
-    overflow: hidden;
-  }
-  
-  .picker-sv-cursor {
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border: 2px solid white;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.4);
-  }
-  
-  .picker-sliders {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-  
-  .slider-row {
-    display: grid;
-    grid-template-columns: 35px 1fr 60px;
-    gap: 10px;
-    align-items: center;
-  }
-  
-  .slider-row:first-child {
-    grid-template-columns: 35px 1fr;
-  }
-  
-  .slider-label {
-    font-size: 12px;
-    font-weight: 600;
-    opacity: 0.9;
-  }
-  
-  .color-slider {
-    width: 100%;
-    height: 10px;
-    border-radius: 5px;
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
-    background: rgba(255,255,255,0.1);
-    border: 2px solid rgba(255,255,255,0.3);
-    cursor: pointer;
-  }
-  
-  .color-slider::-webkit-slider-track {
-    width: 100%;
-    height: 10px;
-    border-radius: 5px;
-    border: none;
-  }
-  
-  .color-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: white;
-    cursor: pointer;
-    border: 3px solid rgba(0,0,0,0.5);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.5);
-    margin-top: -5px;
-  }
-  
-  .color-slider::-moz-range-track {
-    width: 100%;
-    height: 10px;
-    border-radius: 5px;
-    border: none;
-  }
-  
-  .color-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: white;
-    cursor: pointer;
-    border: 3px solid rgba(0,0,0,0.5);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.5);
-  }
-  
-  .red-slider {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.3);
-  }
-  
-  .green-slider {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.3);
-  }
-  
-  .blue-slider {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.3);
-  }
-  
-  .hue-slider {
-    background: linear-gradient(to right, 
-      rgb(255,0,0) 0%, 
-      rgb(255,255,0) 16.66%, 
-      rgb(0,255,0) 33.33%, 
-      rgb(0,255,255) 50%, 
-      rgb(0,0,255) 66.66%, 
-      rgb(255,0,255) 83.33%, 
-      rgb(255,0,0) 100%);
-    border: 2px solid rgba(255,255,255,0.5);
-  }
-  
-  .color-input {
-    width: 60px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.08);
-    color: #fff;
-    font-size: 13px;
-    text-align: center;
-    outline: none;
-  }
-  
-  .color-input:focus {
-    border-color: #f05123;
-    box-shadow: 0 0 0 2px rgba(240,81,35,0.2);
-  }
-  
-  .picker-hex {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-  
-  .hex-label {
-    font-size: 12px;
-    font-weight: 600;
-    opacity: 0.8;
-  }
-  
-  .hex-value {
-    font-family: monospace;
-    font-size: 14px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #f05123;
-  }
-  
 </style>

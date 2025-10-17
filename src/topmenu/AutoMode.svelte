@@ -50,7 +50,7 @@
   $: L_autoAria = ($lang, t('btn.autoMode.aria'));
 </script>
 
-<button bind:this={btnEl} class="tm-fab {on ? 'tm-primary' : ''}" type="button" on:click={toggle} on:contextmenu={openMenu} data-label={L_autoTip} aria-label={L_autoAria} aria-pressed={on}>
+<button bind:this={btnEl} class="tm-fab {on ? 'tm-primary' : ''}" type="button" on:click={toggle} on:contextmenu={openMenu} data-label={L_autoTip} aria-label={L_autoAria} aria-pressed={on} data-tutorial="auto-mode">
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
     <path d="M9 15C8.44771 15 8 15.4477 8 16C8 16.5523 8.44771 17 9 17C9.55229 17 10 16.5523 10 16C10 15.4477 9.55229 15 9 15Z"/>
     <path d="M14 16C14 15.4477 14.4477 15 15 15C15.5523 15 16 15.4477 16 16C16 16.5523 15.5523 17 15 17C14.4477 17 14 16.5523 14 16Z"/>

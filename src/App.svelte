@@ -6,8 +6,14 @@
   import { addOrUpdate, getList, getBlob } from './topmenu/historyStore';
   import { getOriginCoords } from './overlay/state';
   import { onMount } from 'svelte';
+  import { startAutoPainter } from './screen/autoPainter';
+  import { getAutoConfig } from './screen/autoConfig';
   import { getStencilManager } from './template/stencilManager';
   import CopyArtModal from './copyart/CopyArtModal.svelte';
+  import { getPersistentItem } from './wguard/stealth/store';
+  import IdleManager from './idle/IdleManager.svelte';
+  import { markElement } from './wguard';
+  import TutorialManager from './tutorial/TutorialManager.svelte';
 
   let showPanel = true;
   let imgBitmap = null;
@@ -28,6 +34,7 @@
   async function pick() {
     try { log('app', 'pick-click'); } catch {}
     const input = document.createElement('input');
+    markElement(input);
     input.type = 'file';
     input.accept = 'image/*';
     input.style.display = 'none';
@@ -43,6 +50,7 @@
             
             const url = URL.createObjectURL(file);
             const img = new Image();
+            markElement(img);
             img.onload = async () => {
               resolve(file);
               URL.revokeObjectURL(url);
@@ -72,6 +80,10 @@
     } catch {}
     
     editorOpen = true;
+    
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('editor:opened'));
+    }, 100);
   }
 
   function clearImg() {
@@ -88,7 +100,37 @@
     rebuildStencilFromState();
     try { log('app', 'cleared'); } catch {}
   }
+  async function openEditorWithFile(file) {
+    currentFile = file;
+    try {
+      const bmpTmp = await createImageBitmap(file);
+      imgBitmap = bmpTmp;
+      try { log('app', 'opened-from-tutorial', { w: bmpTmp?.width, h: bmpTmp?.height }); } catch {}
+    } catch {}
+    
+    try {
+      const name = (currentFile && currentFile.name) || 'image.png';
+      const size = ((currentFile && currentFile.size) | 0);
+      if (size > 0) setCurrentHistoryId(`${name}|${size}`);
+    } catch {}
+    
+    editorOpen = true;
+    
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('editor:opened'));
+    }, 100);
+  }
+
   onMount(async () => {
+    try {
+      window.addEventListener('tutorial:open-editor', async (e) => {
+        const file = e.detail?.file;
+        if (file) {
+          await openEditorWithFile(file);
+        }
+      });
+    } catch {}
+    
     try {
       const list = getList();
       if (!list || !list.length) return;
@@ -104,6 +146,18 @@
         setOriginCoords([0, 0, meta.coords.x|0, meta.coords.y|0]);
       }
       await rebuildStencilFromState();
+    } catch {}
+    try {
+      setTimeout(() => {
+        try {
+          const cfg = getAutoConfig();
+          if (cfg && cfg.persistAutoRun) {
+            const raw = getPersistentItem('wguard:auto-run');
+            const st = raw ? JSON.parse(raw) : null;
+            if (st && st.running === true) { startAutoPainter(35000); }
+          }
+        } catch {}
+      }, 5000);
     } catch {}
   });
 </script>
@@ -125,6 +179,8 @@
     }
   } catch {}
 }} on:copyArt={()=>{ copyArtOpen = true; }} />
+
+<IdleManager />
 
 
 
@@ -188,6 +244,8 @@
   }}
   on:close={() => { editorOpen = false; cleanupEditorBackdrops(); }}
 />
+
+<TutorialManager />
 
 <style>
   :global(#wplace-svelte-overlay-root) {

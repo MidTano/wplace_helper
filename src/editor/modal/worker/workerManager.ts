@@ -101,6 +101,7 @@ export function sendPreviewJob(state: WorkerState, params: {
   paletteMode: string;
   outlineThickness: number;
   erodeAmount: number;
+  simplifyArea?: number;
   customIndices: number[];
   palette: number[][];
   key: string;
@@ -109,11 +110,39 @@ export function sendPreviewJob(state: WorkerState, params: {
   contrast?: number;
   saturation?: number;
   hue?: number;
+  gamma?: number;
+  blurMode?: string;
+  blurRadius?: number;
+  sharpenAmount?: number;
+  sharpenRadius?: number;
+  sharpenThreshold?: number;
+  modeRadius?: number;
+  posterizeLevels?: number;
+  posterizeAfterPalette?: boolean;
+  kwEnabled?: boolean;
+  kwRadius?: number;
+  kwSectors?: number;
+  kwStrengthPct?: number;
+  kwAnisotropyPct?: number;
+  kwAfterPalette?: boolean;
+  kwBlend?: boolean;
+  edgeEnabled?: boolean;
+  edgeThreshold?: number;
+  edgeThickness?: number;
+  edgeThin?: boolean;
+  quantMethod?: string;
+  edgeMethod?: string;
+  adaptDitherEnabled?: boolean;
+  adaptDitherMethod?: string;
+  adaptDitherThreshold?: number;
+  adaptDitherThickness?: number;
+  adaptDitherThin?: boolean;
+  adaptDitherInvert?: boolean;
+  adaptDitherFeather?: number;
 }): number {
   if (!state.workerReady || !state.imageWorker || state.workerLimited) {
     throw new Error('Worker not ready or limited');
   }
-  
   
   cancelAllJobs(state);
   
@@ -134,13 +163,43 @@ export function sendPreviewJob(state: WorkerState, params: {
       paletteMode: params.paletteMode,
       outlineThickness: params.outlineThickness || 0,
       erodeAmount: params.erodeAmount || 0,
+      simplifyArea: ((params.simplifyArea ?? 0)|0),
       customIndices: params.customIndices || [],
       palette: params.palette || [],
       colorCorrectionEnabled: !!params.colorCorrectionEnabled,
       brightness: ((params.brightness ?? 0)|0),
       contrast: ((params.contrast ?? 0)|0),
       saturation: ((params.saturation ?? 0)|0),
-      hue: ((params.hue ?? 0)|0)
+      hue: ((params.hue ?? 0)|0),
+      gamma: Number(params.gamma ?? 1),
+      blurMode: String(params.blurMode || 'none'),
+      blurRadius: ((params.blurRadius ?? 0)|0),
+      sharpenAmount: ((params.sharpenAmount ?? 0)|0),
+      sharpenRadius: ((params.sharpenRadius ?? 0)|0),
+      sharpenThreshold: ((params.sharpenThreshold ?? 0)|0),
+      modeRadius: ((params.modeRadius ?? 0)|0),
+      posterizeLevels: ((params.posterizeLevels ?? 0)|0),
+      posterizeAfterPalette: !!params.posterizeAfterPalette,
+      kwEnabled: !!params.kwEnabled,
+      kwRadius: ((params.kwRadius ?? 0)|0),
+      kwSectors: ((params.kwSectors ?? 0)|0),
+      kwStrengthPct: ((params.kwStrengthPct ?? 0)|0),
+      kwAnisotropyPct: ((params.kwAnisotropyPct ?? 0)|0),
+      kwAfterPalette: !!params.kwAfterPalette,
+      kwBlend: !!params.kwBlend,
+      edgeEnabled: !!params.edgeEnabled,
+      edgeThreshold: ((params.edgeThreshold ?? 0)|0),
+      edgeThickness: ((params.edgeThickness ?? 1)|0),
+      edgeThin: !!params.edgeThin,
+      quantMethod: String(params.quantMethod || 'rgb'),
+      edgeMethod: String(params.edgeMethod || 'sobel'),
+      adaptDitherEnabled: !!params.adaptDitherEnabled,
+      adaptDitherMethod: String(params.adaptDitherMethod || 'sobel'),
+      adaptDitherThreshold: ((params.adaptDitherThreshold ?? 0)|0),
+      adaptDitherThickness: ((params.adaptDitherThickness ?? 1)|0),
+      adaptDitherThin: !!params.adaptDitherThin,
+      adaptDitherInvert: !!params.adaptDitherInvert,
+      adaptDitherFeather: ((params.adaptDitherFeather ?? 0)|0)
     });
   } catch (error) {
     state.activeJobs.delete(jobId);

@@ -11,7 +11,7 @@
   $: L_copyArt = ($lang, t('btn.copyArt'));
 </script>
 
-<button class="tm-fab tm-tip" on:click={onClick} aria-label={L_copyArt} data-label={L_copyArt} title={L_copyArt}>
+<button class="tm-fab tm-tip" on:click={onClick} aria-label={L_copyArt} data-label={L_copyArt} title={L_copyArt} data-tutorial="copyart">
   <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
     <path d="M19.05,13.7326,18.05,12,7.928,17.8457,6.9312,17.27a2.9524,2.9524,0,0,0,.6672-.769A3,3,0,1,0,3.5,17.5986l2.428,1.4019L3.5,20.4023a3.0342,3.0342,0,1,0,3.4407.3223l.987-.5693L14.5914,24l1-1.7294-5.6634-3.27ZM4.0344,15.26a1,1,0,1,1,.4658.6069A.9929.9929,0,0,1,4.0344,15.26ZM4.9988,22a1,1,0,1,1-.8645,1.5A1,1,0,0,1,4.9988,22Z"/>
     <rect x="17" y="26" width="4" height="2"/>

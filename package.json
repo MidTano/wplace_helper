@@ -1,10 +1,11 @@
 {
   "name": "wplace-helper",
-  "version": "2.2.0",
+  "version": "2.2.3",
   "private": true,
   "type": "module",
   "description": "Overlay and tools for Wplace",
   "scripts": {
+    "prebuild": "node scripts/wguard-check.mjs",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint",
@@ -12,7 +13,8 @@
     "lint:fix": "eslint --fix",
     "lint:fix:all": "eslint src/**/*.{ts,svelte} --fix",
     "check:unused": "ts-prune",
-    "check:deps": "depcheck"
+    "check:deps": "depcheck",
+    "check:wguard": "node scripts/wguard-check.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

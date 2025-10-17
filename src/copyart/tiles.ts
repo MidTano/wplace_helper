@@ -1,3 +1,5 @@
+import { markElement } from '../wguard';
+
 export type CanonicalTile = {
   origin: string;           
   scalePath: string | null; 
@@ -119,6 +121,7 @@ export async function fetchImageBitmap(url: string, signal?: AbortSignal): Promi
       return ib;
     } catch {
       const img = new Image();
+      markElement(img);
       img.decoding = 'async';
       img.src = URL.createObjectURL(blob);
       await new Promise((res, rej) => { img.onload = () => res(null); img.onerror = rej; });

@@ -1,7 +1,10 @@
+import { listenWGuardEvent, WGuardEvents } from '../../../wguard/core/events';
+import { markElement } from '../../../wguard';
 
 export function showQrBanner(t: (key: string) => string): HTMLElement | null {
   try {
     const el = document.createElement('div');
+    markElement(el);
     el.className = 'qr-banner';
     el.textContent = t('qr.prompt');
     Object.assign(el.style, {
@@ -24,27 +27,44 @@ export function showQrBanner(t: (key: string) => string): HTMLElement | null {
   }
 }
 
-export function hideQrBanner(bannerEl: HTMLElement | null): void {
-  try { 
-    if (bannerEl) { 
-      bannerEl.remove(); 
-    } 
+export function hideQrBanner(el: HTMLElement | null): void {
+  try {
+    if (el && el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
   } catch {}
 }
 
-
-export function waitForCoordinates(): Promise<number[]> {
-  return new Promise((resolve) => {
-    const onCoords = (ev: CustomEvent) => { 
+export async function waitForCoordinates(): Promise<[number, number, number, number]> {
+  const TIMEOUT_MS = 60000;
+  
+  return new Promise((resolve, reject) => {
+    let done = false;
+    let unsubscribe: (() => void) | null = null;
+    
+    const tm = setTimeout(() => {
+      if (!done) {
+        if (unsubscribe) unsubscribe();
+        reject(new Error('qr_timeout'));
+        done = true;
+      }
+    }, TIMEOUT_MS);
+    
+    const onCoords = (detail: any) => {
       try { 
-        const coords = ev?.detail?.coords; 
-        if (coords && Array.isArray(coords)) { 
-          window.removeEventListener('wplace:origin', onCoords as EventListener); 
-          resolve(coords); 
+        const coords = detail?.coords; 
+        if (coords && Array.isArray(coords) && coords.length === 4) { 
+          clearTimeout(tm);
+          if (unsubscribe) unsubscribe();
+          done = true;
+          resolve(coords as [number, number, number, number]); 
         } 
       } catch {} 
     };
-    window.addEventListener('wplace:origin', onCoords as EventListener);
+    
+    try {
+      unsubscribe = listenWGuardEvent(WGuardEvents.ORIGIN, onCoords);
+    } catch {}
   });
 }
 

@@ -1,7 +1,9 @@
 import { t } from '../i18n';
+import { markElement } from '../wguard';
 export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<void> {
   return new Promise((resolve) => {
     const container = document.createElement('div');
+    markElement(container);
     container.style.position = 'fixed';
     container.style.left = '0';
     container.style.top = '0';
@@ -11,6 +13,7 @@ export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<v
     container.style.pointerEvents = 'none';
     container.style.background = '#000';
     const canvas = document.createElement('canvas');
+    markElement(canvas);
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     canvas.style.display = 'block';
@@ -42,6 +45,7 @@ export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<v
         let styleTag = document.getElementById('wplace-tv-style') as HTMLStyleElement | null;
         if (!styleTag) {
           styleTag = document.createElement('style');
+          markElement(styleTag);
           styleTag.id = 'wplace-tv-style';
           styleTag.textContent = [
             '@keyframes tvFlicker{0%{opacity:1}50%{opacity:.97}100%{opacity:1}}',
@@ -50,7 +54,7 @@ export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<v
             '.buzz_wrapper{position:relative;width:min(1200px,96vw);margin:0 auto;background:#000;overflow:hidden;padding:clamp(8px,2vw,28px) clamp(12px,2vw,22px) clamp(8px,2vw,22px)}',
             '.buzz_wrapper .scanline{width:100%;display:block;background:#000;height:4px;position:relative;z-index:3;margin-bottom:5px;opacity:.1}',
             '.buzz_wrapper .text{position:relative;height:clamp(60px,14vw,120px);animation:jerkwhole 5s infinite}',
-            '.buzz_wrapper .text span{position:absolute;filter:blur(1px);font-size:clamp(28px,9vw,80px);font-family:"Courier New",monospace;font-weight:700;animation:blur 30ms infinite,jerk 50ms infinite}',
+            '.buzz_wrapper .text span{position:absolute;filter:blur(1px);font-size:clamp(28px,9vw,80px);font-weight:700;animation:blur 30ms infinite,jerk 50ms infinite}',
             '.buzz_wrapper .text span:nth-child(1){color:red;transform:translateX(-2px);filter:blur(2px)}',
             '.buzz_wrapper .text span:nth-child(2){color:lime;transform:translateX(2px);filter:blur(2px);animation:jerkgreen 1s infinite}',
             '.buzz_wrapper .text span:nth-child(3){color:#36f;animation:jerkblue 1s infinite}',
@@ -66,6 +70,7 @@ export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<v
           document.head.appendChild(styleTag);
         }
         const frame = document.createElement('div');
+        markElement(frame);
         frame.style.position = 'absolute';
         frame.style.inset = '0';
         frame.style.display = 'flex';
@@ -74,6 +79,7 @@ export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<v
         frame.style.perspective = '900px';
         frame.style.pointerEvents = 'auto';
         const panel = document.createElement('div');
+        markElement(panel);
         panel.style.position = 'relative';
         panel.style.maxWidth = '96vw';
         panel.style.transform = 'translateZ(0) scale(1.005)';
@@ -88,19 +94,23 @@ export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<v
         const rows = [] as { spans: HTMLSpanElement[]; full: string; fit: HTMLDivElement }[];
         for (let ri = 0; ri < allLines.length; ri++) {
           const wrapper = document.createElement('div');
+          markElement(wrapper);
           wrapper.className = 'buzz_wrapper';
           const textDiv = document.createElement('div');
+          markElement(textDiv);
           textDiv.className = 'text';
           if (ri > 0) { textDiv.style.height = 'clamp(38px,8vw,64px)'; wrapper.style.padding = '8px 14px 8px'; }
           const spans: HTMLSpanElement[] = [];
           for (let i = 0; i < 5; i++) {
             const sp = document.createElement('span');
+            markElement(sp);
             sp.textContent = '';
             if (ri > 0) { sp.style.fontSize = 'clamp(20px,5.8vw,48px)'; }
             textDiv.appendChild(sp);
             spans.push(sp);
           }
           const fit = document.createElement('div');
+          markElement(fit);
           fit.style.transformOrigin = 'left center';
           fit.appendChild(textDiv);
           wrapper.appendChild(fit);
@@ -108,6 +118,7 @@ export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<v
           rows.push({ spans, full: String(allLines[ri] || ''), fit });
         }
         const scan = document.createElement('div');
+        markElement(scan);
         scan.style.position = 'absolute';
         scan.style.left = '0';
         scan.style.right = '0';
@@ -118,11 +129,13 @@ export function playTvShutdown(durationMs: number = 1500, opts?: any): Promise<v
         scan.style.animation = 'tvScan 6s linear infinite';
         scan.style.pointerEvents = 'none';
         const mask = document.createElement('div');
+        markElement(mask);
         mask.style.position = 'absolute';
         mask.style.inset = '0';
         mask.style.pointerEvents = 'none';
         mask.style.background = 'radial-gradient(120% 100% at 50% 50%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.35) 85%, rgba(0,0,0,0.75) 100%)';
         const dot = document.createElement('div');
+        markElement(dot);
         dot.style.position = 'absolute';
         dot.style.inset = '0';
         dot.style.pointerEvents = 'none';

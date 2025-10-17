@@ -1,18 +1,24 @@
+import { getPersistentItem, setPersistentItem } from '../wguard/stealth/store';
+
+const STORAGE_KEY = 'wguard:log';
+
 let enabled: boolean = (() => {
-  try {
-    const v = localStorage.getItem('wplace:log');
-    if (v === '1') return true;
-    if (v === '0') return false;
-    return false; 
-  } catch {
-    return false;
-  }
+  const value = getPersistentItem(STORAGE_KEY);
+  if (value === '1') return true;
+  if (value === '0') return false;
+  return false;
 })();
 
 export function setLoggingEnabled(value: boolean) {
   enabled = !!value;
-  try { localStorage.setItem('wplace:log', enabled ? '1' : '0'); } catch {}
-  try { (window as any).wplaceLogEnabled = enabled; } catch {}
+  try {
+    if (enabled) {
+      setPersistentItem(STORAGE_KEY, '1');
+    } else {
+      setPersistentItem(STORAGE_KEY, '0');
+    }
+  } catch {}
+  try { (window as any).wguardLogEnabled = enabled; } catch {}
   try {
     const w: any = window as any;
     if (!enabled) {
@@ -43,12 +49,15 @@ export function getLoggingEnabled(): boolean {
 }
 
 export function log(scope: string, ...args: any[]) {
-  
-  return;
+  if (!enabled) return;
+  try {
+    const prefix = `[${scope}]`;
+    console.log(prefix, ...args);
+  } catch {}
 }
 
 try {
-  (window as any).wplaceToggleLogs = setLoggingEnabled;
+  (window as any).wguardToggleLogs = setLoggingEnabled;
   
   window.addEventListener('keydown', (e: any) => {
     try {

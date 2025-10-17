@@ -128,13 +128,13 @@ export default class stencilManager {
     const pend = new Set<string>();
     const colMap = new Map<number, Array<[number, number]>>();
     const canvas = new OffscreenCanvas(drawSize, drawSize);
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true } as any);
     if (!ctx) return tileBlob;
 
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, drawSize, drawSize);
     
-    const tileBitmap = await createImageBitmap(tileBlob);
+    const tileBitmap = await createImageBitmap(tileBlob, { colorSpaceConversion: 'none' } as any);
     if (!this.enhanced) {
       ctx.drawImage(tileBitmap, 0, 0, drawSize, drawSize);
     } else {
@@ -152,7 +152,7 @@ export default class stencilManager {
 
     
     const tileBuf = new OffscreenCanvas(drawSize, drawSize);
-    const tctx = tileBuf.getContext('2d');
+    const tctx = tileBuf.getContext('2d', { willReadFrequently: true } as any);
     if (!tctx) return tileBlob;
     tctx.imageSmoothingEnabled = false;
     tctx.clearRect(0, 0, drawSize, drawSize);
@@ -212,7 +212,7 @@ export default class stencilManager {
           const sw = (seg as any).width || 0;
           const sh = (seg as any).height || 0;
           const segCanvas = new OffscreenCanvas(sw, sh);
-          const scx = segCanvas.getContext('2d');
+          const scx = segCanvas.getContext('2d', { willReadFrequently: true } as any);
           if (!scx) { ctx.drawImage(seg, pxX * this.drawMult, pxY * this.drawMult); continue; }
           scx.imageSmoothingEnabled = false;
           scx.clearRect(0, 0, sw, sh);
@@ -249,11 +249,10 @@ export default class stencilManager {
               }
               
               const baseOpaque = (ta >= 5);
-              let isBaseMatch = baseOpaque && (tr === mr && tg === mg && tb === mb);
-              
-              const isBlack = (mr === 0 && mg === 0 && mb === 0);
-              if (isBlack) {
-                isBaseMatch = baseOpaque && (tr === 0 && tg === 0 && tb === 0);
+              let isBaseMatch = false;
+              if (baseOpaque) {
+                const tileIdx = nearestColorIndexFast(tr, tg, tb);
+                isBaseMatch = (tileIdx === idx);
               }
               if (isBaseMatch) { sd[si + 3] = 0; continue; }
               hasChanges = true;
@@ -287,7 +286,7 @@ export default class stencilManager {
           const sw = (seg as any).width || 0;
           const sh = (seg as any).height || 0;
           const segCanvas = new OffscreenCanvas(sw, sh);
-          const scx = segCanvas.getContext('2d');
+          const scx = segCanvas.getContext('2d', { willReadFrequently: true } as any);
           if (scx) {
             scx.imageSmoothingEnabled = false;
             scx.drawImage(seg as any, 0, 0);
@@ -300,9 +299,6 @@ export default class stencilManager {
                 if (a < 5) continue;
                 const r = sd[si], g = sd[si + 1], b = sd[si + 2];
                 const idx = nearestColorIndexFast(r, g, b);
-                const mr = MASTER_COLORS[idx].rgb[0];
-                const mg = MASTER_COLORS[idx].rgb[1];
-                const mb = MASTER_COLORS[idx].rgb[2];
                 const ax = pxX * this.drawMult + x;
                 const ay = pxY * this.drawMult + y;
                 if (ax < 0 || ay < 0 || ax >= drawSize || ay >= drawSize) continue;
@@ -318,8 +314,8 @@ export default class stencilManager {
                 const baseOpaque = (ta >= 5);
                 let isBaseMatch = false;
                 if (baseOpaque) {
-                  const isBlack = (mr === 0 && mg === 0 && mb === 0);
-                  isBaseMatch = isBlack ? (tr === 0 && tg === 0 && tb === 0) : (tr === mr && tg === mg && tb === mb);
+                  const tileIdx = nearestColorIndexFast(tr, tg, tb);
+                  isBaseMatch = (tileIdx === idx);
                 }
                 if (isBaseMatch) continue;
                 hasChanges = true;

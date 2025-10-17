@@ -3,6 +3,18 @@ import { MASTER_COLORS } from '../editor/palette';
 import { getStencilManager } from '../template/stencilManager';
 import { getAutoConfig } from './autoConfig';
 import { getSelectedFile, getOriginCoords } from '../overlay/state';
+import { getPersistentItem, setPersistentItem, removePersistentItem } from '../wguard/stealth/store';
+import { normalizeChannelData, postChannelMessage } from '../wguard/core/channel';
+
+let formatErrorDetected = false;
+
+function readChannelPayload(event: MessageEvent | { data?: any } | null | undefined) {
+  return normalizeChannelData((event as any)?.data);
+}
+
+function sendChannel(payload: Record<string, any>) {
+  postChannelMessage(payload);
+}
 
 function waitForBmContext(totalTimeoutMs = 8000): Promise<boolean> {
   return new Promise((resolve) => {
@@ -12,15 +24,19 @@ function waitForBmContext(totalTimeoutMs = 8000): Promise<boolean> {
       try { if (to) clearTimeout(to as any); } catch {}
     };
     const onMsg = (ev: MessageEvent) => {
-      const d: any = (ev as any)?.data;
-      if (!d || d.source !== 'wplace-svelte') return;
-      if (d.action === 'bm:context' && d.ok) {
+      const data = readChannelPayload(ev) as any;
+      if (!data) return;
+      if (data.action === 'bm:context' && data.ok) {
         if (!done) { done = true; cleanup(); resolve(true); }
+      }
+      if (data.action === 'bm:formatError') {
+        formatErrorDetected = true;
+        if (!done) { done = true; cleanup(); resolve(false); }
       }
     };
     try { window.addEventListener('message', onMsg); } catch {}
-    try { window.postMessage({ source: 'wplace-svelte', action: 'bm:interceptStart' }, '*'); } catch {}
-    try { window.postMessage({ source: 'wplace-svelte', action: 'bm:triggerPaint' }, '*'); } catch {}
+    sendChannel({ action: 'bm:interceptStart' });
+    sendChannel({ action: 'bm:triggerPaint' });
     const to = setTimeout(() => { if (!done) { done = true; cleanup(); resolve(false); } }, Math.max(500, totalTimeoutMs));
   });
 }
@@ -39,7 +55,7 @@ function isBmContextValid(maxAgeMs = 10000): boolean {
 
 function clearBmRequestContext() {
   try { (window as any).__bmRequestContext = null; } catch {}
-  try { window.postMessage({ source: 'wplace-svelte', action: 'bm:clearContext' }, '*'); } catch {}
+  sendChannel({ action: 'bm:clearContext' });
 }
 
 async function placeWithCachedContext(chunkX: number, chunkY: number, coords: number[], colors: number[]): Promise<Response> {
@@ -57,21 +73,40 @@ async function placeWithCachedContext(chunkX: number, chunkY: number, coords: nu
 async function armBlueMarbleContext(): Promise<void> { try { await waitForBmContext(8000); } catch {} }
 
 function bmPlace(chunkX: number, chunkY: number, coords: number[], colors: number[], timeoutMs = 12000): Promise<{ ok: boolean; status: number }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     let done = false;
     const cleanup = () => {
       try { window.removeEventListener('message', onMsg); } catch {}
       try { if (to) clearTimeout(to as any); } catch {}
     };
     const onMsg = (ev: MessageEvent) => {
-      const d: any = (ev as any)?.data;
-      if (!d || d.source !== 'wplace-svelte') return;
-      if (d.action === 'bm:placed') {
-        if (!done) { done = true; cleanup(); resolve({ ok: d.ok === true, status: Number(d.status || 0) }); }
+      const data = readChannelPayload(ev) as any;
+      if (!data) return;
+      if (data.action === 'bm:placed') {
+        if (data.reason === 'format_error' || data.reason === 'no_fp') {
+          formatErrorDetected = true;
+          try {
+            const cfg: any = getAutoConfig();
+            if (!cfg || cfg.persistAutoRun !== true) {
+              stopAutoPainter();
+            }
+          } catch {}
+        }
+        if (!done) { done = true; cleanup(); resolve({ ok: data.ok === true, status: Number(data.status || 0) }); }
+      }
+      if (data.action === 'bm:formatError') {
+        formatErrorDetected = true;
+        try {
+          const cfg: any = getAutoConfig();
+          if (!cfg || cfg.persistAutoRun !== true) {
+            stopAutoPainter();
+          }
+        } catch {}
+        if (!done) { done = true; cleanup(); resolve({ ok: false, status: 0 }); }
       }
     };
     try { window.addEventListener('message', onMsg); } catch {}
-    try { window.postMessage({ source: 'wplace-svelte', action: 'bm:place', chunkX, chunkY, coords: coords.slice(), colors: colors.slice() }, '*'); } catch {}
+    sendChannel({ action: 'bm:place', chunkX, chunkY, coords: coords.slice(), colors: colors.slice() });
     const to = setTimeout(() => { if (!done) { done = true; cleanup(); resolve({ ok: false, status: 0 }); } }, Math.max(1000, timeoutMs));
   });
 }
@@ -84,14 +119,33 @@ function bmPlaceWithIntercept(chunkX: number, chunkY: number, coords: number[], 
       try { if (to) clearTimeout(to as any); } catch {}
     };
     const onMsg = (ev: MessageEvent) => {
-      const d: any = (ev as any)?.data;
-      if (!d || d.source !== 'wplace-svelte') return;
-      if (d.action === 'bm:placed') {
-        if (!done) { done = true; cleanup(); resolve({ ok: d.ok === true, status: Number(d.status || 0) }); }
+      const data = readChannelPayload(ev) as any;
+      if (!data) return;
+      if (data.action === 'bm:placed') {
+        if (data.reason === 'format_error' || data.reason === 'no_fp') {
+          formatErrorDetected = true;
+          try {
+            const cfg: any = getAutoConfig();
+            if (!cfg || cfg.persistAutoRun !== true) {
+              stopAutoPainter();
+            }
+          } catch {}
+        }
+        if (!done) { done = true; cleanup(); resolve({ ok: data.ok === true, status: Number(data.status || 0) }); }
+      }
+      if (data.action === 'bm:formatError') {
+        formatErrorDetected = true;
+        try {
+          const cfg: any = getAutoConfig();
+          if (!cfg || cfg.persistAutoRun !== true) {
+            stopAutoPainter();
+          }
+        } catch {}
+        if (!done) { done = true; cleanup(); resolve({ ok: false, status: 0 }); }
       }
     };
     try { window.addEventListener('message', onMsg); } catch {}
-    try { window.postMessage({ source: 'wplace-svelte', action: 'bm:placeIntercept', chunkX, chunkY, coords: coords.slice(), colors: colors.slice() }, '*'); } catch {}
+    sendChannel({ action: 'bm:placeIntercept', chunkX, chunkY, coords: coords.slice(), colors: colors.slice() });
     const to = setTimeout(() => { if (!done) { done = true; cleanup(); resolve({ ok: false, status: 0 }); } }, Math.max(1000, timeoutMs));
   });
 }
@@ -100,18 +154,72 @@ function bmPlaceWithIntercept(chunkX: number, chunkY: number, coords: number[], 
 function collectPendingChunksMulti(): Array<[[number, number], Array<[number, number, number]>]> {
   try {
     const sm = getStencilManager();
+    try { sm.setAutoSelectedMasterIdx(null as any); } catch {}
     const grouped = (sm as any).getPendingGroupedByColor?.();
     const out: Array<[[number, number], Array<[number, number, number]>]> = [];
     if (!grouped || typeof grouped[Symbol.iterator] !== 'function') return out;
     const dMult = Math.max(1, Number(sm?.drawMult || 1));
     const cfg = getAutoConfig();
     const onlySel = !!(cfg as any)?.bmOnlySelected;
+    const multi = !!(cfg as any)?.bmMultiColor;
     const selIdxRaw = (cfg as any)?.bmSelectedMasterIdx;
     const selIdx = (selIdxRaw == null || !Number.isFinite(selIdxRaw)) ? null : Number(selIdxRaw);
     const mode = String((cfg as any)?.bmMode || 'random');
     const items: Array<[string, Map<number, Array<[number, number]>>]> = [];
     for (const it of grouped as Map<string, Map<number, Array<[number, number]>>>) items.push(it);
-    if (mode === 'scan') {
+    let allowedSet: Set<number> | null = null;
+    try {
+      const allowed = getAutoAllowedMasters();
+      if (Array.isArray(allowed) && allowed.length) allowedSet = new Set(allowed.map(n=>Number(n)));
+    } catch {}
+    let globalPick: number | null = null;
+    if (!multi) {
+      if (selIdx != null) {
+        globalPick = selIdx;
+      } else {
+        try {
+          const counts = (getStencilManager() as any).getRemainingCountsTotal?.();
+          if (counts && Array.isArray(counts) && counts.length) {
+            let best = -1, bestC = -1;
+            for (let i = 0; i < counts.length; i++) {
+              if (allowedSet && !allowedSet.has(i)) continue;
+              const c = counts[i] | 0;
+              if (c > bestC) { best = i; bestC = c; }
+            }
+            if (best >= 0) globalPick = best;
+          }
+        } catch {}
+      }
+    }
+    let minCx = Infinity, maxCx = -Infinity, minCy = Infinity, maxCy = -Infinity;
+    let minPx = Infinity, maxPx = -Infinity, minPy = Infinity, maxPy = -Infinity;
+    for (const [k] of items) {
+      const p = k.split(',');
+      const x = Number(p[0]) || 0, y = Number(p[1]) || 0;
+      if (x < minCx) minCx = x;
+      if (x > maxCx) maxCx = x;
+      if (y < minCy) minCy = y;
+      if (y > maxCy) maxCy = y;
+    }
+    for (const [, colorMap] of items) {
+      for (const arr of colorMap.values()) {
+        for (const point of arr) {
+          const px = Number(point?.[0]) || 0;
+          const py = Number(point?.[1]) || 0;
+          if (px < minPx) minPx = px;
+          if (px > maxPx) maxPx = px;
+          if (py < minPy) minPy = py;
+          if (py > maxPy) maxPy = py;
+        }
+      }
+    }
+    const tDim = Math.max(1, Math.max(1, Number((sm as any)?.tileSize || 0)) * Math.max(1, Number(sm?.drawMult || 1)));
+    const centerCx = (minCx + maxCx) / 2;
+    const centerCy = (minCy + maxCy) / 2;
+    const centerPx = (minPx + maxPx) / 2;
+    const centerPy = (minPy + maxPy) / 2;
+
+    if (mode === 'topDown') {
       items.sort((a, b) => {
         const ap = a[0].split(',');
         const bp = b[0].split(',');
@@ -120,9 +228,115 @@ function collectPendingChunksMulti(): Array<[[number, number], Array<[number, nu
         if (ay !== by) return ay - by;
         return ax - bx;
       });
+    } else if (mode === 'bottomUp') {
+      items.sort((a, b) => {
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0, ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0, by = Number(bp[1]) || 0;
+        if (ay !== by) return by - ay;
+        return ax - bx;
+      });
+    } else if (mode === 'leftRight') {
+      items.sort((a, b) => {
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0, ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0, by = Number(bp[1]) || 0;
+        if (ax !== bx) return ax - bx;
+        return ay - by;
+      });
+    } else if (mode === 'rightLeft') {
+      items.sort((a, b) => {
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0, ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0, by = Number(bp[1]) || 0;
+        if (ax !== bx) return bx - ax;
+        return ay - by;
+      });
+    } else if (mode === 'snakeRow') {
+      items.sort((a, b) => {
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0, ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0, by = Number(bp[1]) || 0;
+        if (ay !== by) return ay - by;
+        const parity = Math.abs(ay - minCy) & 1;
+        return parity === 0 ? (ax - bx) : (bx - ax);
+      });
+    } else if (mode === 'snakeCol') {
+      items.sort((a, b) => {
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0, ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0, by = Number(bp[1]) || 0;
+        if (ax !== bx) return ax - bx;
+        const parity = Math.abs(ax - minCx) & 1;
+        return parity === 0 ? (ay - by) : (by - ay);
+      });
+    } else if (mode === 'diagDown') {
+      items.sort((a, b) => {
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0, ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0, by = Number(bp[1]) || 0;
+        const sa = ax + ay;
+        const sb = bx + by;
+        if (sa !== sb) return sa - sb;
+        return ax - bx;
+      });
+    } else if (mode === 'diagUp') {
+      items.sort((a, b) => {
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0, ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0, by = Number(bp[1]) || 0;
+        const da = ax - ay;
+        const db = bx - by;
+        if (da !== db) return da - db;
+        return ax - bx;
+      });
+    } else if (mode === 'centerOut' || mode === 'edgesIn') {
+      items.sort((a, b) => {
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0, ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0, by = Number(bp[1]) || 0;
+        const tileCenterX = (ax + 0.5) * tDim;
+        const tileCenterY = (ay + 0.5) * tDim;
+        const tileCenterXb = (bx + 0.5) * tDim;
+        const tileCenterYb = (by + 0.5) * tDim;
+        const da = (tileCenterX - centerPx) * (tileCenterX - centerPx) + (tileCenterY - centerPy) * (tileCenterY - centerPy);
+        const db = (tileCenterXb - centerPx) * (tileCenterXb - centerPx) + (tileCenterYb - centerPy) * (tileCenterYb - centerPy);
+        if (da !== db) return mode === 'centerOut' ? da - db : db - da;
+        if (ay !== by) return ay - by;
+        return ax - bx;
+      });
+    } else if (mode === 'diagDownRight') {
+      const wCells = Math.max(1, Math.floor(tDim / dMult));
+      items.sort((a, b) => {
+        const x1 = Math.floor(a[0] / dMult), y1 = Math.floor(a[1] / dMult);
+        const x2 = Math.floor(b[0] / dMult), y2 = Math.floor(b[1] / dMult);
+        const s1 = (wCells - 1 - x1) + y1;
+        const s2 = (wCells - 1 - x2) + y2;
+        if (s1 !== s2) return s1 - s2;
+        return x2 - x1;
+      });
+    } else if (mode === 'diagUpRight') {
+      const wCells = Math.max(1, Math.floor(tDim / dMult));
+      items.sort((a, b) => {
+        const x1 = Math.floor(a[0] / dMult), y1 = Math.floor(a[1] / dMult);
+        const x2 = Math.floor(b[0] / dMult), y2 = Math.floor(b[1] / dMult);
+        const d1 = (wCells - 1 - x1) - y1;
+        const d2 = (wCells - 1 - x2) - y2;
+        if (d1 !== d2) return d1 - d2;
+        return x2 - x1;
+      });
     } else {
       shuffle(items);
     }
+    const tilePixLists: Array<{ cx: number; cy: number; pixels: Array<[number, number, number]> }> = [];
     for (const [k, colorMap] of items) {
       const parts = String(k).split(',');
       const cx = Number(parts[0]) || 0;
@@ -131,32 +345,110 @@ function collectPendingChunksMulti(): Array<[[number, number], Array<[number, nu
       const entries: Array<[number, Array<[number, number]>]> = [];
       for (const ent of colorMap) entries.push(ent);
       try {
-        const allowed = getAutoAllowedMasters();
-        if (Array.isArray(allowed) && allowed.length) {
-          const set = new Set(allowed.map(n=>Number(n)));
-          const filtered = entries.filter(e => set.has(e[0]));
+        if (allowedSet && allowedSet.size) {
+          const filtered = entries.filter(e => allowedSet!.has(e[0]));
           entries.length = 0; for (const e of filtered) entries.push(e);
         }
       } catch {}
-      if (onlySel && selIdx != null) {
+      if (!multi && onlySel && selIdx != null) {
         const filtered = entries.filter(e => e[0] === selIdx);
         entries.length = 0; for (const e of filtered) entries.push(e);
       }
+      if (!multi && globalPick != null) {
+        const filtered2 = entries.filter(e => e[0] === globalPick);
+        entries.length = 0; for (const e of filtered2) entries.push(e);
+      }
+      const merged: Array<[number, number, number]> = [];
       for (const [masterIdx, arr] of entries) {
         const btnId = mapMasterIndexToButton(masterIdx);
         if (btnId == null || btnId < 0) continue;
-        if (mode === 'scan') {
-          arr.sort((p1, p2) => (p1[1] - p2[1]) || (p1[0] - p2[0]));
-        } else {
-          shuffle(arr);
-        }
-        for (const p of arr) {
-          const x = Math.max(0, Math.round(p[0] / dMult));
-          const y = Math.max(0, Math.round(p[1] / dMult));
-          pixels.push([x, y, btnId]);
-        }
+        for (const p of arr) merged.push([p[0], p[1], btnId]);
       }
-      if (pixels.length) out.push([[cx, cy], pixels]);
+      if (mode === 'topDown') {
+        merged.sort((a, b) => (a[1] - b[1]) || (a[0] - b[0]));
+      } else if (mode === 'bottomUp') {
+        merged.sort((a, b) => (b[1] - a[1]) || (a[0] - b[0]));
+      } else if (mode === 'leftRight') {
+        merged.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]));
+      } else if (mode === 'rightLeft') {
+        merged.sort((a, b) => (b[0] - a[0]) || (a[1] - b[1]));
+      } else if (mode === 'snakeRow') {
+        merged.sort((a, b) => {
+          const r1 = Math.floor(a[1] / dMult);
+          const r2 = Math.floor(b[1] / dMult);
+          if (r1 !== r2) return r1 - r2;
+          const parity = r1 & 1;
+          return parity === 0 ? (a[0] - b[0]) : (b[0] - a[0]);
+        });
+      } else if (mode === 'snakeCol') {
+        merged.sort((a, b) => {
+          const c1 = Math.floor(a[0] / dMult);
+          const c2 = Math.floor(b[0] / dMult);
+          if (c1 !== c2) return c1 - c2;
+          const parity = c1 & 1;
+          return parity === 0 ? (a[1] - b[1]) : (b[1] - a[1]);
+        });
+      } else if (mode === 'diagDown') {
+        merged.sort((a, b) => {
+          const x1 = Math.floor(a[0] / dMult), y1 = Math.floor(a[1] / dMult);
+          const x2 = Math.floor(b[0] / dMult), y2 = Math.floor(b[1] / dMult);
+          const s1 = x1 + y1, s2 = x2 + y2;
+          if (s1 !== s2) return s1 - s2;
+          return x1 - x2;
+        });
+      } else if (mode === 'diagUp') {
+        merged.sort((a, b) => {
+          const x1 = Math.floor(a[0] / dMult), y1 = Math.floor(a[1] / dMult);
+          const x2 = Math.floor(b[0] / dMult), y2 = Math.floor(b[1] / dMult);
+          const d1 = x1 - y1, d2 = x2 - y2;
+          if (d1 !== d2) return d1 - d2;
+          return x1 - x2;
+        });
+      } else if (mode === 'diagDownRight') {
+        const wCells = Math.max(1, Math.floor(tDim / dMult));
+        merged.sort((a, b) => {
+          const x1 = Math.floor(a[0] / dMult), y1 = Math.floor(a[1] / dMult);
+          const x2 = Math.floor(b[0] / dMult), y2 = Math.floor(b[1] / dMult);
+          const s1 = (wCells - 1 - x1) + y1;
+          const s2 = (wCells - 1 - x2) + y2;
+          if (s1 !== s2) return s1 - s2;
+          return x2 - x1;
+        });
+      } else if (mode === 'diagUpRight') {
+        const wCells = Math.max(1, Math.floor(tDim / dMult));
+        merged.sort((a, b) => {
+          const x1 = Math.floor(a[0] / dMult), y1 = Math.floor(a[1] / dMult);
+          const x2 = Math.floor(b[0] / dMult), y2 = Math.floor(b[1] / dMult);
+          const d1 = (wCells - 1 - x1) - y1;
+          const d2 = (wCells - 1 - x2) - y2;
+          if (d1 !== d2) return d1 - d2;
+          return x2 - x1;
+        });
+      } else if (mode === 'centerOut' || mode === 'edgesIn') {
+        merged.sort((a, b) => {
+          const dx1 = a[0] - centerPx;
+          const dy1 = a[1] - centerPy;
+          const dx2 = b[0] - centerPx;
+          const dy2 = b[1] - centerPy;
+          const d1 = dx1 * dx1 + dy1 * dy1;
+          const d2 = dx2 * dx2 + dy2 * dy2;
+          if (d1 !== d2) {
+            return mode === 'centerOut' ? d1 - d2 : d2 - d1;
+          }
+          return mode === 'centerOut' ? (a[0] - b[0] || a[1] - b[1]) : (b[0] - a[0] || b[1] - a[1]);
+        });
+      } else {
+        shuffle(merged);
+      }
+      for (const p of merged) {
+        const x = Math.max(0, Math.round(p[0] / dMult));
+        const y = Math.max(0, Math.round(p[1] / dMult));
+        pixels.push([x, y, p[2]]);
+      }
+      if (pixels.length) tilePixLists.push({ cx, cy, pixels });
+    }
+    for (const t of tilePixLists) {
+      if (t.pixels.length) out.push([[t.cx, t.cy], t.pixels]);
     }
     return out;
   } catch { return []; }
@@ -169,19 +461,20 @@ async function placeAllColorsDirect(): Promise<boolean> {
   try { getStencilManager().setPendingColorIdx(null as any); } catch {}
   const chunks = collectPendingChunksMulti();
   if (!chunks.length) return false;
-  if (!running) return false;
+  if (!running || formatErrorDetected) return false;
   
   let remaining = Math.floor(Number((await fetchCharges())?.count) || 0);
   let placed = false;
+  let cyclePlaced = 0;
   
   for (let gi = 0; gi < chunks.length && running; gi++) {
-    if (!running) break;
+    if (!running || formatErrorDetected) break;
     
     const group = chunks[gi];
     let idx = 0;
     
     while (idx < group[1].length && running) {
-      if (!running) break;
+      if (!running || formatErrorDetected) break;
       
       if (remaining <= 0) {
         break;
@@ -189,8 +482,10 @@ async function placeAllColorsDirect(): Promise<boolean> {
       
       const cfg = getAutoConfig();
       const batchLimit = Math.max(0, Number((cfg as any)?.bmBatchLimit || 0));
-      const cap = batchLimit > 0 ? batchLimit : (group[1].length - idx);
+      if (batchLimit > 0 && cyclePlaced >= batchLimit) return true;
+      const cap = batchLimit > 0 ? Math.max(1, batchLimit - cyclePlaced) : (group[1].length - idx);
       const take = Math.min(remaining, cap, group[1].length - idx);
+      if (take <= 0) return true;
       const coordsFlat: number[] = [];
       const colorsArr: number[] = [];
       
@@ -207,7 +502,7 @@ async function placeAllColorsDirect(): Promise<boolean> {
         result = await placeWithCachedContext(group[0][0], group[0][1], coordsFlat, colorsArr);
         status = Number((result as any)?.status || 0);
       } catch (e) {
-        if (!running) break;
+        if (!running || formatErrorDetected) break;
         try {
           result = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
           status = Number((result as any)?.status || 0);
@@ -216,7 +511,7 @@ async function placeAllColorsDirect(): Promise<boolean> {
         }
       }
       
-      if (!running) break;
+      if (!running || formatErrorDetected) break;
       
       if (status === 0) {
         try {
@@ -225,12 +520,10 @@ async function placeAllColorsDirect(): Promise<boolean> {
         } catch {}
       }
       
-      if (!running) break;
+      if (!running || formatErrorDetected) break;
       
       if (status === 429) {
-        const continued = await sleepInterruptible(30000);
-        if (!continued || !running) break;
-        continue;
+        return placed;
       }
       
       if (status === 401 || status === 403) {
@@ -262,21 +555,16 @@ async function placeAllColorsDirect(): Promise<boolean> {
         
         idx += take;
         placed = true;
+        cyclePlaced += take;
         
-        try { window.postMessage({ source: 'wplace-svelte', action: 'reloadTiles' }, '*'); } catch {}
-        
-        if (!running) break;
+        sendChannel({ action: 'reloadTiles' });
         
         try {
-          const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
-          const tw = Math.max(200, Math.min(3000, Number.isFinite(cfgT) ? Math.round(cfgT * 1000) : 2000));
-          await waitForTileRefresh(tw);
+          const bl = Math.max(0, Number((getAutoConfig() as any)?.bmBatchLimit || 0));
+          if (bl > 0 && cyclePlaced >= bl) {
+            return true;
+          }
         } catch {}
-        
-        if (!running) break;
-        
-        const continued = await sleepInterruptible(200);
-        if (!continued || !running) break;
       } else {
         idx += take;
       }
@@ -284,14 +572,12 @@ async function placeAllColorsDirect(): Promise<boolean> {
   }
   return placed;
 }
- let running = false;
- let timer: number | null = null;
-const LS_ALLOWED = 'wplace:auto-allowed-masters:v1';
+let running = false;
+const LS_ALLOWED = 'wguard:auto-allowed-masters:v1';
+const LS_AUTORUN = 'wguard:auto-run:v1';
 
 
 let lastCountsKnown: number[] | null = null;
-
-
 
 export function isAutoRunning() { return running; }
 
@@ -302,32 +588,6 @@ export function getAutoSavedCounts(): number[] | null {
   try { return lastCountsKnown ? lastCountsKnown.slice() : null; } catch { return null; }
 }
 
-function waitForTileRefresh(timeoutMs = 2000): Promise<boolean> {
-  return new Promise((resolve) => {
-    let done = false;
-    const cleanup = () => {
-      try { window.removeEventListener('message', onMsg); } catch {}
-      try { if (to) clearTimeout(to as any); } catch {}
-      try { if (raf != null) cancelAnimationFrame(raf); } catch {}
-    };
-    const onMsg = (ev: MessageEvent) => {
-      const d: any = (ev as any)?.data;
-      if (!d || d.source !== 'wplace-svelte') return;
-      if (d.action === 'tileUpdated') {
-        if (!done) { done = true; cleanup(); resolve(true); }
-      }
-    };
-    let raf: number | null = null;
-    const tick = () => {
-      if (!running && !done) { done = true; cleanup(); resolve(false); return; }
-      raf = requestAnimationFrame(tick);
-    };
-    try { window.addEventListener('message', onMsg); } catch {}
-    raf = requestAnimationFrame(tick);
-    const to = setTimeout(() => { if (!done) { done = true; cleanup(); resolve(false); } }, Math.max(200, timeoutMs));
-  });
-}
-
 
  
 
@@ -336,9 +596,18 @@ function waitForTileRefresh(timeoutMs = 2000): Promise<boolean> {
 export async function startAutoPainter(_intervalMs = 35000) {
   if (running) return true;
   try {
+    formatErrorDetected = false;
     try { getStencilManager().setAutoSelectedMasterIdx(null as any); } catch {}
     
     running = true;
+    try {
+      const cfg = getAutoConfig() as any;
+      if (cfg && cfg.persistAutoRun) {
+        setPersistentItem(LS_AUTORUN, JSON.stringify({ running: true, ts: Date.now() }));
+      } else {
+        removePersistentItem(LS_AUTORUN);
+      }
+    } catch {}
     
     runAutoLoop();
     return true;
@@ -350,11 +619,19 @@ export async function startAutoPainter(_intervalMs = 35000) {
 
 export function stopAutoPainter() {
   running = false;
-  if (timer != null) { clearTimeout(timer); timer = null; }
+  formatErrorDetected = false;
   
   try { getStencilManager().setAutoSelectedMasterIdx(null as any); } catch {}
   
-  try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
+  sendChannel({ action: 'autoPaintCycleEnd' });
+  try {
+    const cfg = getAutoConfig() as any;
+    if (cfg && cfg.persistAutoRun) {
+      setPersistentItem(LS_AUTORUN, JSON.stringify({ running: false, ts: Date.now() }));
+    } else {
+      removePersistentItem(LS_AUTORUN);
+    }
+  } catch {}
 }
 
 export function stopAutoPainterManual() {
@@ -379,7 +656,7 @@ function getImageKey(): string {
 export function getAutoAllowedMasters(): number[] {
   const key = `${LS_ALLOWED}:${getImageKey()}`;
   try {
-    const raw = localStorage.getItem(key);
+    const raw = getPersistentItem(key);
     if (!raw) return [];
     const arr = JSON.parse(raw);
     if (Array.isArray(arr)) { return arr.filter((n: any)=> Number.isFinite(n)).map((n:any)=>Number(n)); }
@@ -391,7 +668,7 @@ export function setAutoAllowedMasters(list: number[]) {
   try {
     const uniq = Array.from(new Set(list.filter(n=> Number.isFinite(n)).map(n=>Number(n))));
     const key = `${LS_ALLOWED}:${getImageKey()}`;
-    localStorage.setItem(key, JSON.stringify(uniq));
+    setPersistentItem(key, JSON.stringify(uniq));
     
   } catch {}
 }
@@ -448,21 +725,21 @@ async function requestColorButtons(timeoutMs = 800): Promise<ColorButton[]> {
     return new Promise((resolve) => {
       const reqId = Math.random().toString(36).slice(2);
       const onMsg = (ev: MessageEvent) => {
-        const d: any = (ev as any)?.data;
-        if (!d || d.source !== 'wplace-svelte') return;
-        if (d.action === 'colorButtons' && d.reqId === reqId) {
+        const data = readChannelPayload(ev) as any;
+        if (!data) return;
+        if (data.action === 'colorButtons' && data.reqId === reqId) {
           window.removeEventListener('message', onMsg);
-          resolve(Array.isArray(d.buttons) ? d.buttons : []);
+          resolve(Array.isArray(data.buttons) ? data.buttons : []);
         }
       };
       window.addEventListener('message', onMsg);
-      try { window.postMessage({ source: 'wplace-svelte', action: 'queryColors', reqId }, '*'); } catch {}
+      sendChannel({ action: 'queryColors', reqId });
       setTimeout(() => { window.removeEventListener('message', onMsg); resolve([]); }, timeoutMs);
     });
   }
   let res = await once();
   if (!res || res.length === 0) {
-    try { window.postMessage({ source: 'wplace-svelte', action: 'bm:triggerPaint' }, '*'); } catch {}
+    sendChannel({ action: 'bm:triggerPaint' });
     await new Promise(r => setTimeout(r, Math.max(300, timeoutMs)));
     res = await once();
     if (!res || res.length === 0) {
@@ -521,42 +798,58 @@ function mapMasterIndexToButton(idx: number): number | null {
 async function runAutoLoop() {
   try {
     await ensureColorMap();
+    let nextCycleAt = 0;
     while (running) {
       if (!running) break;
       
-      const chunks = collectPendingChunksMulti();
+      try {
+        const nowGate = Date.now();
+        if (nowGate < nextCycleAt) {
+          const toWait = Math.max(0, nextCycleAt - nowGate);
+          const cont = await sleepInterruptible(toWait);
+          if (!cont || !running) break;
+        }
+      } catch {}
       
-      if (!chunks || chunks.length === 0) {
-        try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
-        try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
+      const chunks = collectPendingChunksMulti();
+  
+  if (!chunks || chunks.length === 0) {
+        sendChannel({ action: 'autoPaintCycleStart' });
+        sendChannel({ action: 'autoPaintCycleEnd' });
         
         const cfg = getAutoConfig();
-        const secSeries = Number((cfg as any)?.seriesWaitSec);
-        const waitMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
-        const continued = await sleepInterruptible(waitMs);
-        if (!continued || !running) break;
-        continue;
-      }
-      
-      if (!running) break;
-      
-      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
-      
-      if (!isBmContextValid(10000)) {
-        await armBlueMarbleContext();
-      }
-      
-      await placeAllColorsDirect();
-      if (!running) break;
-      
-      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
-      
-      const cfg = getAutoConfig();
-      const secSeries = Number((cfg as any)?.seriesWaitSec);
-      const waitMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
-      const continued = await sleepInterruptible(waitMs);
-      if (!continued || !running) break;
+    const secSeries = Number((cfg as any)?.seriesWaitSec);
+    const baseMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
+    const rmax = Math.max(0, Number((cfg as any)?.randomExtraWaitMaxSec || 0));
+    const rndSec = rmax > 0 ? (1 + Math.floor(Math.random() * Math.max(1, rmax))) : 0;
+    const waitMs = baseMs + rndSec * 1000;
+    const continued = await sleepInterruptible(waitMs);
+    if (!continued || !running) break;
+    continue;
+  }
+  
+  if (!running) break;
+  
+  try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
+  
+  if (!isBmContextValid(10000)) {
+    await armBlueMarbleContext();
+  }
+  
+  await placeAllColorsDirect();
+  if (!running) break;
+  
+  try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
+  
+  const cfg = getAutoConfig();
+  const secSeries = Number((cfg as any)?.seriesWaitSec);
+  const baseMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
+  const rmax = Math.max(0, Number((cfg as any)?.randomExtraWaitMaxSec || 0));
+  const rndSec = rmax > 0 ? (1 + Math.floor(Math.random() * Math.max(1, rmax))) : 0;
+  const waitMs = baseMs + rndSec * 1000;
+  nextCycleAt = Date.now() + waitMs;
+  const continued = await sleepInterruptible(waitMs);
+  if (!continued || !running) break;
     }
   } catch {}
 }
-

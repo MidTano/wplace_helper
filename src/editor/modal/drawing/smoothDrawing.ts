@@ -1,5 +1,6 @@
 
 import { paintAtTool, type ToolName } from '../tools';
+import { markElement } from '../../../wguard';
 
 export interface DrawPoint {
   x: number;
@@ -82,6 +83,7 @@ export function initializeBufferCanvas(
 ): void {
   if (!state.bufferCanvas) {
     state.bufferCanvas = document.createElement('canvas');
+    markElement(state.bufferCanvas);
   }
   
   if (state.bufferCanvas.width !== width || state.bufferCanvas.height !== height) {
@@ -102,6 +104,7 @@ function initializeEraserGhostCanvas(
 ): void {
   if (!state.eraserGhostCanvas) {
     state.eraserGhostCanvas = document.createElement('canvas');
+    markElement(state.eraserGhostCanvas);
   }
   if (state.eraserGhostCanvas.width !== width || state.eraserGhostCanvas.height !== height) {
     state.eraserGhostCanvas.width = width;
@@ -116,6 +119,7 @@ function initializeEraserGhostCanvas(
   
   if (!state.eraserMaskCanvas) {
     state.eraserMaskCanvas = document.createElement('canvas');
+    markElement(state.eraserMaskCanvas);
   }
   if (state.eraserMaskCanvas.width !== width || state.eraserMaskCanvas.height !== height) {
     state.eraserMaskCanvas.width = width;
@@ -360,6 +364,7 @@ export function addPointToStroke(
 
 function buildSelectionMaskCanvas(mask: Uint8Array, w: number, h: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
+  markElement(canvas);
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
@@ -394,6 +399,7 @@ export function finishStroke(
     if (state.eraserMaskCanvas) {
       if (selectionMask && outW && outH) {
         const tmp = document.createElement('canvas');
+        markElement(tmp);
         tmp.width = outW;
         tmp.height = outH;
         const tctx = tmp.getContext('2d', { willReadFrequently: true })!;
@@ -420,8 +426,10 @@ export function finishStroke(
   } else {
     const buf = state.bufferCanvas;
     if (buf) {
+      markElement(buf);
       if (selectionMask && outW && outH) {
         const tmp = document.createElement('canvas');
+        markElement(tmp);
         tmp.width = outW;
         tmp.height = outH;
         const tctx = tmp.getContext('2d', { willReadFrequently: true })!;

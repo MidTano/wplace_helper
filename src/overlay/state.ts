@@ -1,6 +1,7 @@
 import { log } from './log';
 import { getStencilManager } from '../template/stencilManager';
 import { updateCoords } from '../topmenu/historyStore';
+import { dispatchWGuardEvent, WGuardEvents } from '../wguard/core/events';
 
 let selectedFile: Blob | null = null;
 let originCoords: [number, number, number, number] | null = null; 
@@ -22,7 +23,7 @@ export function getSelectedFile(): Blob | null {
 export function setOriginCoords(coords: [number, number, number, number] | null) {
   originCoords = coords;
   log('state', 'setOriginCoords', coords);
-  try { window.dispatchEvent(new CustomEvent('wplace:origin', { detail: { coords } })); } catch {}
+  try { dispatchWGuardEvent(WGuardEvents.ORIGIN, { coords }); } catch {}
   
   try {
     if (!coords) return;
@@ -50,7 +51,7 @@ export function setCurrentHistoryId(id: string | null) {
 export function setMoveMode(v: boolean) {
   moveMode = !!v;
   log('state', 'setMoveMode', { on: moveMode });
-  try { window.dispatchEvent(new CustomEvent('wplace:moveMode', { detail: { on: moveMode } })); } catch {}
+  try { dispatchWGuardEvent(WGuardEvents.MOVE_MODE, { on: moveMode }); } catch {}
 }
 
 export function isMoveMode(): boolean { return moveMode; }

@@ -2,13 +2,14 @@
   import { getStencilManager } from '../template/stencilManager';
   import { log } from '../overlay/log';
   import { t, lang } from '../i18n';
+  import { dispatchWGuardEvent, WGuardEvents } from '../wguard/core/events';
   let on = false;
 
   function toggle() {
     on = !on;
     try {
       getStencilManager().setEnhancedColors(on);
-      try { window.dispatchEvent(new CustomEvent('wplace:enhanced', { detail: { on } })); } catch {}
+      try { dispatchWGuardEvent(WGuardEvents.ENHANCED, { on }); } catch {}
       log('ui', 'enhancedColors', { on });
     } catch {}
   }
@@ -17,7 +18,7 @@
   $: L_enhanced = ($lang, t('btn.enhancedColors'));
 </script>
 
-<button class="tm-fab {on ? 'tm-primary' : ''}" type="button" on:click={toggle} aria-label={L_enhanced} data-label={L_enhanced} aria-pressed={on}>
+<button class="tm-fab {on ? 'tm-primary' : ''}" type="button" on:click={toggle} aria-label={L_enhanced} data-label={L_enhanced} aria-pressed={on} data-tutorial="enhanced-colors">
   <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
     <rect x="2" y="27.0049" width="27.9985" height="2"/>
     <path d="M16,20a4.0045,4.0045,0,0,1,4,4h2a6,6,0,0,0-12,0h2A4.0045,4.0045,0,0,1,16,20Z"/>

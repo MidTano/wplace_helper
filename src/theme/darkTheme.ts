@@ -1,3 +1,5 @@
+import { markElement } from '../wguard';
+
 export function applyDarkTheme() {
   try {
     const id = 'wplace-dark-theme';
@@ -31,6 +33,7 @@ export function applyDarkTheme() {
       .btn { --btn-noise: none !important; }
     `;
     const style = document.createElement('style');
+    markElement(style);
     style.id = id;
     style.textContent = css;
     document.head.appendChild(style);

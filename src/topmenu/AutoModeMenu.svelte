@@ -4,6 +4,7 @@
   import { getStencilManager } from '../template/stencilManager';
   import { getAutoAllowedMasters, setAutoAllowedMasters, isAutoRunning, getAutoSavedCounts } from '../screen/autoPainter';
   import { t } from '../i18n';
+  import { appendToBody } from '../editor/modal/utils/appendToBody';
 
   export let open = false;
   export let x = 0;
@@ -16,12 +17,6 @@
   const dispatch = createEventDispatcher();
   let enhanced = false;
   let rgbToButtonId = new Map();
-
-  
-  function portal(node) {
-    try { document.body.appendChild(node); } catch {}
-    return { destroy() { try { node.remove(); } catch {} } };
-  }
 
   function openPaletteRobust() {
     const sels = [
@@ -143,7 +138,7 @@
       const reqId = Math.random().toString(36).slice(2);
       const onMsg = (ev) => {
         const d = ev?.data;
-        if (!d || d.source !== 'wplace-svelte') return;
+        if (!d || (d.source !== 'wplace-svelte' && d.source !== 'wguard-svelte')) return;
         if (d.action === 'colorButtons' && d.reqId === reqId) {
           window.removeEventListener('message', onMsg);
           resolve(Array.isArray(d.buttons) ? d.buttons : []);
@@ -153,6 +148,41 @@
       try { window.postMessage({ source: 'wplace-svelte', action: 'queryColors', reqId }, '*'); } catch {}
       setTimeout(() => { window.removeEventListener('message', onMsg); resolve([]); }, timeoutMs);
     });
+  }
+
+  function scanColorsLocal() {
+    try {
+      const buttons = Array.from(document.querySelectorAll('button[id^="color-"]'));
+      const out = [];
+      for (const btn of buttons) {
+        try {
+          const idStr = String(btn.id || '').replace(/[^0-9]/g, '');
+          const idNum = Number(idStr) || 0;
+          if (!idNum) continue;
+          let rgb = [0, 0, 0];
+          const inline = (btn.getAttribute('style') || '').toLowerCase();
+          const re = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/;
+          let m = inline.match(re);
+          if (!m) {
+            const cs = getComputedStyle(btn);
+            const bc = (cs.getPropertyValue('background') || cs.getPropertyValue('background-color') || '').toLowerCase();
+            m = bc.match(re);
+          }
+          if (m) rgb = [Number(m[1])||0, Number(m[2])||0, Number(m[3])||0];
+          let paid = false;
+          try {
+            const svgs = Array.from(btn.getElementsByTagName('svg'));
+            for (const el of svgs) {
+              const cs2 = getComputedStyle(el);
+              const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : { width: 0, height: 0 };
+              if (cs2 && cs2.display !== 'none' && cs2.visibility !== 'hidden' && rect.width > 0 && rect.height > 0) { paid = true; break; }
+            }
+          } catch {}
+          out.push({ id: idNum, rgb, paid });
+        } catch {}
+      }
+      return out;
+    } catch { return []; }
   }
 
   async function loadCounts() {
@@ -177,6 +207,20 @@
         await new Promise(r => setTimeout(r, 240));
         buttons = await queryColors(900);
       }
+      if (!buttons || !buttons.length) {
+        try {
+          const fb = (window && (window).__wph_lastColorButtons) || [];
+          if (Array.isArray(fb) && fb.length) {
+            buttons = fb;
+          }
+        } catch {}
+      }
+      if (!buttons || !buttons.length) {
+        const local = scanColorsLocal();
+        if (local && local.length) {
+          buttons = local;
+        }
+      }
       
       try {
         rgbToButtonId = new Map();
@@ -187,20 +231,30 @@
           }
         }
       } catch {}
-      const availSet = new Set();
-      for (const b of (buttons||[])) {
-        if (b && !b.paid && Array.isArray(b.rgb)) {
+      let freeRgbSet = new Set();
+      try {
+        const freeButtons = (buttons||[]).filter(b => b && !b.paid && Array.isArray(b.rgb));
+        const freeRgbKeys = freeButtons.map(b => `${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`);
+        freeRgbSet = new Set(freeRgbKeys);
+        const tmpMatched = [];
+        const unknownRgb = [];
+        for (const b of freeButtons) {
           const idx = MASTER_COLORS.findIndex(c => c.rgb[0] === b.rgb[0] && c.rgb[1] === b.rgb[1] && c.rgb[2] === b.rgb[2]);
-          if (idx >= 0) availSet.add(idx);
+          if (idx >= 0) tmpMatched.push(idx); else unknownRgb.push(`${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`);
         }
-      }
+        const matchedUnique = Array.from(new Set(tmpMatched)).sort((a,b)=>a-b);
+        const countsNonZero = [];
+        for (let i = 0; i < (countsUse?.length||0); i++) if ((countsUse[i]||0) > 0) countsNonZero.push(i);
+        const inter = matchedUnique.filter(i => countsNonZero.includes(i));
+      } catch {}
+      const isFreeByRgb = (rgb) => freeRgbSet.has(`${rgb[0]},${rgb[1]},${rgb[2]}`);
 
       const base = MASTER_COLORS.map((c, idx) => ({
         idx,
         name: c.name,
         rgb: c.rgb,
         count: (countsUse && countsUse[idx]) || 0,
-        available: availSet.has(idx),
+        available: isFreeByRgb(c.rgb),
         checked: false,
       }));
       const filtered = base.filter(it => it.count > 0);
@@ -224,6 +278,7 @@
     try {
       await tick();
       const pad = 10;
+      const topMenuHeight = 110;
       const W = Math.max(0, (window.innerWidth || 0));
       const H = Math.max(0, (window.innerHeight || 0));
       
@@ -236,7 +291,7 @@
       let ny = Math.round(y);
       
       nx = Math.max(pad, Math.min(nx, W - mw - pad));
-      ny = Math.max(pad, Math.min(ny, H - mh - pad));
+      ny = Math.max(topMenuHeight + pad, Math.min(ny, H - mh - pad));
       posX = nx;
       posY = ny;
     } catch {}
@@ -292,7 +347,7 @@
 
 {#if open}
   <div class="amenu-backdrop" role="button" tabindex="0" aria-label={t('automenu.closeAria')} on:click|stopPropagation={close} on:keydown={(e)=>{ if(e.key==='Escape'||e.key==='Enter'||e.key===' '){ e.preventDefault(); close(); } }} />
-  <div use:portal bind:this={menuEl} class="amenu" role="dialog" aria-modal="true" aria-label={t('automenu.title')} style={`left:${posX}px; top:${posY}px`}>
+  <div use:appendToBody bind:this={menuEl} class="amenu" role="dialog" aria-modal="true" aria-label={t('automenu.title')} style={`left:${posX}px; top:${posY}px`}>
     <button class="close-x" type="button" aria-label={t('btn.close')} on:click={close} on:keydown={(e)=>{ if(e.key==='Enter'||e.key===' '||e.key==='Escape'){ e.preventDefault(); close(); } }}>×</button>
     {#if items.length > 0}
       <div class="amenu-header">
@@ -336,41 +391,47 @@
   .amenu-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 1000002;
+    z-index: 1000010;
     background: transparent;
   }
   .amenu {
     position: fixed;
-    z-index: 1000003;
+    z-index: 1000011;
     min-width: 280px;
     max-width: 360px;
     max-height: 60vh;
-    background: rgba(17,17,17,0.96);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.15);
+    background: var(--wph-surface, rgba(17,17,17,0.96));
+    color: var(--wph-text, #fff);
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.15));
     border-radius: 10px;
     box-shadow: 0 12px 28px rgba(0,0,0,0.45);
     overflow: hidden;
     backdrop-filter: blur(6px);
   }
-  .amenu-header { display: flex; align-items: center; justify-content: flex-start; gap: 6px; padding: 8px 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .amenu-header { display: flex; align-items: center; justify-content: flex-start; gap: 6px; padding: 8px 8px 6px; border-bottom: 1px solid var(--wph-border, rgba(255,255,255,0.08)); }
   .actions { display: flex; gap: 6px; }
-  .chip { font-size: 12px; line-height: 1.2; font-family: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #fff; cursor: pointer; }
-  .chip:hover { background: rgba(255,255,255,0.1); }
-  .amenu-list { padding: 8px 8px; max-height: 42vh; overflow: auto; }
+  .chip { font-size: 12px; line-height: 1.2; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--wph-border, rgba(255,255,255,0.14)); background: var(--wph-surface, rgba(255,255,255,0.06)); color: var(--wph-text, #fff); cursor: pointer; }
+  .chip:hover { background: var(--wph-surface2, rgba(255,255,255,0.1)); }
+  .amenu-list { padding: 8px 8px; max-height: 42vh; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--wph-border, rgba(255,255,255,0.35)) var(--wph-surface, rgba(255,255,255,0.08)); }
+  :global(.amenu-list::-webkit-scrollbar) { width: 8px; height: 8px; }
+  :global(.amenu-list::-webkit-scrollbar-track) { background: var(--wph-surface, rgba(255,255,255,0.08)); border-radius: 8px; }
+  :global(.amenu-list::-webkit-scrollbar-thumb) { background: var(--wph-border, rgba(255,255,255,0.35)); border-radius: 8px; }
+  :global(.amenu-list::-webkit-scrollbar-thumb:hover) { background: var(--wph-border, rgba(255,255,255,0.38)); }
+  :global(.amenu-list::-webkit-scrollbar-button) { display: none !important; width: 0 !important; height: 0 !important; background: transparent !important; border: 0 !important; }
+  :global(.amenu-list::-webkit-scrollbar-corner) { background: transparent !important; }
   .tiles { display: grid; grid-template-columns: 1fr; gap: 8px; }
-  .tile { position: relative; display: block; padding: 8px 10px; border-radius: 12px; border: none; background: rgba(255,255,255,0.04); color: inherit; cursor: pointer; text-align: left; overflow: hidden; }
+  .tile { position: relative; display: block; padding: 8px 10px; border-radius: 12px; border: none; background: var(--wph-surface, rgba(255,255,255,0.04)); color: inherit; cursor: pointer; text-align: left; overflow: hidden; }
   .tile .tile-inner { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px; }
-  .tile:hover { background: rgba(255,255,255,0.08); }
+  .tile:hover { background: var(--wph-surface2, rgba(255,255,255,0.08)); }
   .tile.disabled { opacity: 0.9; cursor: pointer; }
   .tile.selected { border-color: transparent; box-shadow: none; }
   
   .ants { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
-  .ants path { stroke: #f3734d; stroke-width: 2; stroke-linecap: butt; stroke-linejoin: round; stroke-dasharray: var(--dash) var(--dash); stroke-dashoffset: 0; filter: drop-shadow(0 0 2px rgba(240,81,35,0.6)); vector-effect: non-scaling-stroke; shape-rendering: geometricPrecision; }
+  .ants path { stroke: var(--wph-primary, #f3734d); stroke-width: 2; stroke-linecap: butt; stroke-linejoin: round; stroke-dasharray: var(--dash) var(--dash); stroke-dashoffset: 0; filter: drop-shadow(0 0 2px var(--wph-primaryGlow, rgba(240,81,35,0.6))); vector-effect: non-scaling-stroke; shape-rendering: geometricPrecision; }
   .tile.selected .ants { opacity: 1; }
   @keyframes antsRun { to { stroke-dashoffset: calc(-2 * var(--dash)); } }
   .tile.selected .ants path { animation: antsRun var(--ants-speed, 1.2s) linear infinite; }
-  .sw { width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.5); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
+  .sw { width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.5); box-shadow: inset 0 0 0 1px var(--wph-border, rgba(255,255,255,0.15)); }
   .name { font-size: 12px; line-height: 1.2; opacity: 0.95; }
   .count { font-size: 12px; line-height: 1.2; opacity: 0.8; }
   .empty { padding: 14px; text-align: center; opacity: 0.8; }
@@ -384,8 +445,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px; 
-    background: rgba(255,255,255,0.06); 
-    color: #fff; 
+    background: var(--wph-surface, rgba(255,255,255,0.06)); 
+    color: var(--wph-text, #fff); 
     border: none;
     cursor: pointer;
     transition: all .15s ease;
@@ -396,12 +457,12 @@
     padding: 0;
   }
   .close-x:hover {
-    background: rgba(255,255,255,0.12);
+    background: var(--wph-surface2, rgba(255,255,255,0.12));
     transform: scale(1.05);
   }
 
   
-  .tile .lock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.95); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; }
+  .tile .lock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--wph-text, rgba(255,255,255,0.95)); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; }
   .tile.disabled .tile-inner { filter: blur(2px) brightness(0.88); }
   .tile.disabled:hover .lock { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
   .tile.disabled:hover .tile-inner { filter: blur(4px) brightness(0.82); }

@@ -172,7 +172,7 @@
   .editor-backdrop {
     position: fixed;
     inset: 0;
-    background: radial-gradient(60% 60% at 50% 10%, rgba(255,255,255,0.06), rgba(0,0,0,0.5));
+    background: var(--wph-backdrop, rgba(0,0,0,0.5));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -191,15 +191,15 @@
     height: 90vh; 
     max-height: 90vh;
     min-height: 420px;
-    background: rgba(17, 17, 17, 0.96) !important;
-    border: 1px solid rgba(255,255,255,0.15);
+    background: var(--wph-surface, rgba(17,17,17,0.96)) !important;
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.15));
     border-radius: 16px;
     box-shadow: 0 16px 36px rgba(0,0,0,0.5);
     overflow: hidden;
     z-index: 2147483647;
     opacity: 1 !important;
     visibility: visible !important;
-    color: #fff;
+    color: var(--wph-text, #fff);
     display: flex;
     flex-direction: column;
   }
@@ -209,8 +209,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--wph-border, rgba(255,255,255,0.1));
+    background: var(--wph-surface2, rgba(255,255,255,0.03));
     flex-shrink: 0;
   }
 
@@ -227,8 +227,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    background: rgba(255,255,255,0.06);
-    color: #fff;
+    background: var(--wph-surface, rgba(255,255,255,0.06));
+    color: var(--wph-text, #fff);
     border: none;
     cursor: pointer;
     transition: all .15s ease;
@@ -239,7 +239,7 @@
   }
 
   .comparison-close:hover {
-    background: rgba(255,255,255,0.12);
+    background: var(--wph-surface2, rgba(255,255,255,0.12));
     transform: scale(1.05);
   }
 
@@ -254,7 +254,7 @@
   }
 
   .editor-panel {
-    background: rgba(255,255,255,0.04);
+    background: var(--wph-surface, rgba(255,255,255,0.04));
     border-radius: 10px;
     padding: 16px;
     overflow-y: auto;
@@ -305,26 +305,27 @@
   .editor-btn {
     padding: 6px 10px;
     border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.18);
-    background: rgba(255,255,255,0.07);
-    color: #fff;
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.18));
+    background: var(--wph-surface, rgba(255,255,255,0.07));
+    color: var(--wph-text, #fff);
     cursor: pointer;
     font-size: 13px;
     transition: all 0.15s ease;
   }
 
   .editor-btn:hover {
-    background: rgba(255,255,255,0.12);
+    background: var(--wph-surface2, rgba(255,255,255,0.12));
     transform: translateY(-1px);
   }
 
   .editor-btn.editor-primary {
-    background: #f05123;
-    border-color: rgba(255,255,255,0.25);
+    background: var(--wph-primary, #f05123);
+    border-color: var(--wph-border, rgba(255,255,255,0.25));
+    color: var(--wph-onPrimary, #fff);
   }
 
   .editor-btn.editor-primary:hover {
-    background: #e04619;
+    filter: brightness(0.95);
   }
 
   .comparison-output {
@@ -351,9 +352,9 @@
   }
   .hint-list li {
     font-size: 12px;
-    color: rgba(255,255,255,0.85);
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--wph-text, rgba(255,255,255,0.85));
+    background: var(--wph-surface, rgba(255,255,255,0.06));
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.12));
     border-radius: 8px;
     padding: 6px 10px;
     min-height: 34px;
@@ -362,7 +363,7 @@
     
   }
   .hint-list li span {
-    color: #fff;
+    color: var(--wph-text, #fff);
     font-weight: 600;
   }
 
@@ -372,7 +373,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #fff;
+    color: var(--wph-text, #fff);
     text-align: center;
     padding: 40px;
   }
@@ -387,14 +388,14 @@
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 8px;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--wph-text, rgba(255, 255, 255, 0.9));
   }
 
   .empty-text {
     font-size: 14px;
     line-height: 1.5;
     margin-bottom: 24px;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--wph-muted, rgba(255, 255, 255, 0.7));
     max-width: 400px;
   }
 

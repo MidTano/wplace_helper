@@ -42,8 +42,21 @@ export const en: Translations = {
   'settings.bm.mode': 'Placement mode',
   'settings.bm.mode.scan': 'Scan',
   'settings.bm.mode.random': 'Random',
+  'settings.bm.mode.topDown': 'Top to bottom',
+  'settings.bm.mode.bottomUp': 'Bottom to top',
+  'settings.bm.mode.leftRight': 'Left to right',
+  'settings.bm.mode.rightLeft': 'Right to left',
+  'settings.bm.mode.snakeRow': 'Snake by rows',
+  'settings.bm.mode.snakeCol': 'Snake by columns',
+  'settings.bm.mode.diagDown': 'Diagonals ↘',
+  'settings.bm.mode.diagUp': 'Diagonals ↗',
+  'settings.bm.mode.diagDownRight': 'Diagonals ↙',
+  'settings.bm.mode.diagUpRight': 'Diagonals ↖',
+  'settings.bm.mode.centerOut': 'Center to edges',
+  'settings.bm.mode.edgesIn': 'Edges to center',
   'settings.bm.batchLimit': 'Batch limit (0 — auto)',
   'settings.bm.colorsHint': 'Colors are taken from the RMB auto-mode color menu',
+  'settings.bm.multiColor': 'Place with all selected colors',
   'settings.seriesWait': 'Pause between series (sec)',
   'settings.enhancedBackground': 'Enhanced mode background',
   'settings.colorPicker.title': 'Color picker',
@@ -171,6 +184,7 @@ export const en: Translations = {
 
   'editor.panel.dither.title': 'dithering',
   'editor.panel.dither.strength': 'strength',
+  'editor.panel.dither.strengthUnavailable': 'This algorithm uses fixed strength',
 
   'editor.panel.palette.title': 'palette',
   'editor.panel.palette.set': 'color set',
@@ -347,5 +361,182 @@ export const en: Translations = {
   'copyart.confirm.fileSizeLabel': 'File size:',
   'copyart.confirm.continue': 'Continue',
   'copyart.confirm.cancel': 'Cancel',
-  'copyart.confirm.keepTabOpen': 'Do not close the tab during processing'
+  'copyart.confirm.keepTabOpen': 'Do not close the tab during processing',
+
+  'tutorial.welcome.title': 'Welcome',
+  'tutorial.welcome.subtitle': 'Your pixel art creation assistant',
+  'tutorial.welcome.description': 'Let us introduce you to the main features of the tool. This will only take a few minutes.',
+  'tutorial.welcome.feature1.title': 'Image Editor',
+  'tutorial.welcome.feature1.description': 'Pixelation, dithering, palette selection and drawing',
+  'tutorial.welcome.feature2.title': 'Map Templates',
+  'tutorial.welcome.feature2.description': 'Place your art directly on the game map',
+  'tutorial.welcome.feature3.title': 'Auto Mode',
+  'tutorial.welcome.feature3.description': 'Automatic painting of your art',
+  'tutorial.welcome.btnStart': 'Start Tutorial',
+  'tutorial.welcome.btnSkip': 'Skip',
+
+  'tutorial.navigation.next': 'Next',
+  'tutorial.navigation.prev': 'Back',
+  'tutorial.navigation.skip': 'Skip Step',
+  'tutorial.navigation.skipAll': 'Exit Tutorial',
+  'tutorial.navigation.complete': 'Complete',
+  'tutorial.progress.step': 'Step {current} of {total}',
+  
+  'tutorial.settings.restart': 'Restart Tutorial',
+  'tutorial.settings.restartHint': 'Start the tutorial from the beginning',
+
+  'tutorial.modules.basics.name': 'Basics',
+  'tutorial.modules.basics.description': 'Interface overview',
+  'tutorial.modules.editor.name': 'Editor',
+  'tutorial.modules.editor.description': 'Image processing',
+  'tutorial.modules.templates.name': 'Templates',
+  'tutorial.modules.templates.description': 'Working with the map',
+  'tutorial.modules.advanced.name': 'Advanced',
+  'tutorial.modules.advanced.description': 'Advanced features',
+
+  'tutorial.steps.welcome.title': 'Welcome!',
+  'tutorial.steps.welcome.description': 'Wplace Helper is a powerful tool for creating pixel art on Wplace. Let\'s explore the main features!',
+  
+  'tutorial.steps.topmenu.title': 'Main Toolbar',
+  'tutorial.steps.topmenu.description': 'All main tools are located here. The toolbar is always available at the top of the screen.',
+  
+  'tutorial.steps.pickButton.title': 'Upload Image',
+  'tutorial.steps.pickButton.description': 'Click this button to upload your image for processing. Supports PNG, JPG, GIF and other formats.',
+  
+  'tutorial.steps.history.title': 'Upload History',
+  'tutorial.steps.history.description': 'Click this button to open the history. All your uploaded images are saved here for quick access.',
+  
+  'tutorial.steps.editorOverview.title': 'Upload Image',
+  'tutorial.steps.editorOverview.description': 'Click this button to select an image from your computer. Supports PNG, JPG, GIF and other formats. The editor will open after selection.',
+  
+  'tutorial.steps.pixelsize.title': 'Pixel Size',
+  'tutorial.steps.pixelsize.description': 'Increase this value to make the image more pixelated. Lower values = more detail, but more time to paint.',
+  'tutorial.steps.palette.title': 'Color Palette',
+  'tutorial.steps.palette.description': 'Choose a color set: full Wplace palette, free colors only, or create your own custom palette.',
+  
+  'tutorial.steps.dither.title': 'Dithering',
+  'tutorial.steps.dither.description': 'Dithering helps create smooth transitions using a limited palette. Try different methods for the best result!',
+  
+  'tutorial.steps.colorCorrection.title': 'Color Correction',
+  'tutorial.steps.colorCorrection.description': 'Adjust brightness, contrast, saturation and temperature of your image to achieve the perfect result.',
+  
+  'tutorial.steps.tools.title': 'Drawing Tools',
+  'tutorial.steps.tools.description': 'Brush, eraser, selection, magic brush, and gradient — all tools for creating the perfect art.',
+  
+  'tutorial.steps.applyButton.title': 'Apply Changes',
+  'tutorial.steps.applyButton.description': 'When you\'re happy with the result, click this button. The image will be saved and ready for placement on the map.',
+  
+  'tutorial.steps.addToComparison.title': 'Add to Favorites',
+  'tutorial.steps.addToComparison.description': 'Click this button to add the current result to favorites for comparing different processing variations.',
+  
+  'tutorial.steps.makeChanges.title': 'Make Changes',
+  'tutorial.steps.makeChanges.description': 'Try changing the processing settings: select a different dithering method, change pixel size or palette. Experiment!',
+  
+  'tutorial.steps.openComparison.title': 'Open Comparison',
+  'tutorial.steps.openComparison.description': 'Now click this button to open comparison mode and see the difference between saved variants.',
+  
+  'tutorial.steps.comparisonInteraction.title': 'Compare Variants',
+  'tutorial.steps.comparisonInteraction.description': 'Drag images with your mouse to position them conveniently. Use mouse wheel to zoom. Compare different processing variants!',
+  
+  'tutorial.steps.rightClickImage.title': 'Choose the Best Variant',
+  'tutorial.steps.rightClickImage.description': 'Select the image you like the most and right-click on it to open the context menu.',
+  
+  'tutorial.steps.selectOpenInEditor.title': 'Open in Editor',
+  'tutorial.steps.selectOpenInEditor.description': 'Great! Now select "Open in Editor" from the context menu to continue working with the selected image.',
+  
+  'tutorial.steps.moveToggle.title': 'Move Mode',
+  
+  'tutorial.steps.placeTemplate.title': 'Place Template',
+  'tutorial.steps.placeTemplate.description': 'Now your template is displayed on the map! Use the mouse to move it. Click on pixels to paint.',
+  
+  'tutorial.steps.autoMode.title': 'Auto Mode',
+  'tutorial.steps.autoMode.description': 'Automatic painting of your art. Configure settings via context menu (RMB). Requires enhanced colors enabled.',
+  
+  'tutorial.steps.enhancedColors.title': 'Enhanced Colors',
+  'tutorial.steps.enhancedColors.description': 'Enable this mode to highlight incorrect pixels on the map. Essential when using auto mode.',
+  
+  'tutorial.steps.copyart.title': 'CopyArt',
+  'tutorial.steps.copyart.description': 'Copy art from the Wplace map. Collect someone else\'s art, edit it or use as reference.',
+  
+  'tutorial.steps.settings.title': 'Settings',
+  'tutorial.steps.settings.description': 'Here you can customize the behavior of auto mode, enhanced colors and other features.',
+  
+  'tutorial.steps.completion.title': 'Tutorial Complete!',
+  'tutorial.steps.completion.description': 'Great job! Now you know all the main features of Wplace Helper. Create cool art and have fun! 🎨✨',
+
+  'idle.settings.title': 'Idle screen',
+  'idle.settings.open': 'Idle screen settings',
+  'idle.tab.settings': 'Settings',
+  'idle.tab.collection': 'Collection',
+  'idle.tab.placement': 'Placement',
+  'idle.settings.idleTimeout': 'Show after (sec)',
+  'idle.settings.hideDelay': 'Hide on activity after (sec)',
+  'idle.settings.reset': 'Reset',
+  'idle.settings.save': 'Save',
+  'idle.collection.url': 'GIF URL (e.g. https://media.giphy.com/media/abc.gif; must end with .gif)',
+  'idle.collection.add': 'Add',
+  'idle.collection.addFav': 'Add and favorite',
+  'idle.collection.empty': 'Empty',
+  'idle.collection.edit': 'Edit',
+  'idle.toast.noFavorites': 'Add favorite GIFs in idle settings to show during inactivity',
+  'idle.placement.hint.shift': 'Resize: keeps aspect by default; hold Shift for free resize',
+
+  'idle.tip.1': 'Use dithering to create smooth color transitions with a limited palette',
+  'idle.tip.2': 'Hotkeys: Ctrl+Z undo, Ctrl+Y redo, Space reset view',
+  'idle.tip.3': 'Comparison mode helps you choose the best image processing variant',
+  'idle.tip.4': 'Magic brush fills adjacent pixels of the same color',
+  'idle.tip.5': 'Auto mode works more efficiently with enhanced colors enabled',
+  'idle.tip.6': 'CopyArt allows you to copy any art from the map for study and editing',
+  'idle.tip.7': 'Use custom palette for precise color control',
+  'idle.tip.8': 'Gradient tool creates interesting dithering patterns',
+  'idle.tip.9': 'History saves all your uploaded images for quick access',
+  'idle.tip.10': 'Changing pixel size greatly affects art painting time',
+  'idle.wish.1': 'You create amazing art! Keep up the great work!',
+  'idle.wish.2': 'Your creativity makes Wplace brighter and more interesting!',
+  'idle.wish.3': 'Every pixel you place makes the world more beautiful!',
+  'idle.wish.4': 'We wish you inspiration and creative ideas!',
+  'idle.wish.5': 'May your art become legendary on the Wplace map!',
+
+  'editor.panel.preblur.title': 'Pre-blur',
+  'editor.preblur.radius': 'Pre-blur radius',
+  'editor.preblur.method.none': 'None',
+  'editor.preblur.method.box': 'Box',
+  'editor.preblur.method.gaussian': 'Gaussian',
+  'editor.preblur.method.bilateral': 'Bilateral',
+  'editor.preblur.method.kuwahara': 'Kuwahara',
+
+  'editor.sharpen.amount': 'Sharpen amount',
+  'editor.sharpen.radius': 'Sharpen radius',
+  'editor.sharpen.threshold': 'Sharpen threshold',
+
+  'editor.posterize.levels': 'Posterize levels',
+
+  'editor.adaptive.title': 'Adaptive dithering',
+  'editor.adaptive.method': 'Adaptive method',
+  'editor.adaptive.threshold': 'Adaptive threshold',
+  'editor.adaptive.thickness': 'Adaptive thickness',
+  'editor.adaptive.thinMask': 'Thin mask',
+  'editor.adaptive.invertMask': 'Invert mask',
+  'editor.adaptive.feather': 'Feather (px)',
+
+  'editor.edge.method.sobel': 'Sobel',
+  'editor.edge.method.prewitt': 'Prewitt',
+  'editor.edge.method.scharr': 'Scharr',
+  'editor.edge.method.laplacian': 'Laplacian',
+
+  'editor.kuwahara.title': 'Kuwahara filter',
+  'editor.kuwahara.radius': 'Radius',
+  'editor.kuwahara.sectors': 'Sectors',
+  'editor.kuwahara.strength': 'Strength %',
+  'editor.kuwahara.anisotropy': 'Anisotropy %',
+  'editor.kuwahara.blended': 'Blended',
+
+  'editor.edge.overlay': 'Edge overlay',
+  'editor.edge.method': 'Edge method',
+  'editor.edge.threshold': 'Edge threshold',
+  'editor.edge.thickness': 'Edge thickness',
+  'editor.edge.thin': 'Thin edges',
+
+  'editor.post.simplifyRegions': 'Simplify regions (px)',
+  'editor.post.modeFilterSize': 'Mode filter size (N×N)'
 };

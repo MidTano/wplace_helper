@@ -4,6 +4,7 @@
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { comparisonUtils } from './ComparisonStore';
   import { t } from '../../i18n';
+  import { markElement } from '../../wguard';
 
   const dispatch = createEventDispatcher();
 
@@ -65,6 +66,9 @@
 
   
   $: formattedMetadata = comparisonUtils.formatMetadata(image.metadata);
+  $: fullSettings = JSON.stringify(image?.metadata?.settings || {}, null, 2);
+  $: dimensionsLine = image?.metadata?.dimensions ? `${image.metadata.dimensions.width} × ${image.metadata.dimensions.height}` : '';
+  $: statsLine = image?.metadata?.stats ? `colors: ${image.metadata.stats.colors} • opaque: ${image.metadata.stats.opaque}` : '';
   
   
   $: imageTransform = getImageTransform(zoom, pan, imageLoaded, containerRef);
@@ -195,6 +199,8 @@
     scheduleWheelDispatch();
   }
 
+  
+
   function handleMouseDown(event) {
     if (event.button !== 0) return; 
 
@@ -250,17 +256,28 @@
       contextMenuY = event.clientY - rect.top;
       showContextMenu = true;
       contextMenuHover = false;
+      try { window.dispatchEvent(new CustomEvent('tutorial:contextmenu-opened')); } catch {}
+      
+      const isTutorialActive = document.querySelector('.tutorial-overlay');
       
       if (contextMenuOpenTimer) clearTimeout(contextMenuOpenTimer);
-      contextMenuOpenTimer = setTimeout(() => {
-        if (!contextMenuHover) {
-          showContextMenu = false;
-        }
-      }, 800);
+      
+      if (!isTutorialActive) {
+        contextMenuOpenTimer = setTimeout(() => {
+          if (!contextMenuHover) {
+            showContextMenu = false;
+          }
+        }, 800);
+      }
     }
   }
 
   function closeContextMenu() {
+    const isTutorialActive = document.querySelector('.tutorial-overlay');
+    if (isTutorialActive) {
+      return;
+    }
+    
     showContextMenu = false;
     contextMenuHover = false;
     if (contextMenuOpenTimer) {
@@ -282,7 +299,7 @@
 
   async function saveImage() {
     function downloadBlob(blob, filename) {
-      const link = document.createElement('a');
+      const link = document.createElement('a'); markElement(link);
       const url = URL.createObjectURL(blob);
       link.href = url;
       link.download = filename;
@@ -432,6 +449,17 @@
         <span class="dimensions-inline"><strong>{image.metadata.dimensions.width} × {image.metadata.dimensions.height}</strong></span>
       {/if}
     </div>
+    <div class="settings-expanded">
+      <div class="details-scroll" on:wheel|stopPropagation>
+        {#if dimensionsLine}
+          <div class="details-line"><strong>Size:</strong> {dimensionsLine}</div>
+        {/if}
+        {#if statsLine}
+          <div class="details-line"><strong>Stats:</strong> {statsLine}</div>
+        {/if}
+        <pre class="settings-dump">{fullSettings}</pre>
+      </div>
+    </div>
   </div>
 
   
@@ -448,7 +476,7 @@
       on:mouseleave={() => { contextMenuHover = false;  setTimeout(() => { if (!contextMenuHover) closeContextMenu(); }, 250); }}
       on:keydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); closeContextMenu(); } }}
     >
-      <button class="menu-item" role="menuitem" on:click={openInEditor}>
+      <button class="menu-item" role="menuitem" on:click={openInEditor} data-tutorial="comparison-open-editor">
         {t('comparison.menu.openInEditor')}
       </button>
       <div class="menu-separator"></div>
@@ -490,8 +518,8 @@
     left: 8px;
     width: 24px;
     height: 24px;
-    background: rgba(0, 0, 0, 0.7);
-    color: #fff;
+    background: var(--wph-surface, rgba(0, 0, 0, 0.7));
+    color: var(--wph-text, #fff);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -499,7 +527,7 @@
     font-size: 12px;
     font-weight: 700;
     z-index: 10;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--wph-border, rgba(255, 255, 255, 0.3));
   }
 
   .image-wrapper {
@@ -537,15 +565,15 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--wph-muted, rgba(255, 255, 255, 0.6));
     gap: 12px;
   }
 
   .loading-spinner {
     width: 32px;
     height: 32px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-    border-top-color: #f05123;
+    border: 3px solid var(--wph-border, rgba(255, 255, 255, 0.2));
+    border-top-color: var(--wph-primary, #f05123);
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -559,7 +587,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 68, 68, 0.8);
+    color: var(--wph-error, rgba(255, 68, 68, 0.8));
     gap: 8px;
   }
 
@@ -576,7 +604,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--wph-muted, rgba(255, 255, 255, 0.4));
     gap: 8px;
     height: 100%;
     min-height: 120px;
@@ -597,18 +625,31 @@
     bottom: 8px;
     left: 8px;
     right: 8px;
-    background: rgba(0, 0, 0, 0.9);
-    color: #fff;
+    background: var(--wph-surface, rgba(0, 0, 0, 0.9));
+    color: var(--wph-text, #fff);
     padding: 8px;
     border-radius: 6px;
     font-size: 12px;
     z-index: 10;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--wph-border, rgba(255, 255, 255, 0.1));
     display: flex;
-    align-items: center;          
-    justify-content: center;      
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    min-height: 0;
+    max-height: 40px;
+    overflow: hidden;
+    transition: max-height .2s ease;
+    will-change: max-height;
+  }
+
+  .image-info:hover {
+    top: 8px;
+    bottom: 8px;
+    height: auto;
+    max-height: none;
   }
 
   .settings-info {
@@ -618,6 +659,60 @@
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: center;           
+    flex: 0 0 auto;
+  }
+
+  .settings-expanded {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity .15s ease, max-height .15s ease;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .image-info:hover .settings-expanded {
+    opacity: 1;
+    max-height: none;
+  }
+
+  .details-scroll {
+    margin-top: 8px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    height: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .details-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+  .details-scroll::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.08);
+    border-radius: 8px;
+  }
+  .details-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.35);
+    border-radius: 8px;
+  }
+
+  .details-line {
+    font-size: 12px;
+    opacity: 0.95;
+    margin: 2px 0;
+  }
+
+  .settings-dump {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 6px 0 0 0;
   }
 
   .dimensions-inline {
@@ -627,8 +722,8 @@
 
   .context-menu {
     position: absolute;
-    background: rgba(17, 17, 17, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: var(--wph-surface, rgba(17, 17, 17, 0.95));
+    border: 1px solid var(--wph-border, rgba(255, 255, 255, 0.15));
     border-radius: 8px;
     padding: 4px 0;
     min-width: 180px;
@@ -644,7 +739,7 @@
     padding: 8px 12px;
     border: none;
     background: transparent;
-    color: #fff;
+    color: var(--wph-text, #fff);
     text-align: left;
     font-size: 13px;
     cursor: pointer;
@@ -652,20 +747,20 @@
   }
 
   .menu-item:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--wph-surface2, rgba(255, 255, 255, 0.1));
   }
 
   .menu-item.danger {
-    color: #ff4444;
+    color: var(--wph-error, #ff4444);
   }
 
   .menu-item.danger:hover {
-    background: rgba(255, 68, 68, 0.1);
+    background: var(--wph-error, rgba(255, 68, 68, 0.1));
   }
 
   .menu-separator {
     height: 1px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--wph-border, rgba(255, 255, 255, 0.1));
     margin: 4px 8px;
   }
 

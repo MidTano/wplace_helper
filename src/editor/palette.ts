@@ -75,11 +75,51 @@ export function getPalette(mode: PaletteMode): RGB[] {
   return MASTER_COLORS.map(c => c.rgb as RGB);
 }
 
-export function quantizeCanvasToPalette(canvas: OffscreenCanvas, palette: RGB[]): OffscreenCanvas {
+export type QuantMethod = 'rgb' | 'linear' | 'ycbcr' | 'oklab';
+
+function srgbToLinear(v: number): number {
+  const x = v / 255;
+  return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+}
+
+function rgbToYCbCr(r: number, g: number, b: number): [number, number, number] {
+  const Y  =  0.299*r + 0.587*g + 0.114*b;
+  const Cb = -0.168736*r - 0.331264*g + 0.5*b;
+  const Cr =  0.5*r - 0.418688*g - 0.081312*b;
+  return [Y, Cb, Cr];
+}
+
+function srgbToOklab(r8: number, g8: number, b8: number): [number, number, number] {
+  const r = srgbToLinear(r8);
+  const g = srgbToLinear(g8);
+  const b = srgbToLinear(b8);
+  const l = 0.4122214708*r + 0.5363325363*g + 0.0514459929*b;
+  const m = 0.2119034982*r + 0.6806995451*g + 0.1073969566*b;
+  const s = 0.0883024619*r + 0.2817188376*g + 0.6299787005*b;
+  const l_ = Math.cbrt(l);
+  const m_ = Math.cbrt(m);
+  const s_ = Math.cbrt(s);
+  const L = 0.2104542553*l_ + 0.7936177850*m_ - 0.0040720468*s_;
+  const A = 1.9779984951*l_ - 2.4285922050*m_ + 0.4505937099*s_;
+  const B = 0.0259040371*l_ + 0.7827717662*m_ - 0.8086757660*s_;
+  return [L, A, B];
+}
+
+export function quantizeCanvasToPalette(canvas: OffscreenCanvas, palette: RGB[], method: QuantMethod = 'rgb'): OffscreenCanvas {
   const cx = canvas.getContext('2d', { willReadFrequently: true })!;
   const img = cx.getImageData(0, 0, canvas.width, canvas.height);
   const data = img.data;
   const pal = palette;
+  const palSpace: Array<[number, number, number]> = [];
+  if (method === 'oklab') {
+    for (const c of pal) palSpace.push(srgbToOklab(c[0], c[1], c[2]));
+  } else if (method === 'linear') {
+    for (const c of pal) palSpace.push([srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])]);
+  } else if (method === 'ycbcr') {
+    for (const c of pal) palSpace.push(rgbToYCbCr(c[0], c[1], c[2]));
+  } else {
+    for (const c of pal) palSpace.push([c[0], c[1], c[2]]);
+  }
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3];
     if (a < 128) {
@@ -87,13 +127,38 @@ export function quantizeCanvasToPalette(canvas: OffscreenCanvas, palette: RGB[])
       continue;
     }
     
-    let best = 0; let bestD = 1e12;
+    let best = 0; let bestD = 1e20;
     const r = data[i], g = data[i + 1], b = data[i + 2];
-    for (let p = 0; p < pal.length; p++) {
-      const pr = pal[p][0], pg = pal[p][1], pb = pal[p][2];
-      const dr = r - pr, dg = g - pg, db = b - pb;
-      const d = dr * dr + dg * dg + db * db;
-      if (d < bestD) { bestD = d; best = p; }
+    let pr:number, pg:number, pb:number;
+    let vr:number, vg:number, vb:number;
+    if (method === 'oklab') {
+      const v = srgbToOklab(r, g, b); vr=v[0]; vg=v[1]; vb=v[2];
+      for (let p = 0; p < pal.length; p++) {
+        const ps = palSpace[p];
+        const dr = vr - ps[0], dg = vg - ps[1], db = vb - ps[2];
+        const d = dr*dr + dg*dg + db*db; if (d < bestD) { bestD = d; best = p; }
+      }
+    } else if (method === 'linear') {
+      const rl = srgbToLinear(r), gl = srgbToLinear(g), bl = srgbToLinear(b);
+      vr=rl; vg=gl; vb=bl;
+      for (let p = 0; p < pal.length; p++) {
+        const ps = palSpace[p];
+        const dr = vr - ps[0], dg = vg - ps[1], db = vb - ps[2];
+        const d = dr*dr + dg*dg + db*db; if (d < bestD) { bestD = d; best = p; }
+      }
+    } else if (method === 'ycbcr') {
+      const v = rgbToYCbCr(r, g, b); vr=v[0]; vg=v[1]; vb=v[2];
+      for (let p = 0; p < pal.length; p++) {
+        const ps = palSpace[p];
+        const dr = vr - ps[0], dg = vg - ps[1], db = vb - ps[2];
+        const d = dr*dr + dg*dg + db*db; if (d < bestD) { bestD = d; best = p; }
+      }
+    } else {
+      for (let p = 0; p < pal.length; p++) {
+        pr = palSpace[p][0]; pg = palSpace[p][1]; pb = palSpace[p][2];
+        const dr = r - pr, dg = g - pg, db = b - pb;
+        const d = dr*dr + dg*dg + db*db; if (d < bestD) { bestD = d; best = p; }
+      }
     }
     const c = pal[best];
     data[i] = c[0]; data[i + 1] = c[1]; data[i + 2] = c[2]; data[i + 3] = 255; 
