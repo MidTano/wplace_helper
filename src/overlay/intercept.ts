@@ -1,6 +1,8 @@
 import { setOriginCoords, rebuildStencilFromState, isMoveMode, setMoveMode } from './state';
 import { getStencilManager } from '../template/stencilManager';
 import { readChannelPayload } from '../wguard/core/channel';
+import { showCenterNotice } from '../ui/centerNotice';
+import { t } from '../i18n';
 import { markElement } from '../wguard';
 
 function canonicalizeTileUrl(url: string): string | null {
@@ -453,7 +455,7 @@ function installPageFetchInjection() {
               __bm_formatValid = false;
               __bm_interceptActive = false;
               if (__bm_pendingIntercept) {
-                sendChannel({ action: 'bm:formatError', reason: 'Invalid request format detected' });
+                sendChannel({ action: 'bm:formatError', reasonCode: 'format_error', reason: 'format_error', detail: 'Invalid request format detected', endpoint: url });
               }
               return (originalFetch as any).apply(this, args);
             }
@@ -590,6 +592,8 @@ function installPageXHRInjection() {
   });
 }
 
+let lastAlertClose: (() => void) | null = null;
+
 export function installInterceptors() {
   installPageFetchInjection();
   installPageXHRInjection();
@@ -610,6 +614,19 @@ export function installInterceptors() {
             try { setMoveMode && setMoveMode(false); } catch {}
           }
         }
+      }
+      if (data.action === 'bm:formatError') {
+        try {
+          if (lastAlertClose) { lastAlertClose(); lastAlertClose = null; }
+          const title = t('wguard.alert.title');
+          const message = t('wguard.alert.message');
+          const reasonCode = typeof data.reasonCode === 'string' ? data.reasonCode : (typeof data.reason === 'string' ? data.reason : 'default');
+          const reasonKey = `wguard.alert.reason.${reasonCode}`;
+          const reasonTextRaw = t(reasonKey);
+          const reasonText = reasonTextRaw === reasonKey ? t('wguard.alert.reason.default') : reasonTextRaw;
+          const endpointLine = typeof data.endpoint === 'string' ? `\n${t('wguard.alert.endpoint').replace('{url}', data.endpoint)}` : '';
+          lastAlertClose = showCenterNotice(`${title}\n${message}\n${reasonText}${endpointLine}`, 6000, undefined, { delay: 2000 });
+        } catch {}
       }
       if (data.blobID && data.blobData && typeof data.endpoint === 'string') {
         const canonical = canonicalizeTileUrl(data.endpoint);

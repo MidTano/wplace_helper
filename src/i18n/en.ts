@@ -482,6 +482,14 @@ export const en: Translations = {
   'idle.toast.noFavorites': 'Add favorite GIFs in idle settings to show during inactivity',
   'idle.placement.hint.shift': 'Resize: keeps aspect by default; hold Shift for free resize',
 
+  'wguard.alert.title': 'WGuard',
+  'wguard.alert.message': 'We detected unusual site behaviour and blocked the pixel submission.\nPlease wait for updates or the next patch to stay safe.',
+  'wguard.alert.reason.format_error': 'Server response does not match the expected template format.',
+  'wguard.alert.reason.no_fp': 'Server rejected the verification fingerprint.',
+  'wguard.alert.reason.noctx': 'Request was denied due to missing authorization context.',
+  'wguard.alert.reason.default': 'Server replied unexpectedly; protection stopped the action.',
+  'wguard.alert.endpoint': 'URL: {url}',
+
   'idle.tip.1': 'Use dithering to create smooth color transitions with a limited palette',
   'idle.tip.2': 'Hotkeys: Ctrl+Z undo, Ctrl+Y redo, Space reset view',
   'idle.tip.3': 'Comparison mode helps you choose the best image processing variant',

@@ -6,6 +6,7 @@ import { generateUserConfig } from './pattern-generator';
 import { printConsoleBanner } from './console-banner';
 import { setChannel } from './channel';
 import { setEventAction } from './events';
+import { listenWGuardEvent } from './events';
 import { setStorageSalt } from '../stealth/store';
 
 const DEFAULT_CHANNEL = 'WGuard';
@@ -13,6 +14,7 @@ const DEFAULT_CHANNEL = 'WGuard';
 let initialized = false;
 let lastResult: WGuardInitResult | null = null;
 let userConfig: any = null;
+let securityAlertDisposer: (() => void) | null = null;
 
 async function getUserConfig() {
   if (userConfig) return userConfig;
@@ -70,6 +72,11 @@ export async function bootstrapWGuard(options: WGuardInitOptions = {}): Promise<
   try { mergedHooks.network(context); } catch {}
   try { mergedHooks.storage(context); } catch {}
 
+  try {
+    if (securityAlertDisposer) { securityAlertDisposer(); securityAlertDisposer = null; }
+    securityAlertDisposer = listenWGuardEvent('bm:formatError', () => {});
+  } catch {}
+
   initialized = true;
   
   try {
@@ -91,6 +98,7 @@ export async function bootstrapWGuard(options: WGuardInitOptions = {}): Promise<
       try { resetDomGuards(); } catch {}
       try { resetNetworkGuards(); } catch {}
       try { resetStorageGuards(); } catch {}
+      try { if (securityAlertDisposer) { securityAlertDisposer(); securityAlertDisposer = null; } } catch {}
       lastResult = null;
     },
   };
