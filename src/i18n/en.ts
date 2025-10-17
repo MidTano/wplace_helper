@@ -57,6 +57,7 @@ export const en: Translations = {
   'settings.bm.batchLimit': 'Batch limit (0 — auto)',
   'settings.bm.colorsHint': 'Colors are taken from the RMB auto-mode color menu',
   'settings.bm.multiColor': 'Place with all selected colors',
+  'settings.bm.ignoreWrong': 'Ignore mismatched pixels',
   'settings.seriesWait': 'Pause between series (sec)',
   'settings.enhancedBackground': 'Enhanced mode background',
   'settings.colorPicker.title': 'Color picker',

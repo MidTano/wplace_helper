@@ -117,6 +117,11 @@ export default class stencilManager {
 
     const tileKey = `${String(tileCoords[0]).padStart(4, '0')},${String(tileCoords[1]).padStart(4, '0')}`;
     const s = this.current;
+    let ignoreWrong = false;
+    try {
+      const cfg = getAutoConfig();
+      ignoreWrong = !!cfg.ignoreWrongColor;
+    } catch {}
 
     const hasTouch = s.tilePrefixes && s.tilePrefixes.has(tileKey);
     if (!hasTouch && !this.enhanced) return tileBlob;
@@ -249,6 +254,10 @@ export default class stencilManager {
               }
               
               const baseOpaque = (ta >= 5);
+              if (ignoreWrong && baseOpaque) {
+                sd[si + 3] = 0;
+                continue;
+              }
               let isBaseMatch = false;
               if (baseOpaque) {
                 const tileIdx = nearestColorIndexFast(tr, tg, tb);
@@ -281,7 +290,7 @@ export default class stencilManager {
           ctx.drawImage(seg, pxX * this.drawMult, pxY * this.drawMult);
         }
       } else {
-        ctx.drawImage(seg, pxX * this.drawMult, pxY * this.drawMult);
+        let drawn = false;
         try {
           const sw = (seg as any).width || 0;
           const sh = (seg as any).height || 0;
@@ -292,6 +301,7 @@ export default class stencilManager {
             scx.drawImage(seg as any, 0, 0);
             const segImg = scx.getImageData(0, 0, sw, sh);
             const sd = segImg.data;
+            let modified = false;
             for (let y = 0; y < sh; y++) {
               for (let x = 0; x < sw; x++) {
                 const si = (y * sw + x) * 4;
@@ -312,6 +322,11 @@ export default class stencilManager {
                   }
                 }
                 const baseOpaque = (ta >= 5);
+                if (ignoreWrong && baseOpaque) {
+                  sd[si + 3] = 0;
+                  modified = true;
+                  continue;
+                }
                 let isBaseMatch = false;
                 if (baseOpaque) {
                   const tileIdx = nearestColorIndexFast(tr, tg, tb);
@@ -328,8 +343,14 @@ export default class stencilManager {
                 if (pendColorIdx == null || idx === pendColorIdx) pend.add(`${ax},${ay}`);
               }
             }
+            if (modified) scx.putImageData(segImg, 0, 0);
+            ctx.drawImage(modified ? segCanvas : seg, pxX * this.drawMult, pxY * this.drawMult);
+            drawn = true;
           }
         } catch {}
+        if (!drawn) {
+          ctx.drawImage(seg, pxX * this.drawMult, pxY * this.drawMult);
+        }
       }
     }
 

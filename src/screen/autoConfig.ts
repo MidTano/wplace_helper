@@ -18,6 +18,7 @@ export type AutoConfig = {
   bmSelectedMasterIdx: number | null;
   bmOnlySelected: boolean;
   bmMultiColor: boolean;
+  ignoreWrongColor: boolean;
   bmBatchLimit: number;
   seriesWaitSec: number;
   persistAutoRun: boolean;
@@ -39,6 +40,7 @@ const defaults: AutoConfig = {
   bmSelectedMasterIdx: null,
   bmOnlySelected: false,
   bmMultiColor: true,
+  ignoreWrongColor: false,
   bmBatchLimit: 0,
   seriesWaitSec: 90,
   persistAutoRun: true,

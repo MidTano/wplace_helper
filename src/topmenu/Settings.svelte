@@ -344,6 +344,13 @@
         <span class="toggle-track"></span>
       </label>
     </div>
+    <div class="row toggle-row">
+      <label for="cfg-ignore-wrong">{t('settings.bm.ignoreWrong')}</label>
+      <label class="toggle-control" aria-label={t('settings.bm.ignoreWrong')}>
+        <input id="cfg-ignore-wrong" type="checkbox" checked={cfg.ignoreWrongColor} on:change={(e)=>onChangeBool('ignoreWrongColor', e)} />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
     <div class="color-section" role="group" aria-labelledby="color-section-label">
       <div class="color-label" id="color-section-label">{t('settings.enhancedBackground')}</div>
       <div class="color-presets">
