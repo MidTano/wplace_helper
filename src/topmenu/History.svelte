@@ -60,6 +60,7 @@
       a.href = URL.createObjectURL(blob);
       a.download = meta?.name || 'image.png';
       document.body.appendChild(a);
+      try { a.click(); } catch {}
       setTimeout(()=>{ try { URL.revokeObjectURL(a.href); a.remove(); } catch {} }, 600);
     } catch {}
   }

@@ -1,6 +1,6 @@
 {
   "name": "wplace-helper",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "private": true,
   "type": "module",
   "description": "Overlay and tools for Wplace",
