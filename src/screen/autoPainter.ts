@@ -8,6 +8,19 @@ import { normalizeChannelData, postChannelMessage } from '../wguard/core/channel
 
 let formatErrorDetected = false;
 
+function shouldBlockFormat(reason?: string): boolean {
+  if (reason === 'bypass') {
+    return false;
+  }
+  if (reason === 'format_error') {
+    try {
+      const cfg: any = getAutoConfig();
+      if (cfg?.wguardBypassProtection) return false;
+    } catch {}
+  }
+  return true;
+}
+
 function readChannelPayload(event: MessageEvent | { data?: any } | null | undefined) {
   return normalizeChannelData((event as any)?.data);
 }
@@ -30,8 +43,13 @@ function waitForBmContext(totalTimeoutMs = 8000): Promise<boolean> {
         if (!done) { done = true; cleanup(); resolve(true); }
       }
       if (data.action === 'bm:formatError') {
-        formatErrorDetected = true;
-        if (!done) { done = true; cleanup(); resolve(false); }
+        const reason = typeof (data as any)?.reasonCode === 'string' ? (data as any).reasonCode : (typeof (data as any)?.reason === 'string' ? (data as any).reason : '');
+        if (shouldBlockFormat(String(reason || ''))) {
+          formatErrorDetected = true;
+          if (!done) { done = true; cleanup(); resolve(false); }
+        } else {
+          if (!done) { done = true; cleanup(); resolve(true); }
+        }
       }
     };
     try { window.addEventListener('message', onMsg); } catch {}
@@ -84,17 +102,24 @@ function bmPlace(chunkX: number, chunkY: number, coords: number[], colors: numbe
       if (!data) return;
       if (data.action === 'bm:placed') {
         if (data.reason === 'format_error' || data.reason === 'no_fp') {
-          formatErrorDetected = true;
-          try {
-            const cfg: any = getAutoConfig();
-            if (!cfg || cfg.persistAutoRun !== true) {
-              stopAutoPainter();
-            }
-          } catch {}
+          if (shouldBlockFormat(String(data.reason || ''))) {
+            formatErrorDetected = true;
+            try {
+              const cfg: any = getAutoConfig();
+              if (!cfg || cfg.persistAutoRun !== true) {
+                stopAutoPainter();
+              }
+            } catch {}
+          }
         }
         if (!done) { done = true; cleanup(); resolve({ ok: data.ok === true, status: Number(data.status || 0) }); }
       }
       if (data.action === 'bm:formatError') {
+        const reason = typeof (data as any)?.reasonCode === 'string' ? (data as any).reasonCode : (typeof (data as any)?.reason === 'string' ? (data as any).reason : '');
+        if (!shouldBlockFormat(String(reason || ''))) {
+          if (!done) { done = true; cleanup(); resolve({ ok: true, status: 0 }); }
+          return;
+        }
         formatErrorDetected = true;
         try {
           const cfg: any = getAutoConfig();
@@ -123,6 +148,21 @@ function bmPlaceWithIntercept(chunkX: number, chunkY: number, coords: number[], 
       if (!data) return;
       if (data.action === 'bm:placed') {
         if (data.reason === 'format_error' || data.reason === 'no_fp') {
+          if (shouldBlockFormat(String(data.reason || ''))) {
+            formatErrorDetected = true;
+            try {
+              const cfg: any = getAutoConfig();
+              if (!cfg || cfg.persistAutoRun !== true) {
+                stopAutoPainter();
+              }
+            } catch {}
+          }
+        }
+        if (!done) { done = true; cleanup(); resolve({ ok: data.ok === true, status: Number(data.status || 0) }); }
+      }
+      if (data.action === 'bm:formatError') {
+        const reason = typeof (data as any)?.reasonCode === 'string' ? (data as any).reasonCode : (typeof (data as any)?.reason === 'string' ? (data as any).reason : '');
+        if (shouldBlockFormat(String(reason || ''))) {
           formatErrorDetected = true;
           try {
             const cfg: any = getAutoConfig();
@@ -131,16 +171,6 @@ function bmPlaceWithIntercept(chunkX: number, chunkY: number, coords: number[], 
             }
           } catch {}
         }
-        if (!done) { done = true; cleanup(); resolve({ ok: data.ok === true, status: Number(data.status || 0) }); }
-      }
-      if (data.action === 'bm:formatError') {
-        formatErrorDetected = true;
-        try {
-          const cfg: any = getAutoConfig();
-          if (!cfg || cfg.persistAutoRun !== true) {
-            stopAutoPainter();
-          }
-        } catch {}
         if (!done) { done = true; cleanup(); resolve({ ok: false, status: 0 }); }
       }
     };

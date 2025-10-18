@@ -24,6 +24,7 @@ export type AutoConfig = {
   persistAutoRun: boolean;
   randomExtraWaitMaxSec: number;
   enhancedBackgroundColor: string;
+  wguardBypassProtection: boolean;
 };
 
 const LS_KEY = 'wguard:auto-config';
@@ -46,6 +47,7 @@ const defaults: AutoConfig = {
   persistAutoRun: true,
   randomExtraWaitMaxSec: 0,
   enhancedBackgroundColor: '#080808',
+  wguardBypassProtection: false,
 };
 
 let current: AutoConfig = { ...defaults };

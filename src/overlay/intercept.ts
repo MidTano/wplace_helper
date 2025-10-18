@@ -119,9 +119,20 @@ function installPageFetchInjection() {
     let __bm_ctxTs = 0;
     let __bm_pendingIntercept: any = null;
     let __bm_formatValid = true;
-    
+    let __bm_ignoreProtection = false;
 
-    
+    function syncBypassFlag() {
+      try {
+        const raw = localStorage.getItem('wguard:auto-config');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          __bm_ignoreProtection = !!parsed.wguardBypassProtection;
+        }
+      } catch {}
+    }
+
+    syncBypassFlag();
+
     function findOpenPaintButton(): HTMLButtonElement | null {
       try {
         const sel1 = 'button.btn.btn-primary.btn-lg.sm\\:btn-xl.relative.z-30';
@@ -167,7 +178,9 @@ function installPageFetchInjection() {
         const canvas = document.querySelector('canvas.maplibregl-canvas') as HTMLCanvasElement | null;
         if (!canvas) return null;
         const r = canvas.getBoundingClientRect();
-        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+        const randX = r.left + Math.random() * Math.max(r.width, 1);
+        const randY = r.top + Math.random() * Math.max(r.height, 1);
+        return { x: Math.round(randX), y: Math.round(randY) };
       } catch { return null; }
     }
     async function waitForEditUI(timeoutMs = 2000): Promise<boolean> {
@@ -181,6 +194,15 @@ function installPageFetchInjection() {
     window.addEventListener('message', (event) => {
       const data = readChannelPayload(event);
       if (!data) return;
+      if (data.action === 'bm:setBypass') {
+        const flag = (data as any).enabled;
+        if (flag === 'sync') {
+          syncBypassFlag();
+        } else {
+          __bm_ignoreProtection = flag === true || flag === 'true' || flag === 1 || flag === '1';
+        }
+        return;
+      }
       
       if (data.blobID && data.blobData && !data.endpoint) {
         const cb = fetchedBlobQueue.get(data.blobID);
@@ -254,7 +276,8 @@ function installPageFetchInjection() {
               const center = getCanvasCenter();
               if (center) {
                 sendChannel({ action: 'pageClick', x: center.x, y: center.y });
-                await new Promise(r => setTimeout(r, 200));
+                const waitMs = 2800 + Math.random() * 800;
+                await new Promise(r => setTimeout(r, waitMs));
               }
               let finalBtn = findConfirmButton();
               if (!finalBtn) { await new Promise(r => setTimeout(r, 200)); finalBtn = findConfirmButton(); }
@@ -273,7 +296,7 @@ function installPageFetchInjection() {
       if (data.action === 'bm:place' && typeof (data as any)?.chunkX === 'number' && typeof (data as any)?.chunkY === 'number' && Array.isArray((data as any)?.coords) && Array.isArray((data as any)?.colors)) {
         (async () => {
           try {
-            if (!__bm_formatValid) {
+            if (!__bm_formatValid && !__bm_ignoreProtection) {
               sendChannel({ action: 'bm:placed', ok: false, status: 0, reason: 'format_error' });
               return;
             }
@@ -310,42 +333,66 @@ function installPageFetchInjection() {
         const x = Number(data.x);
         const y = Number(data.y);
         try {
-         
           const container = document.querySelector('div.maplibregl-canvas-container') as any;
           const canvas = document.querySelector('canvas.maplibregl-canvas') as any;
+          const rect = canvas && typeof canvas.getBoundingClientRect === 'function' ? canvas.getBoundingClientRect() : null;
           const map = (window as any).map || (container && (container._map || container.__map)) || (canvas && (canvas._map || canvas.__map));
-          if (map && typeof map.unproject === 'function' && typeof map.fire === 'function') {
-            const lngLat = map.unproject([x, y]);
-            const originalEvent = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
-            try { Object.defineProperty(originalEvent, 'which', { get: () => 1 }); } catch {}
-            map.fire('click', { type: 'click', point: { x, y }, lngLat, originalEvent });
-            return;
-          }
-        
           const target: any = canvas || container || document.elementFromPoint(x, y) || document.body;
-          const baseMouse: MouseEventInit = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0 };
-          const basePointer: any = { bubbles: true, cancelable: true, composed: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: x, clientY: y, pressure: 0 };
-        
-          target.dispatchEvent(new PointerEvent('pointerover', basePointer));
-          target.dispatchEvent(new MouseEvent('mouseover', baseMouse));
-          target.dispatchEvent(new PointerEvent('pointermove', { ...basePointer, pressure: 0 }));
-          target.dispatchEvent(new MouseEvent('mousemove', baseMouse));
-         
-          target.dispatchEvent(new PointerEvent('pointerdown', { ...basePointer, buttons: 1, pressure: 0.5 }));
-          const md = new MouseEvent('mousedown', { ...baseMouse, buttons: 1 });
-          try { Object.defineProperty(md, 'which', { get: () => 1 }); } catch {}
-          target.dispatchEvent(md);
+          const dispatchKey = (type: 'keydown' | 'keyup') => {
+            try {
+              const evt = new KeyboardEvent(type, { key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true, cancelable: true, composed: true });
+              try { Object.defineProperty(evt, 'keyCode', { get: () => 32 }); } catch {}
+              try { Object.defineProperty(evt, 'which', { get: () => 32 }); } catch {}
+              document.dispatchEvent(evt);
+            } catch {}
+          };
+          const pickPoint = (): { x: number; y: number } => {
+            if (rect) {
+              const px = rect.left + Math.random() * Math.max(rect.width, 1);
+              const py = rect.top + Math.random() * Math.max(rect.height, 1);
+              return { x: Math.round(px), y: Math.round(py) };
+            }
+            const w = Math.max(window.innerWidth || document.documentElement?.clientWidth || 0, 1);
+            const h = Math.max(window.innerHeight || document.documentElement?.clientHeight || 0, 1);
+            return { x: Math.round(Math.random() * (w - 1)), y: Math.round(Math.random() * (h - 1)) };
+          };
+          const points: { x: number; y: number }[] = [];
+          points.push({ x: Math.round(x), y: Math.round(y) });
+          const pointerInit = (px: number, py: number): PointerEventInit => ({ bubbles: true, cancelable: true, composed: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: px, clientY: py, pressure: 0 });
+          const mouseInit = (px: number, py: number, buttons = 0): MouseEventInit => ({ bubbles: true, cancelable: true, composed: true, clientX: px, clientY: py, button: 0, buttons });
+          const moveOnce = (px: number, py: number) => {
+            const pointerEvent = new PointerEvent('pointermove', pointerInit(px, py));
+            target.dispatchEvent(pointerEvent);
+            const mouseEvent = new MouseEvent('mousemove', mouseInit(px, py));
+            try { Object.defineProperty(mouseEvent, 'which', { get: () => 1 }); } catch {}
+            target.dispatchEvent(mouseEvent);
+            if (map && typeof map.unproject === 'function' && typeof map.fire === 'function') {
+              try {
+                const lngLat = map.unproject([px, py]);
+                map.fire('mousemove', { type: 'mousemove', point: { x: px, y: py }, lngLat, originalEvent: mouseEvent });
+              } catch {}
+            }
+          };
+          const first = points[0];
+          dispatchKey('keydown');
+          target.dispatchEvent(new PointerEvent('pointerover', pointerInit(first.x, first.y)));
+          target.dispatchEvent(new MouseEvent('mouseover', mouseInit(first.x, first.y)));
+          moveOnce(first.x, first.y);
+          const minDuration = 2600;
+          const maxDuration = 3400;
+          const targetDuration = minDuration + Math.random() * (maxDuration - minDuration);
+          let accumulated = 0;
+          while (accumulated < targetDuration) {
+            const delayStep = 60 + Math.random() * 140;
+            accumulated += delayStep;
+            const pt = pickPoint();
+            setTimeout(() => {
+              moveOnce(pt.x, pt.y);
+            }, accumulated);
+          }
           setTimeout(() => {
-         
-            target.dispatchEvent(new PointerEvent('pointerup', { ...basePointer, buttons: 0, pressure: 0 }));
-            const mu = new MouseEvent('mouseup', { ...baseMouse, buttons: 0 });
-            try { Object.defineProperty(mu, 'which', { get: () => 1 }); } catch {}
-            target.dispatchEvent(mu);
-            const clk = new MouseEvent('click', baseMouse);
-            try { Object.defineProperty(clk, 'which', { get: () => 1 }); } catch {}
-            target.dispatchEvent(clk);
-            try { target.click && target.click(); } catch {}
-          }, 30);
+            dispatchKey('keyup');
+          }, accumulated + 200);
         } catch {}
       }
    
@@ -454,10 +501,24 @@ function installPageFetchInjection() {
             if (!token || !fp || !Array.isArray(colors) || !Array.isArray(coords)) {
               __bm_formatValid = false;
               __bm_interceptActive = false;
+              if (__bm_ignoreProtection) {
+                try {
+                  const resp = await (originalFetch as any).apply(this, args);
+                  try { sendChannel({ action: 'bm:placed', ok: resp && resp.status >= 200 && resp.status < 300, status: resp?.status ?? 0, reason: 'bypass' }); } catch {}
+                  return resp;
+                } catch (err) {
+                  try { sendChannel({ action: 'bm:placed', ok: false, status: 0, reason: 'bypass_error' }); } catch {}
+                  throw err;
+                }
+              }
               if (__bm_pendingIntercept) {
                 sendChannel({ action: 'bm:formatError', reasonCode: 'format_error', reason: 'format_error', detail: 'Invalid request format detected', endpoint: url });
               }
-              return (originalFetch as any).apply(this, args);
+              try { sendChannel({ action: 'bm:placed', ok: false, status: 0, reason: 'format_error' }); } catch {}
+              try {
+                console.warn('[wplace-helper] blocked pixel request (invalid body)', { url, options });
+              } catch {}
+              return new Response('', { status: 409, statusText: 'Template mismatch' });
             }
             
             __bm_formatValid = true;
@@ -470,7 +531,13 @@ function installPageFetchInjection() {
               const newUrl = `https://backend.wplace.live/s0/pixel/${Number(__bm_pendingIntercept.chunkX)||0}/${Number(__bm_pendingIntercept.chunkY)||0}`;
               const newOptions = { ...options, body: JSON.stringify(body) } as any;
               __bm_interceptActive = false;
+              try {
+                console.log('[wplace-helper] sending intercepted pixel request', { url: newUrl, request: body });
+              } catch {}
               const resp = await (originalFetch as any).call(window, newUrl, newOptions);
+              try {
+                console.log('[wplace-helper] intercepted pixel response', { url: newUrl, status: resp?.status });
+              } catch {}
               sendChannel({ action: 'bm:context', ok: true });
               sendChannel({ action: 'bm:placed', ok: resp && resp.status >= 200 && resp.status < 300, status: resp.status });
               __bm_pendingIntercept = null;
@@ -478,6 +545,20 @@ function installPageFetchInjection() {
             } else {
               __bm_interceptActive = false;
               sendChannel({ action: 'bm:context', ok: true });
+              try {
+                console.warn('[wplace-helper] blocked pixel request (no pending intercept)', { url, options });
+              } catch {}
+              if (__bm_ignoreProtection) {
+                try {
+                  const resp = await (originalFetch as any).apply(this, args);
+                  try { sendChannel({ action: 'bm:placed', ok: resp && resp.status >= 200 && resp.status < 300, status: resp?.status ?? 0, reason: 'bypass' }); } catch {}
+                  return resp;
+                } catch (err) {
+                  try { sendChannel({ action: 'bm:placed', ok: false, status: 0, reason: 'bypass_error' }); } catch {}
+                  throw err;
+                }
+              }
+              return new Response('', { status: 409, statusText: 'Template mismatch' });
             }
           } catch (e) {
             __bm_interceptActive = false;
@@ -504,9 +585,8 @@ function installPageFetchInjection() {
         } catch {}
       
         if (/\/pixel\//i.test(String(endpoint))) {
-          const endpointStr = String(endpoint);
-          window.postMessage({ source: 'wplace-svelte', endpoint: endpointStr }, '*');
-          try { window.dispatchEvent(new CustomEvent('tutorial:map-pixel-clicked', { detail: { endpoint: endpointStr } })); } catch {}
+          window.postMessage({ source: 'wplace-svelte', endpoint: endpoint }, '*');
+          try { window.dispatchEvent(new CustomEvent('tutorial:map-pixel-clicked', { detail: { endpoint: endpoint } })); } catch {}
         }
        
         if (ct.includes('image/') && !String(endpoint).includes('openfreemap') && !String(endpoint).includes('maps')) {

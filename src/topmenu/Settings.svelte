@@ -12,6 +12,7 @@
   import IdleSettingsModal from '../idle/IdleSettingsModal.svelte';
   import { showToast } from '../ui/toast';
   import ColorPicker from '../ui/ColorPicker.svelte';
+  import { postChannelMessage } from '../wguard/core/channel';
 
   let open = false;
   let cfg = getAutoConfig();
@@ -148,6 +149,9 @@
     if (key === 'bmMultiColor') {
       try { triggerRedrawDebounced(); } catch {}
     }
+    if (key === 'wguardBypassProtection') {
+      try { postChannelMessage({ action: 'bm:setBypass', enabled: v }); } catch {}
+    }
   }
   function onChangeString(key, ev) {
     const v = String(ev?.currentTarget?.value ?? ev?.target?.value ?? '');
@@ -266,6 +270,7 @@
 
   onMount(() => {
     cfg = getAutoConfig();
+    try { postChannelMessage({ action: 'bm:setBypass', enabled: !!cfg.wguardBypassProtection }); } catch {}
     try { window.addEventListener('resize', updatePosition); } catch {}
     try { document.addEventListener('wph:idle:noFavorites', onIdleNoFav); } catch {}
     return () => { 
@@ -348,6 +353,13 @@
       <label for="cfg-ignore-wrong">{t('settings.bm.ignoreWrong')}</label>
       <label class="toggle-control" aria-label={t('settings.bm.ignoreWrong')}>
         <input id="cfg-ignore-wrong" type="checkbox" checked={cfg.ignoreWrongColor} on:change={(e)=>onChangeBool('ignoreWrongColor', e)} />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="row toggle-row">
+      <label for="cfg-bypass-wguard">{t('settings.bm.bypassWguard')}</label>
+      <label class="toggle-control" aria-label={t('settings.bm.bypassWguard')}>
+        <input id="cfg-bypass-wguard" type="checkbox" checked={cfg.wguardBypassProtection} on:change={(e)=>onChangeBool('wguardBypassProtection', e)} />
         <span class="toggle-track"></span>
       </label>
     </div>
