@@ -19,12 +19,14 @@ export type AutoConfig = {
   bmOnlySelected: boolean;
   bmMultiColor: boolean;
   ignoreWrongColor: boolean;
+  wguardBypassProtection: boolean;
+  maskAsBlueMarble: boolean;
   bmBatchLimit: number;
   seriesWaitSec: number;
   persistAutoRun: boolean;
   randomExtraWaitMaxSec: number;
   enhancedBackgroundColor: string;
-  wguardBypassProtection: boolean;
+  sendEffectEnabled: boolean;
 };
 
 const LS_KEY = 'wguard:auto-config';
@@ -42,12 +44,14 @@ const defaults: AutoConfig = {
   bmOnlySelected: false,
   bmMultiColor: true,
   ignoreWrongColor: false,
+  wguardBypassProtection: false,
+  maskAsBlueMarble: false,
   bmBatchLimit: 0,
   seriesWaitSec: 90,
   persistAutoRun: true,
   randomExtraWaitMaxSec: 0,
   enhancedBackgroundColor: '#080808',
-  wguardBypassProtection: false,
+  sendEffectEnabled: false,
 };
 
 let current: AutoConfig = { ...defaults };

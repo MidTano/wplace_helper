@@ -46,6 +46,7 @@ async function mount() {
   markElement(container);
   container.id = rootId;
   document.body.appendChild(container);
+  try { (window as any).__wphPortalContainer = container; } catch {}
 
   let shadow: ShadowRoot | null = null;
   try { shadow = (container as any).attachShadow({ mode: 'closed' }); } catch {}

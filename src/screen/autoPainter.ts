@@ -1,3 +1,4 @@
+import { playSendOrbitalEffect, SendEffectColor } from '../effects/SendEffect';
 import { MASTER_COLORS } from '../editor/palette';
  
 import { getStencilManager } from '../template/stencilManager';
@@ -244,8 +245,6 @@ function collectPendingChunksMulti(): Array<[[number, number], Array<[number, nu
       }
     }
     const tDim = Math.max(1, Math.max(1, Number((sm as any)?.tileSize || 0)) * Math.max(1, Number(sm?.drawMult || 1)));
-    const centerCx = (minCx + maxCx) / 2;
-    const centerCy = (minCy + maxCy) / 2;
     const centerPx = (minPx + maxPx) / 2;
     const centerPy = (minPy + maxPy) / 2;
 
@@ -346,8 +345,16 @@ function collectPendingChunksMulti(): Array<[[number, number], Array<[number, nu
     } else if (mode === 'diagDownRight') {
       const wCells = Math.max(1, Math.floor(tDim / dMult));
       items.sort((a, b) => {
-        const x1 = Math.floor(a[0] / dMult), y1 = Math.floor(a[1] / dMult);
-        const x2 = Math.floor(b[0] / dMult), y2 = Math.floor(b[1] / dMult);
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0;
+        const ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0;
+        const by = Number(bp[1]) || 0;
+        const x1 = Math.floor(ax / dMult);
+        const y1 = Math.floor(ay / dMult);
+        const x2 = Math.floor(bx / dMult);
+        const y2 = Math.floor(by / dMult);
         const s1 = (wCells - 1 - x1) + y1;
         const s2 = (wCells - 1 - x2) + y2;
         if (s1 !== s2) return s1 - s2;
@@ -356,8 +363,16 @@ function collectPendingChunksMulti(): Array<[[number, number], Array<[number, nu
     } else if (mode === 'diagUpRight') {
       const wCells = Math.max(1, Math.floor(tDim / dMult));
       items.sort((a, b) => {
-        const x1 = Math.floor(a[0] / dMult), y1 = Math.floor(a[1] / dMult);
-        const x2 = Math.floor(b[0] / dMult), y2 = Math.floor(b[1] / dMult);
+        const ap = a[0].split(',');
+        const bp = b[0].split(',');
+        const ax = Number(ap[0]) || 0;
+        const ay = Number(ap[1]) || 0;
+        const bx = Number(bp[0]) || 0;
+        const by = Number(bp[1]) || 0;
+        const x1 = Math.floor(ax / dMult);
+        const y1 = Math.floor(ay / dMult);
+        const x2 = Math.floor(bx / dMult);
+        const y2 = Math.floor(by / dMult);
         const d1 = (wCells - 1 - x1) - y1;
         const d2 = (wCells - 1 - x2) - y2;
         if (d1 !== d2) return d1 - d2;
@@ -518,11 +533,14 @@ async function placeAllColorsDirect(): Promise<boolean> {
       if (take <= 0) return true;
       const coordsFlat: number[] = [];
       const colorsArr: number[] = [];
+      const sendBatch: SendEffectColor[] = [];
       
       for (let k = 0; k < take; k++) {
         const p = group[1][idx + k];
         coordsFlat.push(p[0], p[1]);
         colorsArr.push(p[2]);
+        const color = getButtonColor(p[2]);
+        if (color) sendBatch.push(color);
       }
       
       let result: any = null;
@@ -572,6 +590,10 @@ async function placeAllColorsDirect(): Promise<boolean> {
       }
       
       if (status >= 200 && status < 300) {
+        const cfgNow = getAutoConfig() as any;
+        if (cfgNow?.sendEffectEnabled && sendBatch.length) {
+          playSendOrbitalEffect(sendBatch);
+        }
         try {
           const freshCharges = await fetchCharges();
           if (freshCharges) {
@@ -590,7 +612,7 @@ async function placeAllColorsDirect(): Promise<boolean> {
         sendChannel({ action: 'reloadTiles' });
         
         try {
-          const bl = Math.max(0, Number((getAutoConfig() as any)?.bmBatchLimit || 0));
+          const bl = Math.max(0, Number(cfgNow?.bmBatchLimit || 0));
           if (bl > 0 && cyclePlaced >= bl) {
             return true;
           }
@@ -712,6 +734,7 @@ let colorButtons: ColorButton[] | null = null;
 let masterToButton: (number | null)[] | null = null;    
 
 const buttonCache = new Map<string, number>();
+const buttonRgbCache = new Map<number, SendEffectColor>();
 
 function shuffle<T>(a: T[]) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -786,9 +809,16 @@ async function ensureColorMap() {
   }
   
   if (colorButtons && colorButtons.length) {
-    const available = colorButtons.filter(b => !b.paid && b.id > 0);
-    
     try { buttonCache.clear(); } catch {}
+    try { buttonRgbCache.clear(); } catch {}
+
+    for (const b of colorButtons) {
+      if (!b || !Array.isArray(b.rgb)) continue;
+      const rgb: SendEffectColor = [b.rgb[0], b.rgb[1], b.rgb[2]];
+      buttonRgbCache.set(b.id, rgb);
+    }
+
+    const available = colorButtons.filter(b => !b.paid && b.id > 0);
     for (const b of available) {
       const key = `${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`;
       buttonCache.set(key, b.id);
@@ -823,7 +853,22 @@ function mapMasterIndexToButton(idx: number): number | null {
   return (buttonId != null && buttonId >= 0) ? buttonId : null;
 }
 
- 
+function getButtonColor(buttonId: number): SendEffectColor | null {
+  if (!Number.isFinite(buttonId)) return null;
+  const cached = buttonRgbCache.get(buttonId);
+  if (cached) return cached;
+  if (colorButtons && colorButtons.length) {
+    for (const b of colorButtons) {
+      if (b && b.id === buttonId && Array.isArray(b.rgb)) {
+        const rgb: SendEffectColor = [b.rgb[0], b.rgb[1], b.rgb[2]];
+        buttonRgbCache.set(buttonId, rgb);
+        return rgb;
+      }
+    }
+  }
+  return null;
+}
+
 
 async function runAutoLoop() {
   try {

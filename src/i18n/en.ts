@@ -58,8 +58,15 @@ export const en: Translations = {
   'settings.bm.colorsHint': 'Colors are taken from the RMB auto-mode color menu',
   'settings.bm.multiColor': 'Place with all selected colors',
   'settings.bm.ignoreWrong': 'Ignore mismatched pixels',
+  'settings.bm.bypassWguard': 'Bypass WGuard template protection',
+  'settings.bm.maskAsBM': 'Masquerade as BlueMarble',
+  'settings.sendEffect.title': 'Send Effect',
+  'settings.sendEffect.test': 'Test',
   'settings.seriesWait': 'Pause between series (sec)',
+  'settings.randomExtraWait': 'Random extra (sec, 0=off)',
   'settings.enhancedBackground': 'Enhanced mode background',
+  'settings.interface.title': 'Interface settings',
+  'settings.interface.dark': 'Dark map',
   'settings.colorPicker.title': 'Color picker',
 
   
@@ -127,6 +134,9 @@ export const en: Translations = {
   
   'common.ok': 'OK',
   'common.cancel': 'Cancel',
+  'common.pick': 'Pick',
+  'common.save': 'Save',
+  'common.delete': 'Delete',
 
   
   'units.dayShort': 'd',
@@ -505,6 +515,26 @@ export const en: Translations = {
   'idle.wish.3': 'Every pixel you place makes the world more beautiful!',
   'idle.wish.4': 'We wish you inspiration and creative ideas!',
   'idle.wish.5': 'May your art become legendary on the Wplace map!',
+
+  'theme.modal.title': 'Theme settings',
+  'theme.modal.tab.presets': 'Ready themes',
+  'theme.modal.tab.custom': 'My themes',
+  'theme.modal.quick.actions': 'Theme quick actions',
+  'theme.modal.quick.theme': 'Theme',
+  'theme.modal.custom.create': 'Create custom theme',
+  'theme.modal.custom.new': 'New theme',
+  'theme.modal.custom.name': 'Theme name',
+  'theme.modal.custom.namePlaceholder': 'My theme',
+  'theme.modal.custom.accent': 'Accent color',
+  'theme.modal.custom.accent2': 'Accent color 2',
+  'theme.modal.custom.surface': 'Panel background',
+  'theme.modal.custom.border': 'Borders',
+  'theme.modal.custom.preview': 'Preview',
+  'theme.modal.custom.preview.title': 'Title',
+  'theme.modal.custom.preview.text': 'Text',
+  'theme.modal.custom.preview.button': 'Button',
+  'theme.modal.custom.preview.panel': 'Panel',
+  'theme.modal.custom.saved': 'Saved themes',
 
   'editor.panel.preblur.title': 'Pre-blur',
   'editor.preblur.radius': 'Pre-blur radius',

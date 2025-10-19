@@ -4,7 +4,7 @@ import { applyNetworkGuards, resetNetworkGuards } from '../hooks/network.js';
 import { applyStorageGuards, resetStorageGuards } from '../stealth/store';
 import { generateUserConfig } from './pattern-generator';
 import { printConsoleBanner } from './console-banner';
-import { setChannel } from './channel';
+import { setChannel, applyMaskOverride, readMaskFlagFromStorage } from './channel';
 import { setEventAction } from './events';
 import { listenWGuardEvent } from './events';
 import { setStorageSalt } from '../stealth/store';
@@ -59,6 +59,7 @@ export async function bootstrapWGuard(options: WGuardInitOptions = {}): Promise<
 
   const channel = config?.obfuscation?.channelSource ?? options.channel ?? DEFAULT_CHANNEL;
   try { setChannel(String(channel)); } catch {}
+  try { applyMaskOverride(readMaskFlagFromStorage()); } catch {}
   try { if (config?.obfuscation?.eventAction) setEventAction(String(config.obfuscation.eventAction)); } catch {}
   try { if (config?.obfuscation?.storageSalt) setStorageSalt(String(config.obfuscation.storageSalt)); } catch {}
 

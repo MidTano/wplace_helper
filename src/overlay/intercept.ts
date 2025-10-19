@@ -94,13 +94,41 @@ function installPageFetchInjection() {
       }catch{}
       return 'wguard-svelte';
     }
-    const WGUARD_CHANNEL_SOURCE = readChannel();
-    
+    let WGUARD_CHANNEL_SOURCE = readChannel();
+    let DEFAULT_CHANNEL_SOURCE = WGUARD_CHANNEL_SOURCE;
+    const ACCEPTED_CHANNEL_SOURCES = new Set([LEGACY_CHANNEL_SOURCE, WGUARD_CHANNEL_SOURCE]);
+    const ORIGINAL_WINDOW_NAME = (() => {
+      try { return String(window.name || ''); } catch { return ''; }
+    })();
+
+    function setActiveChannel(source: string) {
+      if (typeof source === 'string' && source) {
+        WGUARD_CHANNEL_SOURCE = source;
+        ACCEPTED_CHANNEL_SOURCES.add(source);
+      }
+    }
+
+    function restoreDefaultChannel() {
+      if (typeof DEFAULT_CHANNEL_SOURCE === 'string' && DEFAULT_CHANNEL_SOURCE) {
+        WGUARD_CHANNEL_SOURCE = DEFAULT_CHANNEL_SOURCE;
+        ACCEPTED_CHANNEL_SOURCES.add(DEFAULT_CHANNEL_SOURCE);
+      }
+    }
+
     function normalizeChannelData(data: any): any {
       if (!data || typeof data !== 'object') return null;
       const source = data.source;
-      if (source !== LEGACY_CHANNEL_SOURCE && source !== WGUARD_CHANNEL_SOURCE) return null;
+      if (!ACCEPTED_CHANNEL_SOURCES.has(source)) return null;
       return { ...data, source: WGUARD_CHANNEL_SOURCE };
+    }
+    function buildTemplateBody(fp: any, colors: any[], coords: any[], token?: any): any {
+      const body: any = {
+        colors: Array.isArray(colors) ? colors.slice() : [],
+        coords: Array.isArray(coords) ? coords.slice() : [],
+        fp
+      };
+      if (token) body.t = token;
+      return body;
     }
     
     function readChannelPayload(event: any): any {
@@ -120,6 +148,7 @@ function installPageFetchInjection() {
     let __bm_pendingIntercept: any = null;
     let __bm_formatValid = true;
     let __bm_ignoreProtection = false;
+    let __bm_maskActive = false;
 
     function syncBypassFlag() {
       try {
@@ -131,7 +160,39 @@ function installPageFetchInjection() {
       } catch {}
     }
 
+    function applyMaskFlag(flag: boolean) {
+      __bm_maskActive = !!flag;
+      if (__bm_maskActive) {
+        setActiveChannel('bm-A');
+        try { window.name = 'bm-A'; } catch {}
+      } else {
+        restoreDefaultChannel();
+        try { window.name = ORIGINAL_WINDOW_NAME; } catch {}
+      }
+    }
+
+    function syncMaskFlag() {
+      try {
+        const base = readChannel();
+        if (typeof base === 'string' && base) {
+          DEFAULT_CHANNEL_SOURCE = base;
+          ACCEPTED_CHANNEL_SOURCES.add(base);
+          if (!__bm_maskActive) WGUARD_CHANNEL_SOURCE = base;
+        }
+      } catch {}
+      let enabled = false;
+      try {
+        const raw = localStorage.getItem('wguard:auto-config');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          enabled = !!parsed.maskAsBlueMarble;
+        }
+      } catch {}
+      applyMaskFlag(enabled);
+    }
+
     syncBypassFlag();
+    syncMaskFlag();
 
     function findOpenPaintButton(): HTMLButtonElement | null {
       try {
@@ -199,11 +260,21 @@ function installPageFetchInjection() {
         if (flag === 'sync') {
           syncBypassFlag();
         } else {
-          __bm_ignoreProtection = flag === true || flag === 'true' || flag === 1 || flag === '1';
+          const en = flag === true || flag === 'true' || flag === 1 || flag === '1';
+          __bm_ignoreProtection = en;
         }
         return;
       }
-      
+      if (data.action === 'bm:setMask') {
+        const flag = (data as any).enabled;
+        if (flag === 'sync') {
+          syncMaskFlag();
+        } else {
+          const en = flag === true || flag === 'true' || flag === 1 || flag === '1';
+          applyMaskFlag(en);
+        }
+        return;
+      }
       if (data.blobID && data.blobData && !data.endpoint) {
         const cb = fetchedBlobQueue.get(data.blobID);
         if (typeof cb === 'function') {
@@ -309,14 +380,7 @@ function installPageFetchInjection() {
               return;
             }
             const opts = JSON.parse(JSON.stringify(__bm_cachedContext.requestOptions || {}));
-            const coords = ((data as any).coords as unknown[]).slice();
-            const colors = ((data as any).colors as unknown[]).slice();
-            const body = { 
-              colors,
-              coords,
-              fp: __bm_cachedContext.fp,
-              t: __bm_cachedContext.token 
-            };
+            const body = buildTemplateBody(__bm_cachedContext.fp, (data as any).colors, (data as any).coords, __bm_cachedContext.token);
             opts.method = 'POST';
             opts.body = JSON.stringify(body);
             const url = `https://backend.wplace.live/s0/pixel/${Number(data.chunkX)||0}/${Number(data.chunkY)||0}`;
@@ -498,7 +562,7 @@ function installPageFetchInjection() {
             const colors = originalBody['colors'];
             const coords = originalBody['coords'];
             
-            if (!token || !fp || !Array.isArray(colors) || !Array.isArray(coords)) {
+            if (!fp || !Array.isArray(colors) || !Array.isArray(coords) || (token !== undefined && token !== null && token !== '')) {
               __bm_formatValid = false;
               __bm_interceptActive = false;
               if (__bm_ignoreProtection) {
@@ -512,7 +576,8 @@ function installPageFetchInjection() {
                 }
               }
               if (__bm_pendingIntercept) {
-                sendChannel({ action: 'bm:formatError', reasonCode: 'format_error', reason: 'format_error', detail: 'Invalid request format detected', endpoint: url });
+                const reasonCode = (!fp || !Array.isArray(colors) || !Array.isArray(coords)) ? 'format_error' : 'token_present';
+                sendChannel({ action: 'bm:formatError', reasonCode, reason: 'format_error', detail: 'Invalid request format detected', endpoint: url });
               }
               try { sendChannel({ action: 'bm:placed', ok: false, status: 0, reason: 'format_error' }); } catch {}
               try {
@@ -527,7 +592,7 @@ function installPageFetchInjection() {
             __bm_ctxTs = Date.now();
             try { (window as any).__bmRequestContext = { token, fp, originalBody: String(options.body||''), requestOptions: baseOpts, timestamp: __bm_ctxTs }; } catch {}
             if (__bm_pendingIntercept && Array.isArray(__bm_pendingIntercept.coords) && Array.isArray(__bm_pendingIntercept.colors)) {
-              const body = { colors: __bm_pendingIntercept.colors.slice(), coords: __bm_pendingIntercept.coords.slice(), fp: fp, t: token } as any;
+              const body = buildTemplateBody(fp, __bm_pendingIntercept.colors, __bm_pendingIntercept.coords);
               const newUrl = `https://backend.wplace.live/s0/pixel/${Number(__bm_pendingIntercept.chunkX)||0}/${Number(__bm_pendingIntercept.chunkY)||0}`;
               const newOptions = { ...options, body: JSON.stringify(body) } as any;
               __bm_interceptActive = false;

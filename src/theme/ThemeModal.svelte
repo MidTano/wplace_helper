@@ -185,33 +185,33 @@
        on:click={close} 
        on:keydown={(e) => { if (e.key === 'Escape') close(); }}>
   </div>
-  <div use:appendToBody class="theme-modal" role="dialog" aria-modal="true" aria-label="Настройки темы">
+  <div use:appendToBody class="theme-modal" role="dialog" aria-modal="true" aria-label={t('theme.modal.title')}>
     <div class="theme-header">
       <div class="header-content">
-        <h2>Настройки темы</h2>
+        <h2>{t('theme.modal.title')}</h2>
         <div class="current-theme-badge" style="background: linear-gradient(135deg, {$themeStore?.primary || '#f05123'} 0%, {$themeStore?.primary || '#f05123'} 100%);">
           <span style="color: {getLuminance($themeStore?.primary || '#f05123') > 0.5 ? '#000' : '#fff'}">
             {$themeStore?.preset || 'custom'}
           </span>
         </div>
       </div>
-      <button class="close-btn" type="button" aria-label="Закрыть" on:click={close}>×</button>
+      <button class="close-btn" type="button" aria-label={t('btn.close')} on:click={close}>×</button>
     </div>
-    
+
     <div class="theme-tabs">
       <button 
         class="tab-btn" 
         class:active={tabActive === 'presets'}
         on:click={() => tabActive = 'presets'}
       >
-        Готовые темы
+        {t('theme.modal.tab.presets')}
       </button>
       <button 
         class="tab-btn" 
         class:active={tabActive === 'custom'}
         on:click={() => tabActive = 'custom'}
       >
-        Мои темы
+        {t('theme.modal.tab.custom')}
       </button>
     </div>
     
@@ -244,34 +244,34 @@
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
-              Создать свою тему
+              {t('theme.modal.custom.create')}
             </button>
           {:else}
             <div class="custom-editor">
               <div class="editor-header">
-                <h3>Новая тема</h3>
+                <h3>{t('theme.modal.custom.new')}</h3>
               </div>
               
               <div class="editor-layout">
                 <div class="editor-fields">
                   <div class="editor-field">
-                    <label for="custom-name">Название темы</label>
+                    <label for="custom-name">{t('theme.modal.custom.name')}</label>
                     <input 
                       id="custom-name"
                       type="text" 
                       bind:value={customName} 
-                      placeholder="Моя тема"
+                      placeholder={t('theme.modal.custom.namePlaceholder')}
                       maxlength="30"
                     />
                   </div>
                   
                   <div class="editor-field">
-                    <label for="custom-primary">Акцентный цвет</label>
+                    <label for="custom-primary">{t('theme.modal.custom.accent')}</label>
                     <div class="color-input-group">
                       <button 
                         class="color-preview" 
                         style="background-color: {customPrimary};"
-                        title="Выбрать"
+                        title={t('common.pick')}
                         on:click={(e)=>openColorPicker('customPrimary', e)}
                       ></button>
                       <input 
@@ -284,12 +284,12 @@
                   </div>
                   
                   <div class="editor-field">
-                    <label for="custom-primary2">Акцентный цвет 2</label>
+                    <label for="custom-primary2">{t('theme.modal.custom.accent2')}</label>
                     <div class="color-input-group">
                       <button 
                         class="color-preview" 
                         style="background-color: {customPrimary2};"
-                        title="Выбрать"
+                        title={t('common.pick')}
                         on:click={(e)=>openColorPicker('customPrimary2', e)}
                       ></button>
                       <input 
@@ -302,12 +302,12 @@
                   </div>
                   
                   <div class="editor-field">
-                    <label for="custom-surface">Фон панелей</label>
+                    <label for="custom-surface">{t('theme.modal.custom.surface')}</label>
                     <div class="color-input-group">
                       <button 
                         class="color-preview" 
                         style="background-color: {customSurface};"
-                        title="Выбрать"
+                        title={t('common.pick')}
                         on:click={(e)=>openColorPicker('customSurface', e)}
                       ></button>
                       <input 
@@ -320,12 +320,12 @@
                   </div>
                   
                   <div class="editor-field">
-                    <label for="custom-border">Границы</label>
+                    <label for="custom-border">{t('theme.modal.custom.border')}</label>
                     <div class="color-input-group">
                       <button 
                         class="color-preview" 
                         style="background-color: {customBorder};"
-                        title="Выбрать"
+                        title={t('common.pick')}
                         on:click={(e)=>openColorPicker('customBorder', e)}
                       ></button>
                       <input 
@@ -341,18 +341,18 @@
                 </div>
                 
                 <div class="editor-preview">
-                  <div class="preview-label">Превью</div>
+                  <div class="preview-label">{t('theme.modal.custom.preview')}</div>
                   <div class="preview-card" style="background: {customSurface}; border-color: {customBorder};">
                     <div class="preview-header" style="background: linear-gradient(135deg, {customPrimary} 0%, {customPrimary2} 100%);">
-                      <span style="color: {getLuminance(customPrimary) > 0.5 ? '#000' : '#fff'}">Заголовок</span>
+                      <span style="color: {getLuminance(customPrimary) > 0.5 ? '#000' : '#fff'}">{t('theme.modal.custom.preview.title')}</span>
                     </div>
                     <div class="preview-body">
-                      <div class="preview-text">Текст</div>
+                      <div class="preview-text">{t('theme.modal.custom.preview.text')}</div>
                       <button class="preview-btn" style="background: {customPrimary}; color: {getLuminance(customPrimary) > 0.5 ? '#000' : '#fff'}">
-                        Кнопка
+                        {t('theme.modal.custom.preview.button')}
                       </button>
                       <div class="preview-panel" style="background: {customSurface2}; border-color: {customBorder}; color: #fff;">
-                        Панель
+                        {t('theme.modal.custom.preview.panel')}
                       </div>
                     </div>
                   </div>
@@ -360,15 +360,15 @@
               </div>
               
               <div class="editor-actions">
-                <button class="btn btn-secondary" on:click={cancelEditCustom}>Отмена</button>
-                <button class="btn btn-primary" on:click={saveCustomTheme} disabled={!customName.trim()}>Сохранить</button>
+                <button class="btn btn-secondary" on:click={cancelEditCustom}>{t('common.cancel')}</button>
+                <button class="btn btn-primary" on:click={saveCustomTheme} disabled={!customName.trim()}>{t('common.save')}</button>
               </div>
             </div>
           {/if}
           
           {#if customThemes.length > 0}
             <div class="custom-list">
-              <h3>Сохраненные темы</h3>
+              <h3>{t('theme.modal.custom.saved')}</h3>
               <div class="custom-grid">
                 {#each customThemes as theme (theme.id)}
                   <div class="custom-card">
@@ -388,7 +388,8 @@
                       <button 
                         class="btn-delete" 
                         on:click={() => deleteCustomTheme(theme.id)}
-                        title="Удалить"
+                        title={t('common.delete')}
+                        aria-label={t('common.delete')}
                       >
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                           <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>

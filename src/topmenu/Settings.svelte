@@ -3,16 +3,18 @@
   import { getAutoConfig, updateAutoConfig, resetAutoConfig } from '../screen/autoConfig';
   import { t, lang } from '../i18n';
   import { getStencilManager } from '../template/stencilManager';
-  import CustomSelect from '../editor/CustomSelect.svelte';
   import { tutorialStore } from '../tutorial/store/tutorialStore';
   import { restartTutorial } from '../tutorial/store/tutorialProgress';
   import { dispatchWGuardEvent, WGuardEvents } from '../wguard/core/events';
   import { appendToBody } from '../editor/modal/utils/appendToBody';
   import ThemeModal from '../theme/ThemeModal.svelte';
   import IdleSettingsModal from '../idle/IdleSettingsModal.svelte';
+  import CustomSelect from '../editor/CustomSelect.svelte';
   import { showToast } from '../ui/toast';
   import ColorPicker from '../ui/ColorPicker.svelte';
-  import { postChannelMessage } from '../wguard/core/channel';
+  import { postChannelMessage, applyMaskOverride, readMaskFlagFromStorage } from '../wguard/core/channel';
+  import { MASTER_COLORS } from '../editor/palette';
+  import { playSendOrbitalEffect } from '../effects/SendEffect';
 
   let open = false;
   let cfg = getAutoConfig();
@@ -34,6 +36,9 @@
   let isDraggingHue = false;
   let showThemeModal = false;
   let showIdleModal = false;
+  const LIGHT_THEME = 'custom-winter';
+  const DARK_THEME = 'fiord';
+  let isDarkTheme = false;
   
   function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -152,16 +157,51 @@
     if (key === 'wguardBypassProtection') {
       try { postChannelMessage({ action: 'bm:setBypass', enabled: v }); } catch {}
     }
+    if (key === 'maskAsBlueMarble') {
+      try { postChannelMessage({ action: 'bm:setMask', enabled: v }); } catch {}
+      try { applyMaskOverride(v); } catch {}
+    }
   }
   function onChangeString(key, ev) {
     const v = String(ev?.currentTarget?.value ?? ev?.target?.value ?? '');
     cfg = updateAutoConfig({ [key]: v });
-    
+
     if (key === 'enhancedBackgroundColor') {
       triggerRedrawDebounced();
     }
   }
-  
+
+  function runSendEffectTest() {
+    try {
+      const colors = [];
+      const base = MASTER_COLORS.map(c => [c.rgb[0], c.rgb[1], c.rgb[2]]);
+      if (!base.length) return;
+      let idx = 0;
+      while (colors.length < 1000) {
+        colors.push(base[idx]);
+        idx = (idx + 1) % base.length;
+      }
+      playSendOrbitalEffect(colors);
+    } catch {}
+  }
+
+  function readThemePreference() {
+    try {
+      const value = localStorage.getItem('theme');
+      isDarkTheme = value ? value !== LIGHT_THEME : false;
+    } catch {
+      isDarkTheme = false;
+    }
+  }
+
+  function applyThemePreference(enabled) {
+    isDarkTheme = enabled;
+    try {
+      localStorage.setItem('theme', enabled ? DARK_THEME : LIGHT_THEME);
+      window.location.reload();
+    } catch {}
+  }
+
   function setPresetColor(color) {
     cfg = updateAutoConfig({ enhancedBackgroundColor: color });
     triggerRedrawDebounced();
@@ -270,7 +310,10 @@
 
   onMount(() => {
     cfg = getAutoConfig();
+    readThemePreference();
     try { postChannelMessage({ action: 'bm:setBypass', enabled: !!cfg.wguardBypassProtection }); } catch {}
+    try { postChannelMessage({ action: 'bm:setMask', enabled: 'sync' }); } catch {}
+    try { applyMaskOverride(readMaskFlagFromStorage()); } catch {}
     try { window.addEventListener('resize', updatePosition); } catch {}
     try { document.addEventListener('wph:idle:noFavorites', onIdleNoFav); } catch {}
     return () => { 
@@ -310,37 +353,35 @@
       <input id="cfg-series-wait" type="number" min="0" step="1" bind:value={cfg.seriesWaitSec} on:input={(e)=>onChangeNumber('seriesWaitSec', e)} />
     </div>
     <div class="row">
-      <label for="cfg-rand-extra">Случайная добавка (сек, 0=выкл)</label>
+      <label for="cfg-rand-extra">{t('settings.randomExtraWait')}</label>
       <input id="cfg-rand-extra" type="number" min="0" step="1" bind:value={cfg.randomExtraWaitMaxSec} on:input={(e)=>onChangeNumber('randomExtraWaitMaxSec', e)} />
-    </div>
-    <div class="row vertical">
-      <label for="cfg-bm-mode">{t('settings.bm.mode')}</label>
-      <div class="field-control">
-        <CustomSelect 
-          bind:value={cfg.bmMode}
-          showModePreview={true}
-          options={[
-            { value: 'random', label: t('settings.bm.mode.random') },
-            { value: 'topDown', label: t('settings.bm.mode.topDown') },
-            { value: 'bottomUp', label: t('settings.bm.mode.bottomUp') },
-            { value: 'leftRight', label: t('settings.bm.mode.leftRight') },
-            { value: 'rightLeft', label: t('settings.bm.mode.rightLeft') },
-            { value: 'snakeRow', label: t('settings.bm.mode.snakeRow') },
-            { value: 'snakeCol', label: t('settings.bm.mode.snakeCol') },
-            { value: 'diagDown', label: t('settings.bm.mode.diagDown') },
-            { value: 'diagUp', label: t('settings.bm.mode.diagUp') },
-            { value: 'diagDownRight', label: t('settings.bm.mode.diagDownRight') },
-            { value: 'diagUpRight', label: t('settings.bm.mode.diagUpRight') },
-            { value: 'centerOut', label: t('settings.bm.mode.centerOut') },
-            { value: 'edgesIn', label: t('settings.bm.mode.edgesIn') },
-          ]}
-          onChange={() => onChangeString('bmMode', { target: { value: cfg.bmMode } })}
-        />
-      </div>
     </div>
     <div class="row">
       <label for="cfg-bm-batch">{t('settings.bm.batchLimit')}</label>
       <input id="cfg-bm-batch" type="number" min="0" step="1" bind:value={cfg.bmBatchLimit} on:input={(e)=>onChangeNumber('bmBatchLimit', e)} />
+    </div>
+    <div class="mode-select-row">
+      <label for="cfg-bm-mode" class="mode-label">{t('settings.bm.mode')}</label>
+      <CustomSelect 
+        bind:value={cfg.bmMode}
+        options={[
+          { value: 'random', label: t('settings.bm.mode.random') },
+          { value: 'topDown', label: t('settings.bm.mode.topDown') },
+          { value: 'bottomUp', label: t('settings.bm.mode.bottomUp') },
+          { value: 'leftRight', label: t('settings.bm.mode.leftRight') },
+          { value: 'rightLeft', label: t('settings.bm.mode.rightLeft') },
+          { value: 'snakeRow', label: t('settings.bm.mode.snakeRow') },
+          { value: 'snakeCol', label: t('settings.bm.mode.snakeCol') },
+          { value: 'diagDown', label: t('settings.bm.mode.diagDown') },
+          { value: 'diagUp', label: t('settings.bm.mode.diagUp') },
+          { value: 'diagDownRight', label: t('settings.bm.mode.diagDownRight') },
+          { value: 'diagUpRight', label: t('settings.bm.mode.diagUpRight') },
+          { value: 'centerOut', label: t('settings.bm.mode.centerOut') },
+          { value: 'edgesIn', label: t('settings.bm.mode.edgesIn') }
+        ]}
+        showModePreview={true}
+        onChange={() => { cfg = updateAutoConfig({ bmMode: cfg.bmMode }); }}
+      />
     </div>
     <div class="row toggle-row">
       <label for="cfg-bm-multi">{t('settings.bm.multiColor')}</label>
@@ -360,6 +401,28 @@
       <label for="cfg-bypass-wguard">{t('settings.bm.bypassWguard')}</label>
       <label class="toggle-control" aria-label={t('settings.bm.bypassWguard')}>
         <input id="cfg-bypass-wguard" type="checkbox" checked={cfg.wguardBypassProtection} on:change={(e)=>onChangeBool('wguardBypassProtection', e)} />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="row toggle-row">
+      <label for="cfg-mask-bm">{t('settings.bm.maskAsBM')}</label>
+      <label class="toggle-control" aria-label={t('settings.bm.maskAsBM')}>
+        <input id="cfg-mask-bm" type="checkbox" checked={cfg.maskAsBlueMarble} on:change={(e)=>onChangeBool('maskAsBlueMarble', e)} />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="row toggle-row send-effect-row">
+      <label for="cfg-send-effect">{t('settings.sendEffect.title')}</label>
+      <button type="button" class="editor-btn send-test-btn" on:click={runSendEffectTest}>{t('settings.sendEffect.test')}</button>
+      <label class="toggle-control" aria-label={t('settings.sendEffect.title')}>
+        <input id="cfg-send-effect" type="checkbox" checked={cfg.sendEffectEnabled} on:change={(e)=>onChangeBool('sendEffectEnabled', e)} />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="row toggle-row">
+      <label for="cfg-theme-toggle">{t('settings.interface.dark')}</label>
+      <label class="toggle-control" aria-label={t('settings.interface.dark')}>
+        <input id="cfg-theme-toggle" type="checkbox" checked={isDarkTheme} on:change={(e)=>applyThemePreference(e?.currentTarget?.checked ?? false)} />
         <span class="toggle-track"></span>
       </label>
     </div>
@@ -402,9 +465,9 @@
       </div>
     </div>
     <div class="color-section" role="group" aria-labelledby="theme-section-label">
-      <div class="color-label" id="theme-section-label">Настройки интерфейса</div>
-      <div class="quick-actions" role="group" aria-label="actions">
-        <button class="editor-btn qa-btn" title="Тема" aria-label="Тема" on:click={openThemeModal}>
+      <div class="color-label" id="theme-section-label">{t('settings.interface.title')}</div>
+      <div class="quick-actions" role="group" aria-label={t('theme.modal.quick.actions')}>
+        <button class="editor-btn qa-btn" title={t('theme.modal.quick.theme')} aria-label={t('theme.modal.quick.theme')} on:click={openThemeModal}>
           <svg viewBox="0 0 32 32" width="18" height="18" fill="currentColor" aria-hidden="true">
             <circle cx="10" cy="12" r="2"/>
             <circle cx="16" cy="9" r="2"/>
@@ -516,30 +579,46 @@
     margin: 8px 0;
   }
 
-  .tm-settings-popover .row.vertical {
-    grid-template-columns: 1fr;
-    gap: 6px;
-    align-items: stretch;
-  }
-
-  .tm-settings-popover .row.vertical label {
-    margin-bottom: 2px;
-  }
-
-  .tm-settings-popover .row.vertical .field-control {
-    width: 100%;
-  }
-
-  .tm-settings-popover .row.vertical .field-control :global(.custom-select) {
-    width: 100%;
-  }
 
   .tm-settings-popover .row.toggle-row {
     grid-template-columns: 1fr auto;
   }
 
+  .tm-settings-popover .row.send-effect-row {
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .tm-settings-popover .mode-select-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+  }
+
+  .tm-settings-popover .mode-select-row .mode-label {
+    font-weight: 500;
+    font-size: 13px;
+    margin-bottom: 0;
+  }
+
   .tm-settings-popover .row.toggle-row label {
     margin-bottom: 0;
+  }
+
+  .tm-settings-popover .send-test-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.07);
+    color: #fff;
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+
+  .tm-settings-popover .send-test-btn:hover {
+    background: rgba(255,255,255,0.12);
   }
 
   .toggle-control {
