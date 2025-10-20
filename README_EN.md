@@ -18,7 +18,7 @@ Templates over the map, image editor, ability to share artworks, auto-painting, 
 
 ## Installation
 
-1) Install the Tampermonkey extension.  
+1) Install the Tampermonkey extension(ONLY WORK IN TAMPERMONKEY , other monkey don't work).  
 2) Install the script from the release: open `overlay.user.js` from the latest release — the manager will offer to install it automatically.  
 You can also use the button below  
 
