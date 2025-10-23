@@ -14,6 +14,14 @@
   import IdleManager from './idle/IdleManager.svelte';
   import { markElement } from './wguard';
   import TutorialManager from './tutorial/TutorialManager.svelte';
+  import ChargeToast from './topmenu/ChargeToast.svelte';
+  import GalleryModal from './topmenu/GalleryModal.svelte';
+  import { fetchGalleryEntries, hasGalleryConfig, fetchProfiles } from './gallery/api';
+  import { parseShareText, applySharePayload } from './share/altcv';
+  import MediaOverlay from './media/MediaOverlay.svelte';
+  import MediaOverlayTikTok from './media/MediaOverlayTikTok.svelte';
+  import MediaOverlaySpotify from './media/MediaOverlaySpotify.svelte';
+  import MediaOverlaySoundCloud from './media/MediaOverlaySoundCloud.svelte';
 
   let showPanel = true;
   let imgBitmap = null;
@@ -21,6 +29,39 @@
   let currentFile = null; 
   
   let copyArtOpen = false;
+  let galleryOpen = false;
+  let galleryLoading = false;
+  let galleryItems = [];
+  let galleryErrorKey = '';
+  let galleryJob = 0;
+  let galleryProfiles = {};
+
+  function openGallery() {
+    galleryOpen = true;
+    refetchGallery();
+  }
+
+  async function refetchGallery() {
+    const job = ++galleryJob;
+    galleryItems = [];
+    galleryErrorKey = '';
+    if (!hasGalleryConfig()) { galleryLoading = false; galleryErrorKey = 'gallery.empty'; return; }
+    galleryLoading = true;
+    try {
+      const [items, profiles] = await Promise.all([
+        fetchGalleryEntries(),
+        fetchProfiles()
+      ]);
+      if (job !== galleryJob) return;
+      galleryItems = Array.isArray(items) ? items : [];
+      galleryProfiles = profiles || {};
+      galleryLoading = false;
+    } catch (e) {
+      if (job !== galleryJob) return;
+      galleryLoading = false;
+      galleryErrorKey = 'gallery.empty';
+    }
+  }
 
   function cleanupEditorBackdrops() {
     try {
@@ -178,11 +219,33 @@
       rebuildStencilFromState();
     }
   } catch {}
-}} on:copyArt={()=>{ copyArtOpen = true; }} />
+}} on:copyArt={()=>{ copyArtOpen = true; }} on:galleryOpen={openGallery}/>
 
 <IdleManager />
 
+<ChargeToast />
 
+
+
+<GalleryModal
+  open={galleryOpen}
+  loading={galleryLoading}
+  items={galleryItems}
+  profiles={galleryProfiles}
+  errorKey={galleryErrorKey}
+  on:close={()=>{ galleryOpen = false; }}
+  on:retry={()=>{ refetchGallery(); }}
+  on:load={(e)=>{
+    try {
+      const { item } = e.detail || {};
+      if (!item || !item.share) return;
+      const payload = typeof item.share === 'string' ? parseShareText(String(item.share)) : item.share;
+      if (!payload) return;
+      galleryOpen = false;
+      applySharePayload(payload);
+    } catch {}
+  }}
+/>
 
 <CopyArtModal open={copyArtOpen} on:close={()=>{ copyArtOpen = false; }} on:sendToEditor={(e)=>{
   try {

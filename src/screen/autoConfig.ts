@@ -27,6 +27,8 @@ export type AutoConfig = {
   randomExtraWaitMaxSec: number;
   enhancedBackgroundColor: string;
   sendEffectEnabled: boolean;
+  autoBuyPlus30: boolean;
+  autoBuyPlus5Max: boolean;
 };
 
 const LS_KEY = 'wguard:auto-config';
@@ -52,6 +54,8 @@ const defaults: AutoConfig = {
   randomExtraWaitMaxSec: 0,
   enhancedBackgroundColor: '#080808',
   sendEffectEnabled: false,
+  autoBuyPlus30: false,
+  autoBuyPlus5Max: false,
 };
 
 let current: AutoConfig = { ...defaults };

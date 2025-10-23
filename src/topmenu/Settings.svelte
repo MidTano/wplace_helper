@@ -144,6 +144,16 @@
   function close() { open = false; }
   function onIdleNoFav() { try { showToast(t('idle.toast.noFavorites'), 4000); } catch {} }
 
+  function onAutobuyMessage(ev) {
+    const d = ev?.data;
+    if (!d || d.source !== 'wplace-svelte') return;
+    if (d.action === 'autobuy:success' && d.message) {
+      try { showToast(String(d.message), 3000); } catch {}
+    } else if (d.action === 'autobuy:error' && d.message) {
+      try { showToast(String(d.message), 3000); } catch {}
+    }
+  }
+
   function onChangeNumber(key, ev) {
     const v = Number(ev?.currentTarget?.value || ev?.target?.value || 0) || 0;
     cfg = updateAutoConfig({ [key]: v });
@@ -168,6 +178,19 @@
 
     if (key === 'enhancedBackgroundColor') {
       triggerRedrawDebounced();
+    }
+  }
+
+  function onToggleAutoBuy(kind, ev) {
+    const checked = !!(ev?.currentTarget?.checked ?? ev?.target?.checked);
+    if (kind === 'plus30') {
+      const patch = { autoBuyPlus30: checked };
+      if (checked) patch.autoBuyPlus5Max = false;
+      cfg = updateAutoConfig(patch);
+    } else if (kind === 'plus5') {
+      const patch = { autoBuyPlus5Max: checked };
+      if (checked) patch.autoBuyPlus30 = false;
+      cfg = updateAutoConfig(patch);
     }
   }
 
@@ -316,9 +339,11 @@
     try { applyMaskOverride(readMaskFlagFromStorage()); } catch {}
     try { window.addEventListener('resize', updatePosition); } catch {}
     try { document.addEventListener('wph:idle:noFavorites', onIdleNoFav); } catch {}
+    try { window.addEventListener('message', onAutobuyMessage); } catch {}
     return () => { 
       try { window.removeEventListener('resize', updatePosition); } catch {}
       try { document.removeEventListener('wph:idle:noFavorites', onIdleNoFav); } catch {}
+      try { window.removeEventListener('message', onAutobuyMessage); } catch {}
     };
   });
   $: if (open) { updatePosition(); }
@@ -359,6 +384,20 @@
     <div class="row">
       <label for="cfg-bm-batch">{t('settings.bm.batchLimit')}</label>
       <input id="cfg-bm-batch" type="number" min="0" step="1" bind:value={cfg.bmBatchLimit} on:input={(e)=>onChangeNumber('bmBatchLimit', e)} />
+    </div>
+    <div class="row toggle-row">
+      <label for="cfg-autobuy-plus30">{t('settings.autobuy.plus30')}</label>
+      <label class="toggle-control" aria-label={t('settings.autobuy.plus30')}>
+        <input id="cfg-autobuy-plus30" type="checkbox" checked={cfg.autoBuyPlus30} on:change={(e)=>onToggleAutoBuy('plus30', e)} />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="row toggle-row">
+      <label for="cfg-autobuy-plus5">{t('settings.autobuy.plus5')}</label>
+      <label class="toggle-control" aria-label={t('settings.autobuy.plus5')}>
+        <input id="cfg-autobuy-plus5" type="checkbox" checked={cfg.autoBuyPlus5Max} on:change={(e)=>onToggleAutoBuy('plus5', e)} />
+        <span class="toggle-track"></span>
+      </label>
     </div>
     <div class="mode-select-row">
       <label for="cfg-bm-mode" class="mode-label">{t('settings.bm.mode')}</label>
@@ -815,14 +854,4 @@
     margin: 8px 0 12px;
   }
   .tm-settings-popover .tutorial-section .editor-btn { display: inline-flex; align-items: center; gap: 6px; }
-  
-  
-  
-  .color-picker-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1000020;
-    background: rgba(0,0,0,0.3);
-    backdrop-filter: blur(2px);
-  }
 </style>

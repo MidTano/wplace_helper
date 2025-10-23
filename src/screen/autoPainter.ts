@@ -3,6 +3,8 @@ import { MASTER_COLORS } from '../editor/palette';
  
 import { getStencilManager } from '../template/stencilManager';
 import { getAutoConfig } from './autoConfig';
+import { t } from '../i18n';
+import { showCenterNotice } from '../ui/centerNotice';
 import { getSelectedFile, getOriginCoords } from '../overlay/state';
 import { getPersistentItem, setPersistentItem, removePersistentItem } from '../wguard/stealth/store';
 import { normalizeChannelData, postChannelMessage } from '../wguard/core/channel';
@@ -177,6 +179,27 @@ function bmPlaceWithIntercept(chunkX: number, chunkY: number, coords: number[], 
     };
     try { window.addEventListener('message', onMsg); } catch {}
     sendChannel({ action: 'bm:placeIntercept', chunkX, chunkY, coords: coords.slice(), colors: colors.slice() });
+    const to = setTimeout(() => { if (!done) { done = true; cleanup(); resolve({ ok: false, status: 0 }); } }, Math.max(1000, timeoutMs));
+  });
+}
+
+
+function securePlace(chunkX: number, chunkY: number, coords: number[], colors: number[], timeoutMs = 20000): Promise<{ ok: boolean; status: number }> {
+  return new Promise((resolve) => {
+    let done = false;
+    const cleanup = () => {
+      try { window.removeEventListener('message', onMsg); } catch {}
+      try { if (to) clearTimeout(to as any); } catch {}
+    };
+    const onMsg = (ev: MessageEvent) => {
+      const data = readChannelPayload(ev) as any;
+      if (!data) return;
+      if (data.action === 'secure:placed') {
+        if (!done) { done = true; cleanup(); resolve({ ok: data.ok === true, status: Number(data.status || 0) }); }
+      }
+    };
+    try { window.addEventListener('message', onMsg); } catch {}
+    sendChannel({ action: 'secure:place', chunkX, chunkY, coords: coords.slice(), colors: colors.slice() });
     const to = setTimeout(() => { if (!done) { done = true; cleanup(); resolve({ ok: false, status: 0 }); } }, Math.max(1000, timeoutMs));
   });
 }
@@ -545,62 +568,46 @@ async function placeAllColorsDirect(): Promise<boolean> {
       
       let result: any = null;
       let status = 0;
-      
       try {
-        result = await placeWithCachedContext(group[0][0], group[0][1], coordsFlat, colorsArr);
+        result = await securePlace(group[0][0], group[0][1], coordsFlat, colorsArr, 20000);
         status = Number((result as any)?.status || 0);
-      } catch (e) {
-        if (!running || formatErrorDetected) break;
-        try {
-          result = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
-          status = Number((result as any)?.status || 0);
-        } catch {
-          status = 0;
-        }
-      }
-      
+      } catch { status = 0; }
       if (!running || formatErrorDetected) break;
-      
       if (status === 0) {
-        try {
-          result = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
-          status = Number((result as any)?.status || 0);
-        } catch {}
+        try { result = await securePlace(group[0][0], group[0][1], coordsFlat, colorsArr, 20000); status = Number((result as any)?.status || 0); } catch {}
       }
-      
       if (!running || formatErrorDetected) break;
-      
       if (status === 429) {
         return placed;
       }
-      
-      if (status === 401 || status === 403) {
-        clearBmRequestContext();
-        try {
-          const retry = await bmPlaceWithIntercept(group[0][0], group[0][1], coordsFlat, colorsArr, 15000);
-          const st = Number((retry as any)?.status || 0);
-          if (st >= 200 && st < 300) {
-            status = st;
-          } else {
-            break;
-          }
-        } catch {
-          break;
+      if (status === 451) {
+        const now = Date.now();
+        legalBlockUntil = Math.max(legalBlockUntil, now + legalBlockCooldownMs);
+        if (now >= legalNoticeCooldownUntil) {
+          legalNoticeCooldownUntil = now + 60000;
+          try { showCenterNotice(`${t('automode.legalBlock.title')}` + '\n' + t('automode.legalBlock.body'), 4000); } catch {}
+          try { window.postMessage({ source: 'wplace-svelte', action: 'auto:legalBlock', until: legalBlockUntil }, '*'); } catch {}
         }
+        return placed;
       }
-      
+
       if (status >= 200 && status < 300) {
         const cfgNow = getAutoConfig() as any;
         if (cfgNow?.sendEffectEnabled && sendBatch.length) {
           playSendOrbitalEffect(sendBatch);
         }
         try {
-          const freshCharges = await fetchCharges();
-          if (freshCharges) {
-            remaining = Math.floor(Number(freshCharges.count) || 0);
-          } else {
-            remaining -= take;
+          let got: any = null;
+          for (let tr = 0; tr < 3; tr++) {
+            const fc = await fetchCharges();
+            if (fc && Number.isFinite(fc.count)) { got = fc; break; }
+            await new Promise(r => setTimeout(r, 300 + tr * 200));
           }
+          if (got) {
+            remaining = Math.floor(Number(got.count) || 0);
+            try { window.postMessage({ source: 'wplace-svelte', action: 'charges:update', charges: { count: Math.floor(Number(got.count)||0), max: Math.floor(Number(got.max)||0) } }, '*'); } catch {}
+          }
+          else { remaining -= take; }
         } catch {
           remaining -= take;
         }
@@ -736,6 +743,14 @@ let masterToButton: (number | null)[] | null = null;
 const buttonCache = new Map<string, number>();
 const buttonRgbCache = new Map<number, SendEffectColor>();
 
+let lastAutoBuyKind = '';
+let lastAutoBuyTs = 0;
+let autoBuyInFlight = false;
+const autoBuyCooldownMs = 60000;
+const legalBlockCooldownMs = 5 * 60 * 1000;
+let legalBlockUntil = 0;
+let legalNoticeCooldownUntil = 0;
+
 function shuffle<T>(a: T[]) {
   for (let i = a.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
@@ -761,11 +776,94 @@ function sleepInterruptible(ms: number): Promise<boolean> {
   });
 }
 
+async function maybeAutoBuy(profile: any): Promise<any> {
+  try {
+    if (autoBuyInFlight) return null;
+    const cfg = getAutoConfig();
+    if (!cfg?.autoBuyPlus30 && !cfg?.autoBuyPlus5Max) return null;
+    const dropletsRaw = profile && profile.droplets;
+    const droplets = Number(dropletsRaw || 0);
+    if (!Number.isFinite(droplets) || droplets <= 500) return null;
+    let kind = '';
+    let productId = 0;
+    if (cfg.autoBuyPlus30) {
+      kind = 'plus30';
+      productId = 80;
+    } else if (cfg.autoBuyPlus5Max) {
+      kind = 'plus5';
+      productId = 70;
+    }
+    if (!kind || !productId) return null;
+    if (kind === lastAutoBuyKind && (Date.now() - lastAutoBuyTs) < autoBuyCooldownMs) return null;
+    autoBuyInFlight = true;
+    try {
+      const res = await fetch('https://backend.wplace.live/purchase', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ product: { id: productId, amount: 1 } })
+      });
+      const raw = res ? await res.text() : '';
+      let payload: any = null;
+      if (raw) {
+        try { payload = JSON.parse(raw); } catch {}
+      }
+      const success = res && res.ok && !(payload && (payload.error || payload.success === false || payload.status === 'error'));
+      if (success) {
+        lastAutoBuyKind = kind;
+        lastAutoBuyTs = Date.now();
+        const message = kind === 'plus30' ? t('settings.autobuy.toast.plus30') : t('settings.autobuy.toast.plus5');
+        try { window.postMessage({ source: 'wplace-svelte', action: 'autobuy:success', message, kind }, '*'); } catch {}
+        try {
+          const confirm = await fetch('https://backend.wplace.live/me', { credentials: 'include' });
+          if (confirm && confirm.ok) {
+            return await confirm.json();
+          }
+        } catch {}
+      } else {
+        lastAutoBuyTs = Date.now();
+        const errors: string[] = [];
+        if (payload) {
+          const errFields = [payload.error, payload.message, payload.reason, payload.detail, payload.statusText];
+          errFields.forEach((val) => {
+            if (typeof val === 'string') {
+              const trimmed = val.trim();
+              if (trimmed && !errors.includes(trimmed)) errors.push(trimmed);
+            }
+          });
+          if (Array.isArray(payload.errors)) {
+            payload.errors.forEach((val: any) => {
+              if (typeof val === 'string') {
+                const trimmed = val.trim();
+                if (trimmed && !errors.includes(trimmed)) errors.push(trimmed);
+              }
+              if (val && typeof val.message === 'string') {
+                const trimmed = val.message.trim();
+                if (trimmed && !errors.includes(trimmed)) errors.push(trimmed);
+              }
+            });
+          }
+        }
+        const errMsg = errors.length ? errors.join('\n') : t('settings.autobuy.toast.error');
+        try { window.postMessage({ source: 'wplace-svelte', action: 'autobuy:error', message: errMsg, kind, payload }, '*'); } catch {}
+      }
+    } finally {
+      autoBuyInFlight = false;
+    }
+  } catch {
+    autoBuyInFlight = false;
+    try { window.postMessage({ source: 'wplace-svelte', action: 'autobuy:error', message: t('settings.autobuy.toast.error') }, '*'); } catch {}
+  }
+  return null;
+}
+
 async function fetchCharges(): Promise<{ count: number; max: number; rechargeTime: number } | null> {
   try {
     const res = await fetch('https://backend.wplace.live/me', { credentials: 'include' });
     if (!res.ok) return null;
-    const data = await res.json();
+    let data = await res.json();
+    const updated = await maybeAutoBuy(data);
+    if (updated) data = updated;
     const c = (data && data.charges) || {};
     return { count: Math.floor(Number(c.count) || 0), max: Math.floor(Number(c.max) || 0), rechargeTime: Math.floor(Number(c.rechargeTime) || 0) };
   } catch { return null; }
@@ -883,6 +981,17 @@ async function runAutoLoop() {
           const toWait = Math.max(0, nextCycleAt - nowGate);
           const cont = await sleepInterruptible(toWait);
           if (!cont || !running) break;
+        }
+      } catch {}
+
+      try {
+        const nowLegal = Date.now();
+        if (nowLegal < legalBlockUntil) {
+          const waitLegal = Math.max(1000, legalBlockUntil - nowLegal);
+          nextCycleAt = Math.max(nextCycleAt, nowLegal + waitLegal);
+          const contLegal = await sleepInterruptible(waitLegal);
+          if (!contLegal || !running) break;
+          continue;
         }
       } catch {}
       

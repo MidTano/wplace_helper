@@ -1,7 +1,5 @@
 import { getSelectedFile, setSelectedFile, getOriginCoords, setOriginCoords, rebuildStencilFromState, setMoveMode, setCurrentHistoryId } from '../overlay/state';
-import { log } from '../overlay/log';
-import { getPersistentItem, setPersistentItem, removePersistentItem } from '../wguard/stealth/store';
-import { sendChannel } from '../wguard/core/channel';
+import { getPersistentItem, setPersistentItem } from '../wguard/stealth/store';
 import { markElement } from '../wguard';
 import { uploadToCatbox, fileNameFromUrl } from '../utils/catbox';
 import { uploadToUguu } from '../utils/uguu';
@@ -20,6 +18,51 @@ const LS_CLIPBOARD = 'wguard:clipboard';
 function scheduleReload(delay = 650) {
   try { setTimeout(() => { try { location.reload(); } catch {} }, Math.max(0, delay)); } catch {}
   try { setTimeout(() => { try { (window as any).location && (window as any).location.assign && (window as any).location.assign((window as any).location.href); } catch {} try { history.go(0); } catch {} }, Math.max(200, delay + 1200)); } catch {}
+}
+
+export async function buildShareFromCurrent(): Promise<{ payload: any; firstUrl?: string }> {
+  const origin = getOriginCoords();
+  const cam = readLocation();
+  const file = getSelectedFile();
+  const urls: string[] = [];
+  let name = '';
+  if (file) {
+    const filename = (file as any).name || 'image.png';
+    const uploadPromises = [
+      uploadToCatbox(file as Blob, filename).catch(() => ''),
+      uploadToUguu(file as Blob, filename).catch(() => ''),
+      uploadToQuax(file as Blob, filename).catch(() => '')
+    ];
+    const results = await Promise.all(uploadPromises);
+    const seen = new Set<string>();
+    for (const u of results) {
+      if (u && /^https?:\/\//i.test(u) && !seen.has(u)) {
+        urls.push(u);
+        seen.add(u);
+      }
+      if (urls.length >= 3) break;
+    }
+    if (urls.length > 0) {
+      name = fileNameFromUrl(urls[0]);
+    }
+  }
+  if (urls.length > 0) {
+    try {
+      const b = await downloadBlob(urls[0]);
+      if (b) { await ensureImageDecoded(b); }
+      const size = b ? (b.size | 0) : 0;
+      const sha = b ? await sha256Hex(b) : '';
+      const payload: any = { type: 'wplace_share_v1', ts: Date.now() };
+      payload.img = { urls, name, size, sha256: sha };
+      if (origin && origin.length >= 4) payload.origin = [origin[0]|0, origin[1]|0, origin[2]|0, origin[3]|0];
+      if (cam) payload.camera = cam;
+      return { payload, firstUrl: urls[0] };
+    } catch {}
+  }
+  const payload: any = { type: 'wplace_share_v1', ts: Date.now() };
+  if (origin && origin.length >= 4) payload.origin = [origin[0]|0, origin[1]|0, origin[2]|0, origin[3]|0];
+  if (cam) payload.camera = cam;
+  return { payload };
 }
 
 function readLocation(): Cam | null {
@@ -95,8 +138,16 @@ async function doCopy() {
       uploadToQuax(file as Blob, filename).catch((e) => { console.warn('[Upload] qu.ax failed:', e); return ''; })
     ];
     const results = await Promise.all(uploadPromises);
-    results.forEach(r => serviceResults.push(!!r && /^https?:\/\//i.test(r)));
-    urls.push(...results.filter(u => u && /^https?:\/\//i.test(u)));
+    const seen = new Set<string>();
+    results.forEach(r => {
+      const ok = !!r && /^https?:\/\//i.test(r);
+      serviceResults.push(ok);
+      if (ok && !seen.has(r)) {
+        urls.push(r);
+        seen.add(r);
+      }
+    });
+    if (urls.length > 3) urls.splice(3);
     if (urls.length > 0) {
       name = fileNameFromUrl(urls[0]);
     }
@@ -135,13 +186,23 @@ async function doCopy() {
 ${t('share.toast.copied')}`, 4400, urls[0] || undefined);
 }
 
-async function doPaste() {
-  const job = ++pasteJobId;
-  const raw = await readClipboard();
-  let p: any = null;
-  try { p = JSON.parse(raw); } catch {}
-  if (!p) { try { p = extractSharedJson(raw); } catch {} }
-  if (!p || p.type !== 'wplace_share_v1') return;
+export function parseShareText(raw: string): any {
+  let payload: any = null;
+  try { payload = JSON.parse(raw); } catch {}
+  if (!payload) {
+    try { payload = extractSharedJson(raw); } catch {}
+  }
+  if (!payload || payload.type !== 'wplace_share_v1') return null;
+  return payload;
+}
+
+function isPasteJobActive(job?: number): boolean {
+  return typeof job !== 'number' || job === pasteJobId;
+}
+
+export async function applySharePayload(p: any, options: { job?: number; skipReload?: boolean } = {}): Promise<boolean> {
+  if (!p || p.type !== 'wplace_share_v1') return false;
+  const job = options.job;
   const imgData = p.img;
   if (imgData) {
     const urlsToTry: string[] = [];
@@ -153,7 +214,9 @@ async function doPaste() {
     const expectedSha = (imgData && typeof imgData.sha256 === 'string') ? String(imgData.sha256) : '';
     const expectedSize = (imgData && typeof imgData.size === 'number') ? (imgData.size|0) : 0;
     let b: Blob | null = null;
-    for (const baseUrl of urlsToTry) {
+    try { if (imgData && imgData.blob && typeof (imgData.blob as any).size === 'number') b = imgData.blob as Blob; } catch {}
+    for (const baseUrl of urlsToTry.slice(0, 3)) {
+      if (b) break;
       for (let i = 0; i < 3; i++) {
         const u = i === 0 ? baseUrl : `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}r=${Date.now()}`;
         b = await downloadBlob(u);
@@ -166,11 +229,12 @@ async function doPaste() {
         break;
       }
       if (b) break;
+      if (!isPasteJobActive(job)) return false;
     }
     if (b) {
       try {
         await ensureImageDecoded(b);
-        if (job !== pasteJobId) return;
+        if (!isPasteJobActive(job)) return false;
         const f = new File([b], String(imgData.name || 'image.png'), { type: b.type || 'image/png' });
         setSelectedFile(f);
         try {
@@ -184,9 +248,10 @@ async function doPaste() {
           try { setCurrentHistoryId(meta?.id || null); } catch {}
         } catch {}
       }
+      if (!isPasteJobActive(job)) return false;
     } else {
       showCenterNotice(t('share.toast.error'));
-      return;
+      return false;
     }
   }
   if (Array.isArray(p.origin) && p.origin.length >= 4) {
@@ -196,9 +261,27 @@ async function doPaste() {
   try { setMoveMode(true); } catch {}
   showCenterNotice(t('share.toast.ready'));
   if (p.camera && typeof p.camera.lng === 'number' && typeof p.camera.lat === 'number') {
-    writeLocation({ lng: Number(p.camera.lng), lat: Number(p.camera.lat), zoom: Number(p.camera.zoom||14) });
-    scheduleReload(650);
+    const lng = Number(p.camera.lng);
+    const lat = Number(p.camera.lat);
+    const zoom = Number(p.camera.zoom||14);
+    try {
+      const u = new URL('/', location.origin);
+      u.searchParams.set('lat', String(lat));
+      u.searchParams.set('lng', String(lng));
+      u.searchParams.set('zoom', String(zoom));
+      location.assign(u.toString());
+      return true;
+    } catch {}
   }
+  return true;
+}
+
+async function doPaste() {
+  const job = ++pasteJobId;
+  const raw = await readClipboard();
+  const payload = parseShareText(raw);
+  if (!payload) return;
+  await applySharePayload(payload, { job });
 }
 
 function buildShareText(p: any): string {

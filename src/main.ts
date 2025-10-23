@@ -5,6 +5,7 @@ import { registerAltCV } from './share/altcv';
 import { bootstrapWGuard, markElement } from './wguard';
 import './styles/wph-shared.css';
 import { setupPerfObserver, perfMark } from './utils/perf';
+import { initQrReader } from './qrmusic/reader';
 
 const __isTop = (() => { try { return window.top === window; } catch { return true; } })();
 
@@ -126,6 +127,7 @@ async function mount() {
   const mountTarget = (() => { try { return (shadow as any) ? (shadow as any).appendChild(document.createElement('div')) : container; } catch { return container; } })();
   try { if (mountTarget !== container) markElement(mountTarget as any); } catch {}
   new App({ target: mountTarget as HTMLElement });
+  try { initQrReader(); } catch {}
   perfMark('mount:end');
 }
 

@@ -9,10 +9,13 @@
   import MoveToggle from './MoveToggle.svelte';
   import EnhancedColors from './EnhancedColors.svelte';
   import AutoMode from './AutoMode.svelte';
+  import QrMusic from './QrMusic.svelte';
   import Settings from './Settings.svelte';
   import Discord from './Discord.svelte';
   import Close from './Close.svelte';
   import LoadBar from './LoadBar.svelte';
+  import ChargeToast from './ChargeToast.svelte';
+  import Gallery from './Gallery.svelte';
   import { t, lang } from '../i18n';
   const dispatch = createEventDispatcher();
   let collapsed = false;
@@ -30,7 +33,6 @@
       }, 50);
     }, 280);
   }
-  
   function handleExpand(){ 
     collapsed = false;
     peekVisible = false;
@@ -67,6 +69,7 @@
         </svg>
       </button>
         <CopyArt on:copy={(e)=>dispatch('copyArt')}/>
+        <Gallery on:open={()=>dispatch('galleryOpen')}/>
         <History on:load={(e)=>dispatch('historyLoad', e.detail)} />
       </div>
 
@@ -74,6 +77,7 @@
       <div class="tm-group drip" style="--drip-delay: 80ms" aria-label={t('topmenu.group.tools')}>
       <EnhancedColors />
       <AutoMode />
+      <QrMusic />
       </div>
 
     
@@ -92,7 +96,10 @@
       <Close on:collapse={handleCollapse} />
       </div>
     </div>
-    <LoadBar inline={true} />
+    <div class="loadbar-slot">
+      <LoadBar inline={true} />
+      <ChargeToast />
+    </div>
   </div>
   {#if collapsed && peekVisible}
     <button type="button" class="topmenu-peek" class:animate={peekAnimate} aria-label={t('topmenu.toolbar')} on:click={handleExpand}></button>
@@ -124,6 +131,16 @@
     will-change: transform;
     transition: transform .28s cubic-bezier(.4,0,.2,1);
     overflow: visible;
+  }
+  .loadbar-slot {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    overflow: visible;
+  }
+  .loadbar-slot :global(.loadbar-inline) {
+    width: 100%;
   }
   .topmenu-bar.collapsed { transform: translateY(calc(-100% - 60px)); }
   .tm-row {

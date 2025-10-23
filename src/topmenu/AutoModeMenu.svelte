@@ -11,6 +11,7 @@
   export let y = 0;
 
   let items = [];
+  let sortMode = 'count';
   let menuEl;
   let posX = 0;
   let posY = 0;
@@ -257,9 +258,10 @@
         available: isFreeByRgb(c.rgb),
         checked: false,
       }));
-      const filtered = base.filter(it => it.count > 0);
+      let filtered = base.filter(it => it.count > 0);
       if (allowed.size > 0) filtered.forEach(it => { it.checked = it.available && allowed.has(it.idx); });
       else filtered.forEach(it => { it.checked = it.available; });
+      filtered = applySort(filtered);
       items = filtered;
     } catch {
       items = [];
@@ -268,7 +270,6 @@
 
   onMount(() => {
     if (open) { loadCounts(); updatePosition(); }
-    
     try { window.addEventListener('resize', updatePosition); } catch {}
     return () => { try { window.removeEventListener('resize', updatePosition); } catch {} };
   });
@@ -305,6 +306,24 @@
   function selectAll() { items = items.map(i => ({ ...i, checked: i.available })); persist(); }
   function clearAll() { items = items.map(i => ({ ...i, checked: false })); persist(); }
   function toggleItem(it) { if (!it.available) return; it.checked = !it.checked; items = [...items]; persist(); }
+  function applySort(list) {
+    try {
+      if (sortMode === 'id') {
+        return [...list].sort((a, b) => a.idx - b.idx);
+      }
+      return [...list].sort((a, b) => {
+        const ca = Number(a.count) || 0;
+        const cb = Number(b.count) || 0;
+        if (cb !== ca) return cb - ca;
+        return a.idx - b.idx;
+      });
+    } catch { return [...list]; }
+  }
+  function toggleSort() {
+    sortMode = sortMode === 'count' ? 'id' : 'count';
+    items = applySort(items);
+  }
+  $: sortedTitle = sortMode === 'count' ? t('automenu.sort.count') : t('automenu.sort.id');
 
   async function ensurePaletteOpen() {
     try {
@@ -355,6 +374,14 @@
           <button class="chip" type="button" on:click={selectAll}>{t('automenu.selectAll')}</button>
           <button class="chip" type="button" on:click={clearAll}>{t('automenu.clearAll')}</button>
         </div>
+        <button class="chip sort" type="button" aria-pressed={sortMode === 'count'} on:click={toggleSort} title={sortedTitle}>
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="16" height="16" fill="currentColor">
+              <path d="M18,28H14a2,2,0,0,1-2-2V18.41L4.59,11A2,2,0,0,1,4,9.59V6A2,2,0,0,1,6,4H26a2,2,0,0,1,2,2V9.59A2,2,0,0,1,27.41,11L20,18.41V26A2,2,0,0,1,18,28ZM6,6V9.59l8,8V26h4V17.59l8-8V6Z"/>
+            </svg>
+          </span>
+          <span class="label">{sortMode === 'count' ? t('automenu.sort.countLabel') : t('automenu.sort.idLabel')}</span>
+        </button>
       </div>
     {/if}
     <div class="amenu-list">
@@ -408,10 +435,12 @@
     overflow: hidden;
     backdrop-filter: blur(6px);
   }
-  .amenu-header { display: flex; align-items: center; justify-content: flex-start; gap: 6px; padding: 8px 8px 6px; border-bottom: 1px solid var(--wph-border, rgba(255,255,255,0.08)); }
-  .actions { display: flex; gap: 6px; }
-  .chip { font-size: 12px; line-height: 1.2; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--wph-border, rgba(255,255,255,0.14)); background: var(--wph-surface, rgba(255,255,255,0.06)); color: var(--wph-text, #fff); cursor: pointer; }
+  .amenu-header { display: flex; align-items: center; justify-content: flex-start; gap: 6px; padding: 8px 60px 6px 8px; border-bottom: 1px solid var(--wph-border, rgba(255,255,255,0.08)); }
+  .actions { display: flex; gap: 6px; flex: 0 0 auto; }
+  .chip { font-size: 12px; line-height: 1.2; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--wph-border, rgba(255,255,255,0.14)); background: var(--wph-surface, rgba(255,255,255,0.06)); color: var(--wph-text, #fff); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .chip:hover { background: var(--wph-surface2, rgba(255,255,255,0.1)); }
+  .chip.sort { flex: 0 0 auto; margin-left: auto; margin-right: 32px; }
+  .chip.sort .icon { display: inline-flex; }
   .amenu-list { padding: 8px 8px; max-height: 42vh; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--wph-border, rgba(255,255,255,0.35)) var(--wph-surface, rgba(255,255,255,0.08)); }
   :global(.amenu-list::-webkit-scrollbar) { width: 8px; height: 8px; }
   :global(.amenu-list::-webkit-scrollbar-track) { background: var(--wph-surface, rgba(255,255,255,0.08)); border-radius: 8px; }

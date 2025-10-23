@@ -150,6 +150,325 @@ function installPageFetchInjection() {
     let __bm_ignoreProtection = false;
     let __bm_maskActive = false;
 
+    let __secure_fp = '';
+    function __randStr(len = 32, chars = 'abcdefghijklmnopqrstuvwxyz0123456789') {
+      let s = '';
+      const u = (crypto && 'getRandomValues' in crypto) ? crypto.getRandomValues(new Uint32Array(len)) : null;
+      for (let i = 0; i < len; i++) {
+        const r = u ? u[i] % chars.length : Math.floor(Math.random() * chars.length);
+        s += chars[r];
+      }
+      return s;
+    }
+    if (!__secure_fp) __secure_fp = __randStr(32);
+    let __secure_token = '';
+    let __secure_token_expire = 0;
+    let __secure_token_lock = false;
+    const __secure_token_ttl = 240000;
+    let __visible_widget_id: any = null;
+    function __captureTokenFromBody(body: any) {
+      try {
+        const o = JSON.parse(String(body || '{}'));
+        const t = o && o.t;
+        if (t && typeof t === 'string' && t.length > 20) {
+          __secure_token = t;
+          __secure_token_expire = Date.now() + __secure_token_ttl;
+        }
+      } catch {}
+    }
+    function __ensureContainer(id: string) {
+      let el = document.getElementById(id);
+      if (el && document.body.contains(el)) return el;
+      el = document.createElement('div');
+      el.id = id;
+      document.body.appendChild(el);
+      return el;
+    }
+    async function __loadTurnstile() {
+      if ((window as any).turnstile) return true;
+      const exists = document.querySelector('script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]');
+      if (!exists) {
+        const script = document.createElement('script');
+        (script as any).dataset.wguard = 'WGuard';
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+      const start = Date.now();
+      while (!(window as any).turnstile && Date.now() - start < 15000) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      return !!(window as any).turnstile;
+    }
+    async function __detectSitekey() {
+      try {
+        const n1 = document.querySelector('[data-sitekey]') as HTMLElement | null;
+        if (n1) {
+          const v = n1.getAttribute('data-sitekey');
+          if (v && v.length > 10) return v;
+        }
+      } catch {}
+      try {
+        const el = document.querySelector('.cf-turnstile') as HTMLElement | null;
+        const v = (el && (el as any).dataset && (el as any).dataset.sitekey) || '';
+        if (v && v.length > 10) return v;
+      } catch {}
+      try {
+        const metas = Array.from(document.querySelectorAll('meta[name*="turnstile"], meta[property*="turnstile"]')) as HTMLMetaElement[];
+        for (const m of metas) {
+          const v = m.getAttribute('content') || '';
+          if (v && v.length > 10) return v;
+        }
+      } catch {}
+      try {
+        const v = (window as any).__TURNSTILE_SITEKEY;
+        if (typeof v === 'string' && v.length > 10) return v;
+      } catch {}
+      try {
+        const scripts = Array.from(document.querySelectorAll('script')) as HTMLScriptElement[];
+        for (const s of scripts) {
+          const content = s.textContent || s.innerHTML || '';
+          const m = content.match(/(?:sitekey|data-sitekey)['"\s\[\]:=\(]*['"]?([0-9a-zA-Z_-]{20,})['"]?/i);
+          if (m && m[1]) return m[1].replace(/['"]/g, '');
+        }
+      } catch {}
+      const list = ['0x4AAAAAABpqJe8FO0N84q0F','0x4AAAAAAAJ7xjKAp6Mt_7zw','0x4AAAAAADm5QWx6Ov2LNF2g'];
+      for (const v of list) if (v && v.length > 10) return v;
+      return '0x4AAAAAABpqJe8FO0N84q0F';
+    }
+    async function __executeTurnstile(sitekey: string, action = 'paint') {
+      const ok = await __loadTurnstile();
+      if (!ok) return null;
+      const ts: any = (window as any).turnstile;
+      let token: any = null;
+      try { } catch {}
+      try {
+        const overlay = __ensureContainer('turnstile-overlay-container');
+        try {
+          if (__visible_widget_id && ts && ts.remove) { ts.remove(__visible_widget_id); }
+        } catch {}
+        overlay.innerHTML = '';
+        try { overlay.style.position = 'fixed'; } catch {}
+        try { overlay.style.left = '50%'; } catch {}
+        try { overlay.style.transform = 'translateX(-50%)'; } catch {}
+        try { overlay.style.bottom = '124px'; } catch {}
+        try { overlay.style.zIndex = '2147483646'; } catch {}
+        try { overlay.style.padding = '0'; } catch {}
+        try { overlay.style.background = 'transparent'; } catch {}
+        try { overlay.style.border = 'none'; } catch {}
+        try { overlay.style.borderRadius = '0'; } catch {}
+        try { overlay.style.boxShadow = 'none'; } catch {}
+        try { overlay.style.width = 'auto'; } catch {}
+        try { overlay.style.height = 'auto'; } catch {}
+        try { overlay.style.overflow = 'visible'; } catch {}
+        try { overlay.style.pointerEvents = 'auto'; } catch {}
+        let hideStyle = document.getElementById('turnstile-hide-others') as HTMLStyleElement | null;
+        if (!hideStyle) {
+          hideStyle = document.createElement('style');
+          (hideStyle as any).dataset.wguard = 'WGuard';
+          hideStyle.id = 'turnstile-hide-others';
+          hideStyle.textContent = '.cf-turnstile{display:none!important;}#turnstile-overlay-container .cf-turnstile{display:block!important;}';
+          try { document.head.appendChild(hideStyle); } catch {}
+        }
+        const panel = document.createElement('div');
+        (panel as any).dataset.wguard = 'WGuard';
+        try { panel.style.display = 'inline-flex'; } catch {}
+        try { panel.style.alignItems = 'center'; } catch {}
+        try { panel.style.justifyContent = 'center'; } catch {}
+        try { panel.style.padding = '0'; } catch {}
+        try { panel.style.background = 'transparent'; } catch {}
+        try { panel.style.border = 'none'; } catch {}
+        try { panel.style.borderRadius = '0'; } catch {}
+        try { panel.style.boxShadow = 'none'; } catch {}
+        try { panel.style.maxWidth = '92vw'; } catch {}
+        try { panel.style.maxHeight = '60vh'; } catch {}
+        try { panel.style.overflow = 'visible'; } catch {}
+        overlay.appendChild(panel);
+
+        const host2 = document.createElement('div');
+        (host2 as any).dataset.wguard = 'WGuard';
+        try { host2.style.width = 'auto'; } catch {}
+        try { host2.style.height = 'auto'; } catch {}
+        try { host2.style.minWidth = '800px'; } catch {}
+        try { host2.style.minHeight = '110px'; } catch {}
+        try { host2.style.maxWidth = '95vw'; } catch {}
+        try { host2.style.maxHeight = '60vh'; } catch {}
+        try { host2.style.boxSizing = 'border-box'; } catch {}
+        try { host2.style.overflow = 'visible'; } catch {}
+        try { host2.style.display = 'flex'; } catch {}
+        try { host2.style.alignItems = 'center'; } catch {}
+        try { host2.style.justifyContent = 'center'; } catch {}
+        try { host2.style.padding = '0'; } catch {}
+        try { host2.style.margin = '0'; } catch {}
+        try { (host2.style as any).gap = '0'; } catch {}
+        try { host2.style.lineHeight = 'normal'; } catch {}
+        try { host2.style.borderRadius = '0'; } catch {}
+        try { host2.style.boxShadow = 'none'; } catch {}
+        try { host2.style.background = 'transparent'; } catch {}
+        try { host2.style.width = '100%'; } catch {}
+        panel.appendChild(host2);
+        await new Promise<void>((resolve) => {
+          const to = setTimeout(() => { resolve(); }, 60000);
+          try {
+            __visible_widget_id = (window as any).turnstile.render(host2, { sitekey, action, size: 'flexible', theme: 'auto', callback: (t: any) => { token = t; clearTimeout(to); resolve(); } });
+            if (!__visible_widget_id) { clearTimeout(to); resolve(); }
+          } catch { resolve(); }
+        });
+        try {
+          if (typeof token === 'string' && token.length > 20) {
+            try { if (__visible_widget_id && ts && ts.remove) { ts.remove(__visible_widget_id); } } catch {}
+            try { overlay.innerHTML = ''; } catch {}
+            try { overlay.style.display = 'none'; } catch {}
+            try { const hs = document.getElementById('turnstile-hide-others'); if (hs && hs.parentNode) hs.parentNode.removeChild(hs); } catch {}
+          } else {
+            try { if (__visible_widget_id && ts && ts.remove) { ts.remove(__visible_widget_id); } } catch {}
+            overlay.innerHTML = '';
+            const panel2 = document.createElement('div');
+            (panel2 as any).dataset.wguard = 'WGuard';
+            try { panel2.style.display = 'inline-flex'; } catch {}
+            try { panel2.style.alignItems = 'center'; } catch {}
+            try { panel2.style.justifyContent = 'center'; } catch {}
+            try { panel2.style.padding = '0'; } catch {}
+            try { panel2.style.background = 'transparent'; } catch {}
+            try { panel2.style.border = 'none'; } catch {}
+            try { panel2.style.borderRadius = '0'; } catch {}
+            try { panel2.style.boxShadow = 'none'; } catch {}
+            try { panel2.style.maxWidth = '92vw'; } catch {}
+            try { panel2.style.maxHeight = '60vh'; } catch {}
+            try { panel2.style.overflow = 'visible'; } catch {}
+            overlay.appendChild(panel2);
+
+            const host3 = document.createElement('div');
+            (host3 as any).dataset.wguard = 'WGuard';
+            try { host3.style.width = 'auto'; } catch {}
+            try { host3.style.height = 'auto'; } catch {}
+            try { host3.style.minWidth = '800px'; } catch {}
+            try { host3.style.minHeight = '110px'; } catch {}
+            try { host3.style.maxWidth = '95vw'; } catch {}
+            try { host3.style.maxHeight = '60vh'; } catch {}
+            try { host3.style.boxSizing = 'border-box'; } catch {}
+            try { host3.style.display = 'flex'; } catch {}
+            try { host3.style.alignItems = 'center'; } catch {}
+            try { host3.style.justifyContent = 'center'; } catch {}
+            try { host3.style.padding = '0'; } catch {}
+            try { host3.style.margin = '0'; } catch {}
+            try { (host3.style as any).gap = '0'; } catch {}
+            try { host3.style.lineHeight = 'normal'; } catch {}
+            try { host3.style.borderRadius = '0'; } catch {}
+            try { host3.style.boxShadow = 'none'; } catch {}
+            try { host3.style.background = 'transparent'; } catch {}
+            try { host3.style.width = '100%'; } catch {}
+            panel2.appendChild(host3);
+            await new Promise<void>((resolve) => {
+              const to2 = setTimeout(() => { resolve(); }, 60000);
+              try {
+                __visible_widget_id = (window as any).turnstile.render(host3, { sitekey, action, size: 'flexible', theme: 'auto', callback: (t: any) => { token = t; clearTimeout(to2); resolve(); } });
+                if (!__visible_widget_id) { clearTimeout(to2); resolve(); }
+              } catch { resolve(); }
+            });
+            if (typeof token === 'string' && token.length > 20) {
+              try { if (__visible_widget_id && ts && ts.remove) { ts.remove(__visible_widget_id); } } catch {}
+              try { overlay.innerHTML = ''; } catch {}
+              try { overlay.style.display = 'none'; } catch {}
+              try { const hs2 = document.getElementById('turnstile-hide-others'); if (hs2 && hs2.parentNode) hs2.parentNode.removeChild(hs2); } catch {}
+            }
+          }
+        } catch {}
+      } catch {}
+      if (typeof token === 'string' && token.length > 20) return token;
+      return null;
+    }
+    async function __ensureToken(force = false) {
+      if (!force && __secure_token && Date.now() < __secure_token_expire) return __secure_token;
+      if (__secure_token_lock) {
+        await new Promise(r => setTimeout(r, 1000));
+        if (!force && __secure_token && Date.now() < __secure_token_expire) return __secure_token;
+      }
+      __secure_token_lock = true;
+      try {
+        const sitekey = await __detectSitekey();
+        const token = await __executeTurnstile(sitekey, 'paint');
+        if (token && token.length > 20) {
+          __secure_token = token;
+          __secure_token_expire = Date.now() + __secure_token_ttl;
+          return token;
+        }
+        return null;
+      } finally {
+        __secure_token_lock = false;
+      }
+    }
+    let __pawtect_chunk: string | null = null;
+    async function __findTokenModule(str: string) {
+      const links = Array.from(document.querySelectorAll('link[rel="modulepreload"][href$=".js"]')) as HTMLLinkElement[];
+      for (const link of links) {
+        try {
+          const url = new URL(link.getAttribute('href') || '', location.origin).href;
+          const code = await fetch(url).then(r => r.text());
+          if (code.includes(str)) return url.split('/').pop() || null;
+        } catch {}
+      }
+      return null;
+    }
+    async function __createWasmToken(tileX: number, tileY: number, payload: any) {
+      if (!__pawtect_chunk) __pawtect_chunk = await __findTokenModule('pawtect_wasm_bg.wasm');
+      if (!__pawtect_chunk) return null;
+      let mod: any;
+      try {
+        mod = await import(new URL('/_app/immutable/chunks/' + __pawtect_chunk, location.origin).href);
+      } catch {
+        return null;
+      }
+      let wasm: any;
+      try {
+        wasm = await mod._();
+      } catch {
+        return null;
+      }
+      try {
+        try {
+          const me = await (window as any).__wplace_rawFetch('https://backend.wplace.live/me', { credentials: 'include' }).then((r: any) => r && r.ok ? r.json() : null);
+          if (me && me.id && mod.i) mod.i(me.id);
+        } catch {}
+        try {
+          const url = 'https://backend.wplace.live/s0/pixel/' + String(tileX || 0) + '/' + String(tileY || 0);
+          if (mod.r) mod.r(url);
+        } catch {}
+      } catch {}
+      const enc = new TextEncoder();
+      const dec = new TextDecoder();
+      const bodyStr = JSON.stringify(payload);
+      const bytes = enc.encode(bodyStr);
+      let inPtr: any;
+      try {
+        if (!wasm.__wbindgen_malloc) return null;
+        inPtr = wasm.__wbindgen_malloc(bytes.length, 1);
+        const buf = new Uint8Array(wasm.memory.buffer, inPtr, bytes.length);
+        buf.set(bytes);
+      } catch {
+        return null;
+      }
+      let outPtr: any, outLen: any, token: any;
+      try {
+        const result = wasm.get_pawtected_endpoint_payload(inPtr, bytes.length);
+        if (Array.isArray(result) && result.length === 2) {
+          outPtr = result[0];
+          outLen = result[1];
+          const out = new Uint8Array(wasm.memory.buffer, outPtr, outLen);
+          token = dec.decode(out);
+        } else {
+          return null;
+        }
+      } catch {
+        return null;
+      } finally {
+        try { if (wasm.__wbindgen_free && outPtr && outLen) wasm.__wbindgen_free(outPtr, outLen, 1); } catch {}
+        try { if (wasm.__wbindgen_free && inPtr) wasm.__wbindgen_free(inPtr, bytes.length, 1); } catch {}
+      }
+      return token;
+    }
+
     function syncBypassFlag() {
       try {
         const raw = localStorage.getItem('wguard:auto-config');
@@ -255,6 +574,41 @@ function installPageFetchInjection() {
     window.addEventListener('message', (event) => {
       const data = readChannelPayload(event);
       if (!data) return;
+      if (data.action === 'secure:place' && typeof (data as any)?.chunkX === 'number' && typeof (data as any)?.chunkY === 'number' && Array.isArray((data as any)?.coords) && Array.isArray((data as any)?.colors)) {
+        (async () => {
+          try {
+            const t = await __ensureToken(false);
+            if (!t) { sendChannel({ action: 'secure:placed', ok: false, status: 0 }); return; }
+            const fp = __secure_fp || __randStr(32);
+            const coords = (data as any).coords.slice();
+            const colors = (data as any).colors.slice();
+            const cx = Number((data as any).chunkX) || 0;
+            const cy = Number((data as any).chunkY) || 0;
+            const payload = { coords, colors, t: t, fp } as any;
+            const xpt = await __createWasmToken(cx, cy, payload);
+            if (!xpt) { sendChannel({ action: 'secure:placed', ok: false, status: 0 }); return; }
+            const url = `https://backend.wplace.live/s0/pixel/${cx}/${cy}`;
+            let resp = await (window as any).__wplace_rawFetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8', 'x-pawtect-token': xpt }, credentials: 'include', body: JSON.stringify(payload) });
+            if (Number(resp?.status || 0) === 403) {
+              __secure_token = '';
+              __secure_token_expire = 0;
+              const t2 = await __ensureToken(true);
+              if (t2) {
+                const payload2 = { coords, colors, t: t2, fp } as any;
+                const xpt2 = await __createWasmToken(cx, cy, payload2);
+                if (xpt2) {
+                  resp = await (window as any).__wplace_rawFetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8', 'x-pawtect-token': xpt2 }, credentials: 'include', body: JSON.stringify(payload2) });
+                }
+              }
+            }
+            const st = Number(resp?.status || 0);
+            sendChannel({ action: 'secure:placed', ok: st >= 200 && st < 300, status: st });
+          } catch {
+            sendChannel({ action: 'secure:placed', ok: false, status: 0 });
+          }
+        })();
+        return;
+      }
       if (data.action === 'bm:setBypass') {
         const flag = (data as any).enabled;
         if (flag === 'sync') {
@@ -553,6 +907,11 @@ function installPageFetchInjection() {
         const url = args[0];
         const options = args[1] || {};
         const method = (options.method || 'GET').toUpperCase();
+        try {
+          if (method === 'POST' && typeof url === 'string' && /\/s0\/pixel\/[0-9]+\/[0-9]+(\b|\/|\?)/.test(url)) {
+            __captureTokenFromBody(options.body);
+          }
+        } catch {}
         
         if (__bm_interceptActive && method === 'POST' && typeof url === 'string' && /\/s0\/pixel\/[0-9]+\/[0-9]+(\b|\/|\?)/.test(url)) {
           try {
