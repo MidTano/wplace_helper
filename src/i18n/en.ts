@@ -91,6 +91,13 @@ export const en: Translations = {
   
   'screen.status.on': 'Screen: access granted',
   'screen.status.off': 'Screen: no access',
+  'screen.modal.dialogAria': 'Screen access request',
+  'screen.modal.title': 'Window/Screen access required',
+  'screen.modal.body': 'To improve overlay work, screen/window access may be required. Click “OK” and the browser will show a standard request. You can select a window/tab or click “Cancel”. The script will continue to work anyway.',
+  'screen.modal.requesting': 'Requesting…',
+  'screen.modal.errNoGetDisplayMedia': 'getDisplayMedia is not available in this browser',
+
+  'automode.alert.enableEnhanced': 'Enable “Enhanced Colors” to start auto mode.',
 
   
   'history.empty': 'Empty',

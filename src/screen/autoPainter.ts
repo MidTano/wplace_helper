@@ -8,8 +8,13 @@ import { showCenterNotice } from '../ui/centerNotice';
 import { getSelectedFile, getOriginCoords } from '../overlay/state';
 import { getPersistentItem, setPersistentItem, removePersistentItem } from '../wguard/stealth/store';
 import { normalizeChannelData, postChannelMessage } from '../wguard/core/channel';
+import { hasStream, ensureVideo, captureScreenSnapshot, snapshotToClient, showClickMarker } from './captureManager';
+import { log } from '../overlay/log';
 
 let formatErrorDetected = false;
+let enhancedNoticeActive = false;
+let enhancedNoticeTimer: number | null = null;
+let enhancedOverlayResetNeeded = false;
 
 function shouldBlockFormat(reason?: string): boolean {
   if (reason === 'bypass') {
@@ -657,9 +662,26 @@ export async function startAutoPainter(_intervalMs = 35000) {
   try {
     formatErrorDetected = false;
     try { getStencilManager().setAutoSelectedMasterIdx(null as any); } catch {}
+    try {
+      const sm = getStencilManager();
+      if (!sm || !sm.enhanced) {
+        if (!enhancedNoticeActive) {
+          enhancedNoticeActive = true;
+          try { showCenterNotice(t('automode.alert.enableEnhanced') || 'Включите «Улучшенные цвета»', 3200); } catch {}
+          try {
+            if (enhancedNoticeTimer) clearTimeout(enhancedNoticeTimer);
+            enhancedNoticeTimer = window.setTimeout(() => {
+              try { enhancedNoticeActive = false; } catch {}
+              try { enhancedNoticeTimer = null; } catch {}
+            }, 4000);
+          } catch {}
+        }
+        return false;
+      }
+    } catch {}
     
     running = true;
-    try {
+    try { 
       const cfg = getAutoConfig() as any;
       if (cfg && cfg.persistAutoRun) {
         setPersistentItem(LS_AUTORUN, JSON.stringify({ running: true, ts: Date.now() }));
@@ -776,6 +798,148 @@ function sleepInterruptible(ms: number): Promise<boolean> {
   });
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, Math.max(0, Number(ms) || 0)));
+}
+
+function isPaintOutDetected(): boolean {
+  try {
+    const el = document.querySelector('body > div:nth-child(1) > section > ol') as HTMLElement | null;
+    return !!el;
+  } catch { return false; }
+}
+
+async function clickCenterBottomButton(times = 1): Promise<boolean> {
+  const sels = [
+    'body > div:nth-child(1) > div.disable-pinch-zoom.relative.h-full.overflow-hidden.svelte-6wmtgk > div.absolute.bottom-0.left-0.z-50.w-full > div > div > div.relative.h-12.sm\\:h-14 > div.absolute.bottom-0.left-1\\/2.-translate-x-1\\/2 > button',
+    'div.absolute.bottom-0.left-0.z-50.w-full div.relative.h-12 div.absolute.bottom-0.left-1/2.-translate-x-1/2 > button',
+    'div.absolute.bottom-0.left-0 [class*="left-1/2"] button'
+  ];
+  let any = false;
+  for (let t = 0; t < Math.max(1, times); t++) {
+    for (const sel of sels) {
+      try {
+        const btn = document.querySelector(sel) as HTMLElement | null;
+        if (btn) {
+          if (typeof (btn as any).click === 'function') { (btn as any).click(); }
+          else { btn.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+          any = true;
+          await sleep(60);
+          break;
+        }
+      } catch {}
+    }
+  }
+  return any;
+}
+
+async function tryClickConfirmDialog(): Promise<boolean> {
+  try {
+    const dialog = document.querySelector('div[role="dialog"], [role="alertdialog"]') as HTMLElement | null;
+    if (!dialog) return false;
+    const btns = Array.from(dialog.querySelectorAll('button')) as HTMLButtonElement[];
+    let clicked = false;
+    for (const b of btns.reverse()) {
+      if (b && !b.disabled) { try { b.focus(); } catch {}; try { b.click(); } catch {}; clicked = true; break; }
+    }
+    await sleep(80);
+    return clicked;
+  } catch { return false; }
+}
+
+async function performPaintOutSend(): Promise<void> {
+  try { log('auto', 'paintOut:send:try'); } catch {}
+  let ok = false;
+  try { ok = await clickCenterBottomButton(2); } catch {}
+  if (!ok) { try { await tryClickConfirmDialog(); } catch {} }
+}
+
+async function onPaintOutWait(): Promise<void> {
+  try { await performPaintOutSend(); } catch {}
+  try { sendChannel({ action: 'reloadTiles' }); } catch {}
+  try {
+    const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
+    const tMs = Number.isFinite(cfgT) ? Math.round(cfgT * 1000) : 3000;
+    const total = Math.min(12000, Math.max(800, tMs + 800));
+    await waitForFirstTileTwice(total);
+  } catch {}
+  const cfg = getAutoConfig();
+  const secSeries = Number((cfg as any)?.seriesWaitSec);
+  const baseMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
+  const rmax = Math.max(0, Number((cfg as any)?.randomExtraWaitMaxSec || 0));
+  const rndSec = rmax > 0 ? (1 + Math.floor(Math.random() * Math.max(1, rmax))) : 0;
+  const waitMs = baseMs + rndSec * 1000;
+  try { log('auto', 'paintOut:wait', waitMs); } catch {}
+  try {
+    const sm = getStencilManager();
+    enhancedOverlayResetNeeded = !!sm?.enhanced;
+    try { sm?.setAutoSelectedMasterIdx?.(null as any); } catch {}
+  } catch {}
+  try { await sleepInterruptible(waitMs); } catch { await sleep(waitMs); }
+}
+
+async function ensureEditingMode(retries = 3): Promise<boolean> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const btns = await requestColorButtons(700);
+      if (btns && btns.length) return true;
+    } catch {}
+    try { sendChannel({ action: 'bm:triggerPaint' }); } catch {}
+    await sleep(300 + i * 150);
+  }
+  try {
+    const btns2 = await requestColorButtons(900);
+    if (btns2 && btns2.length) return true;
+  } catch {}
+  return false;
+}
+
+function waitForFirstTileTwice(totalTimeoutMs = 5000): Promise<boolean> {
+  return new Promise((resolve) => {
+    let done = false;
+    let firstKey: string | null = null;
+    let count = 0;
+    const cleanup = () => {
+      try { window.removeEventListener('message', onMsg as any); } catch {}
+      try { if (to) clearTimeout(to as any); } catch {}
+      try { if (raf != null) cancelAnimationFrame(raf); } catch {}
+    };
+    const keyOf = (d: any): string => {
+      try {
+        if (Array.isArray(d?.tileXY)) {
+          const x = Number(d.tileXY[0]);
+          const y = Number(d.tileXY[1]);
+          if (Number.isFinite(x) && Number.isFinite(y)) return `${x},${y}`;
+        }
+      } catch {}
+      return String(d?.endpoint || '');
+    };
+    const onMsg = (ev: MessageEvent) => {
+      const data = readChannelPayload(ev) as any;
+      if (!data) return;
+      if (data.action === 'tileUpdated') {
+        const k = keyOf(data);
+        if (!firstKey) { firstKey = k; count = 1; }
+        else if (k === firstKey) { count++; if (count >= 2 && !done) { done = true; cleanup(); resolve(true); } }
+      }
+    };
+    let raf: number | null = null;
+    const tick = () => {
+      if (!running && !done) { done = true; cleanup(); resolve(false); return; }
+      raf = requestAnimationFrame(tick);
+    };
+    try { window.addEventListener('message', onMsg as any); } catch {}
+    raf = requestAnimationFrame(tick);
+    const to = setTimeout(() => { if (!done) { done = true; cleanup(); resolve(false); } }, Math.max(400, totalTimeoutMs));
+  });
+}
+
+async function selectColor(buttonId: number): Promise<void> {
+  try { sendChannel({ action: 'selectColor', id: buttonId }); } catch {}
+  await sleep(20);
+  try { sendChannel({ action: 'reloadTiles' }); } catch {}
+}
+
 async function maybeAutoBuy(profile: any): Promise<any> {
   try {
     if (autoBuyInFlight) return null;
@@ -880,7 +1044,9 @@ async function requestColorButtons(timeoutMs = 800): Promise<ColorButton[]> {
         if (!data) return;
         if (data.action === 'colorButtons' && data.reqId === reqId) {
           window.removeEventListener('message', onMsg);
-          resolve(Array.isArray(data.buttons) ? data.buttons : []);
+          const arr = Array.isArray(data.buttons) ? data.buttons : [];
+          try { log('auto', 'colors:recv', arr.length); } catch {}
+          resolve(arr);
         }
       };
       window.addEventListener('message', onMsg);
@@ -916,7 +1082,7 @@ async function ensureColorMap() {
       buttonRgbCache.set(b.id, rgb);
     }
 
-    const available = colorButtons.filter(b => !b.paid && b.id > 0);
+    const available = colorButtons.filter(b => b && !b.paid && Number.isFinite(b.id) && b.id > 0);
     for (const b of available) {
       const key = `${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`;
       buttonCache.set(key, b.id);
@@ -924,7 +1090,7 @@ async function ensureColorMap() {
   }
   
   
-  const availableNow = (colorButtons || []).filter(b => !b.paid && b.id > 0);
+  const availableNow = (colorButtons || []).filter(b => b && !b.paid && Number.isFinite(b.id) && b.id > 0);
   if (!availableNow.length) { 
     masterToButton = MASTER_COLORS.map(() => null); 
     return; 
@@ -995,8 +1161,17 @@ async function runAutoLoop() {
         }
       } catch {}
       
+      try {
+        if (isPaintOutDetected()) {
+          try { sendChannel({ action: 'autoPaintCycleStart' }); } catch {}
+          try { sendChannel({ action: 'autoPaintCycleEnd' }); } catch {}
+          await onPaintOutWait();
+          continue;
+        }
+      } catch {}
+      
       const chunks = collectPendingChunksMulti();
-  
+
   if (!chunks || chunks.length === 0) {
         sendChannel({ action: 'autoPaintCycleStart' });
         sendChannel({ action: 'autoPaintCycleEnd' });
@@ -1015,12 +1190,14 @@ async function runAutoLoop() {
   if (!running) break;
   
   try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
-  
-  if (!isBmContextValid(10000)) {
-    await armBlueMarbleContext();
-  }
-  
-  await placeAllColorsDirect();
+  try {
+    if (enhancedOverlayResetNeeded) {
+      enhancedOverlayResetNeeded = false;
+      try { sendChannel({ action: 'reloadTiles' }); } catch {}
+      await sleep(160);
+    }
+  } catch {}
+  await placeViaUiLegacy();
   if (!running) break;
   
   try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
@@ -1036,4 +1213,183 @@ async function runAutoLoop() {
   if (!continued || !running) break;
     }
   } catch {}
+}
+
+async function placeViaUiLegacy(): Promise<boolean> {
+  try {
+    const sm = getStencilManager();
+    try { log('auto', 'legacy:start'); } catch {}
+    if (!sm.enhanced) { try { log('auto', 'legacy:enhanced=false'); } catch {} return false; }
+    if (!hasStream()) { try { log('auto', 'legacy:stream=false'); } catch {} return false; }
+    const ok = await ensureVideo();
+    try { log('auto', 'legacy:ensureVideo', ok); } catch {}
+    if (!ok) { try { log('auto', 'legacy:videoFailed'); } catch {} return false; }
+    await ensureColorMap();
+    try {
+      sendChannel({ action: 'reloadTiles' });
+      const cfgT0 = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
+      const tMs0 = Number.isFinite(cfgT0) ? Math.round(cfgT0 * 1000) : 3000;
+      const total0 = Math.min(12000, Math.max(800, tMs0 + 800));
+      await waitForFirstTileTwice(total0);
+    } catch {}
+    try { if (isPaintOutDetected()) { await onPaintOutWait(); return true; } } catch {}
+    const counts = (sm as any).getRemainingCountsTotal?.() as number[] | undefined;
+    try { log('auto', 'legacy:counts', Array.isArray(counts) ? counts.length : -1); } catch {}
+    const allowed = getAutoAllowedMasters();
+    let bestIdx = -1, bestC = -1;
+    const allowedSet = new Set((allowed || []).map(n => Number(n)));
+    if (Array.isArray(counts) && counts.length) {
+      for (let i = 0; i < counts.length; i++) {
+        if (allowedSet.size && !allowedSet.has(i)) continue;
+        const btnTest = mapMasterIndexToButton(i);
+        if (btnTest == null) continue;
+        const c = counts[i] | 0;
+        if (c > bestC) { bestC = c; bestIdx = i; }
+      }
+    }
+    try { log('auto', 'legacy:bestIdx', bestIdx, bestC); } catch {}
+    if (bestIdx < 0) { try { log('auto', 'legacy:noBestIdx'); } catch {} return false; }
+    const btnId = mapMasterIndexToButton(bestIdx);
+    try { log('auto', 'legacy:btnId', btnId); } catch {}
+    if (btnId == null || btnId < 0) { try { log('auto', 'legacy:noBtnId'); } catch {} return false; }
+    const editOk = await ensureEditingMode();
+    try { log('auto', 'legacy:editOk', editOk); } catch {}
+    if (!editOk) { try { log('auto', 'legacy:editFailed'); } catch {} return false; }
+    try { sm.setAutoSelectedMasterIdx(null as any); } catch {}
+    await sleep(160);
+    try { log('auto', 'legacy:selectColor', btnId); } catch {}
+    await selectColor(btnId);
+    try { sm.setAutoSelectedMasterIdx(bestIdx as any); } catch {}
+    try {
+      const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
+      const tMs = Number.isFinite(cfgT) ? Math.round(cfgT * 1000) : 3000;
+      const total = Math.min(12000, Math.max(800, 2 * tMs + 1000));
+      await waitForFirstTileTwice(total);
+      try { log('auto', 'legacy:tileUpdatedWaitDone', total); } catch {}
+    } catch {}
+    try {
+      const sSec = Number((getAutoConfig() as any)?.switchPreWaitSec);
+      await sleep(Number.isFinite(sSec) ? Math.max(0, Math.round(sSec * 1000)) : 0);
+    } catch {}
+    const snap = captureScreenSnapshot();
+    if (!snap) { try { log('auto', 'legacy:noSnapshot'); } catch {} return false; }
+    const vw = snap.width, vh = snap.height;
+    try { log('auto', 'legacy:snapshot', vw, vh); } catch {}
+    if (vw < 2 || vh < 2) { try { log('auto', 'legacy:badDims'); } catch {} return false; }
+    const cfg = getAutoConfig();
+    const step = 2;
+    const data = snap.data.data;
+    const thresh = Number((cfg as any)?.enhancedThresh) | 0;
+    const threshSq = thresh * thresh;
+    const exactMode = thresh <= 1;
+    const threshSqEff = exactMode ? 0 : threshSq;
+    const matchRGB: [number, number, number] = [0, 0, 240];
+    const minDist = Math.max(0, Number((cfg as any)?.minDist) | 0);
+    const cell = Math.max(1, minDist);
+    const grid = new Map<string, Array<[number, number]>>();
+    const keyOf = (x: number, y: number) => `${Math.floor(x / cell)},${Math.floor(y / cell)}`;
+    const ys: number[] = []; const xs: number[] = [];
+    const yStart = Math.floor(Math.random() * step);
+    const xStart = Math.floor(Math.random() * step);
+    for (let y = yStart; y < vh; y += step) ys.push(y);
+    for (let x = xStart; x < vw; x += step) xs.push(x);
+    for (let i = ys.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = ys[i]; ys[i] = ys[j]; ys[j] = t; }
+    for (let i = xs.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = xs[i]; xs[i] = xs[j]; xs[j] = t; }
+    const targets: Array<[number, number]> = [];
+    for (let yi = 0; yi < ys.length; yi++) {
+      if (!running) break;
+      const y = ys[yi];
+      const row = y * vw * 4;
+      for (let xi = 0; xi < xs.length; xi++) {
+        if (!running) break;
+        const x = xs[xi];
+        const i = row + x * 4;
+        const a = data[i + 3];
+        if (a < 200) continue;
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const dr = r - matchRGB[0], dg = g - matchRGB[1], db = b - matchRGB[2];
+        const d = dr*dr + dg*dg + db*db;
+        if (d > threshSqEff) continue;
+        let agree = 0, total = 0;
+        const offs = [ [0,0], [1,0], [-1,0], [0,1], [0,-1] ];
+        for (let oi = 0; oi < offs.length; oi++) {
+          const nx = x + (offs as any)[oi][0];
+          const ny = y + (offs as any)[oi][1];
+          if (nx < 0 || ny < 0 || nx >= vw || ny >= vh) continue;
+          const ni = (ny * vw + nx) * 4;
+          const na = data[ni + 3];
+          if (na < 200) continue;
+          const nr = data[ni], ng = data[ni + 1], nb = data[ni + 2];
+          const dr2 = nr - matchRGB[0], dg2 = ng - matchRGB[1], db2 = nb - matchRGB[2];
+          const dd = dr2*dr2 + dg2*dg2 + db2*db2;
+          total++;
+          if (dd <= threshSqEff) agree++;
+        }
+        const neighborsOk = agree >= 3;
+        if (!neighborsOk) continue;
+        let rx = x, ry = y;
+        try {
+          const R = 3;
+          let sumX = 0, sumY = 0, cnt = 0;
+          const y0 = Math.max(0, y - R);
+          const y1 = Math.min(vh - 1, y + R);
+          const x0 = Math.max(0, x - R);
+          const x1 = Math.min(vw - 1, x + R);
+          for (let ny = y0; ny <= y1; ny++) {
+            const row2 = ny * vw * 4;
+            for (let nx = x0; nx <= x1; nx++) {
+              const ii = row2 + nx * 4;
+              const aa = data[ii + 3];
+              if (aa < 200) continue;
+              const dr3 = data[ii] - matchRGB[0];
+              const dg3 = data[ii + 1] - matchRGB[1];
+              const db3 = data[ii + 2] - matchRGB[2];
+              const dd3 = dr3*dr3 + dg3*dg3 + db3*db3;
+              if (dd3 <= threshSqEff) { sumX += nx; sumY += ny; cnt++; }
+            }
+          }
+          if (cnt > 0) { rx = sumX / cnt; ry = sumY / cnt; }
+        } catch {}
+        const pt = snapshotToClient(snap as any, rx, ry);
+        if (!pt) continue;
+        const [cx, cy] = pt;
+        let tooClose = false;
+        if (minDist > 0) {
+          const gx = Math.floor(cx / cell), gy = Math.floor(cy / cell);
+          for (let oy = -1; oy <= 1 && !tooClose; oy++) {
+            for (let ox = -1; ox <= 1 && !tooClose; ox++) {
+              const arr = grid.get(`${gx + ox},${gy + oy}`);
+              if (!arr) continue;
+              for (let k = 0; k < arr.length; k++) {
+                const t = arr[k];
+                const dx = t[0] - cx, dy = t[1] - cy;
+                if (dx*dx + dy*dy < minDist*minDist) { tooClose = true; break; }
+              }
+            }
+          }
+        }
+        if (!tooClose) {
+          targets.push([cx, cy]);
+          if (minDist > 0) {
+            const k = keyOf(cx, cy);
+            const arr = grid.get(k);
+            if (arr) arr.push([cx, cy]); else grid.set(k, [[cx, cy]]);
+          }
+        }
+      }
+    }
+    if (!targets.length) return false;
+    try { log('auto', 'legacy:targets', targets.length); } catch {}
+    try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
+    const list = targets.slice();
+    for (let i = 0; i < list.length && running; i++) {
+      const [cx, cy] = list[i];
+      try { if (isPaintOutDetected()) { await onPaintOutWait(); break; } } catch {}
+      try { log('auto', 'legacy:click', i, Math.round(cx), Math.round(cy)); } catch {}
+      showClickMarker(cx, cy);
+      try { sendChannel({ action: 'pageClick', x: Math.round(cx), y: Math.round(cy) }); } catch {}
+      await sleep(Math.max(0, Number((getAutoConfig() as any)?.interClickDelayMs) | 0));
+    }
+    return true;
+  } catch { return false; }
 }

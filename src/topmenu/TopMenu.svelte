@@ -10,6 +10,7 @@
   import EnhancedColors from './EnhancedColors.svelte';
   import AutoMode from './AutoMode.svelte';
   import QrMusic from './QrMusic.svelte';
+  import ScreenAccess from './ScreenAccess.svelte';
   import Settings from './Settings.svelte';
   import Discord from './Discord.svelte';
   import Close from './Close.svelte';
@@ -76,6 +77,7 @@
     
       <div class="tm-group drip" style="--drip-delay: 80ms" aria-label={t('topmenu.group.tools')}>
       <EnhancedColors />
+      <ScreenAccess />
       <AutoMode />
       <QrMusic />
       </div>

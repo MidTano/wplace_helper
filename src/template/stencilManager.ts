@@ -275,10 +275,8 @@ export default class stencilManager {
                 pend.add(`${ax},${ay}`);
               }
               if (this.autoSelectedMasterIdx != null) {
-                
                 sd[si] = 0; sd[si + 1] = 0; sd[si + 2] = 240; sd[si + 3] = 255;
               } else {
-                
                 sd[si] = mr; sd[si + 1] = mg; sd[si + 2] = mb; sd[si + 3] = 255;
               }
             }

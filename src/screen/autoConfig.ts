@@ -40,7 +40,7 @@ const defaults: AutoConfig = {
   tileUpdatedTimeoutSec: 60,
   switchPreWaitSec: 1,
   afterSelectWaitSec: 1,
-  useDirectPlacement: true,
+  useDirectPlacement: false,
   bmMode: 'random',
   bmSelectedMasterIdx: null,
   bmOnlySelected: false,
@@ -100,6 +100,9 @@ function load(): void {
       }
     }
     current.persistAutoRun = true;
+    const hadDirectPlacement = current.useDirectPlacement === true;
+    current.useDirectPlacement = false;
+    if (hadDirectPlacement) { save(); }
   } catch {}
 }
 
@@ -117,6 +120,7 @@ try { if (typeof window !== 'undefined') load(); } catch {}
 export function getAutoConfig(): AutoConfig { return current; }
 export function updateAutoConfig(patch: Partial<AutoConfig>): AutoConfig {
   current = { ...current, ...patch };
+  current.useDirectPlacement = false;
   current.persistAutoRun = true;
   save();
   return current;

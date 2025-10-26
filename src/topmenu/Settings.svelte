@@ -9,12 +9,12 @@
   import { appendToBody } from '../editor/modal/utils/appendToBody';
   import ThemeModal from '../theme/ThemeModal.svelte';
   import IdleSettingsModal from '../idle/IdleSettingsModal.svelte';
-  import CustomSelect from '../editor/CustomSelect.svelte';
   import { showToast } from '../ui/toast';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import { postChannelMessage, applyMaskOverride, readMaskFlagFromStorage } from '../wguard/core/channel';
   import { MASTER_COLORS } from '../editor/palette';
   import { playSendOrbitalEffect } from '../effects/SendEffect';
+  
 
   let open = false;
   let cfg = getAutoConfig();
@@ -48,6 +48,7 @@
       b: parseInt(result[3], 16)
     } : { r: 8, g: 8, b: 8 };
   }
+
   function openThemeModal() {
     showThemeModal = true;
   }
@@ -181,18 +182,7 @@
     }
   }
 
-  function onToggleAutoBuy(kind, ev) {
-    const checked = !!(ev?.currentTarget?.checked ?? ev?.target?.checked);
-    if (kind === 'plus30') {
-      const patch = { autoBuyPlus30: checked };
-      if (checked) patch.autoBuyPlus5Max = false;
-      cfg = updateAutoConfig(patch);
-    } else if (kind === 'plus5') {
-      const patch = { autoBuyPlus5Max: checked };
-      if (checked) patch.autoBuyPlus30 = false;
-      cfg = updateAutoConfig(patch);
-    }
-  }
+  
 
   function runSendEffectTest() {
     try {
@@ -377,51 +367,14 @@
       <label for="cfg-series-wait">{t('settings.seriesWait')}</label>
       <input id="cfg-series-wait" type="number" min="0" step="1" bind:value={cfg.seriesWaitSec} on:input={(e)=>onChangeNumber('seriesWaitSec', e)} />
     </div>
+    
     <div class="row">
       <label for="cfg-rand-extra">{t('settings.randomExtraWait')}</label>
       <input id="cfg-rand-extra" type="number" min="0" step="1" bind:value={cfg.randomExtraWaitMaxSec} on:input={(e)=>onChangeNumber('randomExtraWaitMaxSec', e)} />
     </div>
-    <div class="row">
-      <label for="cfg-bm-batch">{t('settings.bm.batchLimit')}</label>
-      <input id="cfg-bm-batch" type="number" min="0" step="1" bind:value={cfg.bmBatchLimit} on:input={(e)=>onChangeNumber('bmBatchLimit', e)} />
-    </div>
-    <div class="row toggle-row">
-      <label for="cfg-autobuy-plus30">{t('settings.autobuy.plus30')}</label>
-      <label class="toggle-control" aria-label={t('settings.autobuy.plus30')}>
-        <input id="cfg-autobuy-plus30" type="checkbox" checked={cfg.autoBuyPlus30} on:change={(e)=>onToggleAutoBuy('plus30', e)} />
-        <span class="toggle-track"></span>
-      </label>
-    </div>
-    <div class="row toggle-row">
-      <label for="cfg-autobuy-plus5">{t('settings.autobuy.plus5')}</label>
-      <label class="toggle-control" aria-label={t('settings.autobuy.plus5')}>
-        <input id="cfg-autobuy-plus5" type="checkbox" checked={cfg.autoBuyPlus5Max} on:change={(e)=>onToggleAutoBuy('plus5', e)} />
-        <span class="toggle-track"></span>
-      </label>
-    </div>
-    <div class="mode-select-row">
-      <label for="cfg-bm-mode" class="mode-label">{t('settings.bm.mode')}</label>
-      <CustomSelect 
-        bind:value={cfg.bmMode}
-        options={[
-          { value: 'random', label: t('settings.bm.mode.random') },
-          { value: 'topDown', label: t('settings.bm.mode.topDown') },
-          { value: 'bottomUp', label: t('settings.bm.mode.bottomUp') },
-          { value: 'leftRight', label: t('settings.bm.mode.leftRight') },
-          { value: 'rightLeft', label: t('settings.bm.mode.rightLeft') },
-          { value: 'snakeRow', label: t('settings.bm.mode.snakeRow') },
-          { value: 'snakeCol', label: t('settings.bm.mode.snakeCol') },
-          { value: 'diagDown', label: t('settings.bm.mode.diagDown') },
-          { value: 'diagUp', label: t('settings.bm.mode.diagUp') },
-          { value: 'diagDownRight', label: t('settings.bm.mode.diagDownRight') },
-          { value: 'diagUpRight', label: t('settings.bm.mode.diagUpRight') },
-          { value: 'centerOut', label: t('settings.bm.mode.centerOut') },
-          { value: 'edgesIn', label: t('settings.bm.mode.edgesIn') }
-        ]}
-        showModePreview={true}
-        onChange={() => { cfg = updateAutoConfig({ bmMode: cfg.bmMode }); }}
-      />
-    </div>
+    
+    
+    
     <div class="row toggle-row">
       <label for="cfg-bm-multi">{t('settings.bm.multiColor')}</label>
       <label class="toggle-control" aria-label={t('settings.bm.multiColor')}>
@@ -629,18 +582,7 @@
     align-items: center;
   }
 
-  .tm-settings-popover .mode-select-row {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin: 8px 0;
-  }
-
-  .tm-settings-popover .mode-select-row .mode-label {
-    font-weight: 500;
-    font-size: 13px;
-    margin-bottom: 0;
-  }
+  
 
   .tm-settings-popover .row.toggle-row label {
     margin-bottom: 0;

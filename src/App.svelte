@@ -22,6 +22,8 @@
   import MediaOverlayTikTok from './media/MediaOverlayTikTok.svelte';
   import MediaOverlaySpotify from './media/MediaOverlaySpotify.svelte';
   import MediaOverlaySoundCloud from './media/MediaOverlaySoundCloud.svelte';
+  import ScreenAccessModal from './screen/ScreenAccessModal.svelte';
+  import { hasStream as hasScreenStream } from './screen/captureManager';
 
   let showPanel = true;
   let imgBitmap = null;
@@ -35,6 +37,7 @@
   let galleryErrorKey = '';
   let galleryJob = 0;
   let galleryProfiles = {};
+  let screenAccessOpen = false;
 
   function openGallery() {
     galleryOpen = true;
@@ -200,6 +203,7 @@
         } catch {}
       }, 5000);
     } catch {}
+    try { if (!hasScreenStream()) { screenAccessOpen = true; } } catch {}
   });
 </script>
 <TopMenu onPick={pick} onClear={clearImg} on:historyLoad={(e)=>{
@@ -307,6 +311,8 @@
   }}
   on:close={() => { editorOpen = false; cleanupEditorBackdrops(); }}
 />
+
+<ScreenAccessModal open={screenAccessOpen} on:close={()=>{ screenAccessOpen = false; }} />
 
 <TutorialManager />
 
