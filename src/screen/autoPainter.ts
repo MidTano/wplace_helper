@@ -772,6 +772,8 @@ const autoBuyCooldownMs = 60000;
 const legalBlockCooldownMs = 5 * 60 * 1000;
 let legalBlockUntil = 0;
 let legalNoticeCooldownUntil = 0;
+let sentAfterComplete = false;
+let selectedButtonId: number | null = null;
 
 function shuffle<T>(a: T[]) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -935,6 +937,7 @@ function waitForFirstTileTwice(totalTimeoutMs = 5000): Promise<boolean> {
 }
 
 async function selectColor(buttonId: number): Promise<void> {
+  selectedButtonId = Number.isFinite(buttonId) ? Number(buttonId) : null;
   try { sendChannel({ action: 'selectColor', id: buttonId }); } catch {}
   await sleep(20);
   try { sendChannel({ action: 'reloadTiles' }); } catch {}
@@ -1171,11 +1174,29 @@ async function runAutoLoop() {
       } catch {}
       
       const chunks = collectPendingChunksMulti();
+      if (chunks && chunks.length > 0) sentAfterComplete = false;
 
   if (!chunks || chunks.length === 0) {
-        sendChannel({ action: 'autoPaintCycleStart' });
-        sendChannel({ action: 'autoPaintCycleEnd' });
-        
+        try { sendChannel({ action: 'autoPaintCycleStart' }); } catch {}
+        try { sendChannel({ action: 'autoPaintCycleEnd' }); } catch {}
+        try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
+        try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
+        if (!sentAfterComplete) {
+          try { await performPaintOutSend(); } catch {}
+          try { sendChannel({ action: 'reloadTiles' }); } catch {}
+          try {
+            const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
+            const tMs = Number.isFinite(cfgT) ? Math.round(cfgT * 1000) : 3000;
+            const total = Math.min(12000, Math.max(800, tMs + 800));
+            await waitForFirstTileTwice(total);
+          } catch {}
+          try {
+            const sm = getStencilManager();
+            enhancedOverlayResetNeeded = !!sm?.enhanced;
+            try { sm?.setAutoSelectedMasterIdx?.(null as any); } catch {}
+          } catch {}
+          sentAfterComplete = true;
+        }
         const cfg = getAutoConfig();
     const secSeries = Number((cfg as any)?.seriesWaitSec);
     const baseMs = Math.max(1000, Number.isFinite(secSeries) ? Math.round(secSeries * 1000) : 90000);
@@ -1382,13 +1403,65 @@ async function placeViaUiLegacy(): Promise<boolean> {
     try { log('auto', 'legacy:targets', targets.length); } catch {}
     try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleStart' }, '*'); } catch {}
     const list = targets.slice();
+    const cfg2 = getAutoConfig();
+    const batchLimit = Math.max(0, Number((cfg2 as any)?.bmBatchLimit) | 0);
+    const effectOn = !!(cfg2 as any)?.sendEffectEnabled;
+    const effectBatch: SendEffectColor[] = [];
+    let clicked = 0;
+    let sentBatch = false;
     for (let i = 0; i < list.length && running; i++) {
       const [cx, cy] = list[i];
-      try { if (isPaintOutDetected()) { await onPaintOutWait(); break; } } catch {}
+      try {
+        if (isPaintOutDetected()) {
+          await onPaintOutWait();
+          if (effectOn && effectBatch.length) { try { playSendOrbitalEffect(effectBatch.slice()); } catch {} }
+          sentBatch = true;
+          break;
+        }
+      } catch {}
       try { log('auto', 'legacy:click', i, Math.round(cx), Math.round(cy)); } catch {}
       showClickMarker(cx, cy);
       try { sendChannel({ action: 'pageClick', x: Math.round(cx), y: Math.round(cy) }); } catch {}
-      await sleep(Math.max(0, Number((getAutoConfig() as any)?.interClickDelayMs) | 0));
+      clicked++;
+      if (effectOn) { const sid = (selectedButtonId != null) ? selectedButtonId : btnId; const c = getButtonColor(sid); if (c) effectBatch.push(c); }
+      await sleep(Math.max(0, Number((cfg2 as any)?.interClickDelayMs) | 0));
+      if (batchLimit > 0 && (clicked % batchLimit) === 0 && running) {
+        try { await performPaintOutSend(); } catch {}
+        try { sendChannel({ action: 'reloadTiles' }); } catch {}
+        try {
+          const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
+          const tMs = Number.isFinite(cfgT) ? Math.round(cfgT * 1000) : 3000;
+          const total = Math.min(12000, Math.max(800, tMs + 800));
+          await waitForFirstTileTwice(total);
+        } catch {}
+        try {
+          const sm = getStencilManager();
+          enhancedOverlayResetNeeded = !!sm?.enhanced;
+          try { sm?.setAutoSelectedMasterIdx?.(null as any); } catch {}
+        } catch {}
+        try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
+        if (effectOn && effectBatch.length) { try { playSendOrbitalEffect(effectBatch.slice()); } catch {} }
+        effectBatch.length = 0;
+        sentBatch = true;
+      }
+    }
+    if (running && !sentBatch) {
+      try { await performPaintOutSend(); } catch {}
+      try { sendChannel({ action: 'reloadTiles' }); } catch {}
+      try {
+        const cfgT = Number((getAutoConfig() as any)?.tileUpdatedTimeoutSec);
+        const tMs = Number.isFinite(cfgT) ? Math.round(cfgT * 1000) : 3000;
+        const total = Math.min(12000, Math.max(800, tMs + 800));
+        await waitForFirstTileTwice(total);
+      } catch {}
+      try {
+        const sm = getStencilManager();
+        enhancedOverlayResetNeeded = !!sm?.enhanced;
+        try { sm?.setAutoSelectedMasterIdx?.(null as any); } catch {}
+      } catch {}
+      try { window.postMessage({ source: 'wplace-svelte', action: 'autoPaintCycleEnd' }, '*'); } catch {}
+      if (effectOn && effectBatch.length) { try { playSendOrbitalEffect(effectBatch.slice()); } catch {} }
+      effectBatch.length = 0;
     }
     return true;
   } catch { return false; }

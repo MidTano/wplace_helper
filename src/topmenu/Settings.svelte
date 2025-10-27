@@ -373,8 +373,12 @@
       <input id="cfg-rand-extra" type="number" min="0" step="1" bind:value={cfg.randomExtraWaitMaxSec} on:input={(e)=>onChangeNumber('randomExtraWaitMaxSec', e)} />
     </div>
     
+    <div class="row">
+      <label for="cfg-bm-batch">{t('settings.bm.batchLimit')}</label>
+      <input id="cfg-bm-batch" type="number" min="0" step="1" bind:value={cfg.bmBatchLimit} on:input={(e)=>onChangeNumber('bmBatchLimit', e)} />
+    </div>
     
-    
+    <!--
     <div class="row toggle-row">
       <label for="cfg-bm-multi">{t('settings.bm.multiColor')}</label>
       <label class="toggle-control" aria-label={t('settings.bm.multiColor')}>
@@ -382,6 +386,7 @@
         <span class="toggle-track"></span>
       </label>
     </div>
+    -->
     <div class="row toggle-row">
       <label for="cfg-ignore-wrong">{t('settings.bm.ignoreWrong')}</label>
       <label class="toggle-control" aria-label={t('settings.bm.ignoreWrong')}>
@@ -389,6 +394,7 @@
         <span class="toggle-track"></span>
       </label>
     </div>
+    <!--
     <div class="row toggle-row">
       <label for="cfg-bypass-wguard">{t('settings.bm.bypassWguard')}</label>
       <label class="toggle-control" aria-label={t('settings.bm.bypassWguard')}>
@@ -396,6 +402,7 @@
         <span class="toggle-track"></span>
       </label>
     </div>
+    -->
     <div class="row toggle-row">
       <label for="cfg-mask-bm">{t('settings.bm.maskAsBM')}</label>
       <label class="toggle-control" aria-label={t('settings.bm.maskAsBM')}>

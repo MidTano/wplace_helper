@@ -118,9 +118,12 @@ export default class stencilManager {
     const tileKey = `${String(tileCoords[0]).padStart(4, '0')},${String(tileCoords[1]).padStart(4, '0')}`;
     const s = this.current;
     let ignoreWrong = false;
+    let colorMatchThresh = 18;
     try {
       const cfg = getAutoConfig();
       ignoreWrong = !!cfg.ignoreWrongColor;
+      const t = Number((cfg as any)?.enhancedThresh);
+      if (Number.isFinite(t)) colorMatchThresh = Math.max(0, Math.min(64, Math.round(t)));
     } catch {}
 
     const hasTouch = s.tilePrefixes && s.tilePrefixes.has(tileKey);
@@ -197,7 +200,7 @@ export default class stencilManager {
     }
     let tileRectX = 0, tileRectY = 0, tileRectW = 0, tileRectH = 0;
     let tileRectData: Uint8ClampedArray | null = null;
-    const needBaseComparison = !this.enhanced || (this.autoSelectedMasterIdx == null);
+    const needBaseComparison = true;
     if (needBaseComparison && maxX > minX && maxY > minY) {
       tileRectX = minX | 0; tileRectY = minY | 0; tileRectW = (maxX - minX) | 0; tileRectH = (maxY - minY) | 0;
       const tileRectImg = tctx.getImageData(tileRectX, tileRectY, tileRectW, tileRectH);
@@ -260,8 +263,9 @@ export default class stencilManager {
               }
               let isBaseMatch = false;
               if (baseOpaque) {
-                const tileIdx = nearestColorIndexFast(tr, tg, tb);
-                isBaseMatch = (tileIdx === idx);
+                const dr = tr - mr, dg = tg - mg, db = tb - mb;
+                const md = Math.max(Math.abs(dr), Math.abs(dg), Math.abs(db));
+                isBaseMatch = (md <= colorMatchThresh);
               }
               if (isBaseMatch) { sd[si + 3] = 0; continue; }
               hasChanges = true;
