@@ -8,9 +8,13 @@ export function checkFirstLaunch(): boolean {
   try {
     const completed = localStorage.getItem(STORAGE_KEYS.COMPLETED);
     const skipped = localStorage.getItem(STORAGE_KEYS.SKIPPED);
-    return !completed && !skipped;
+    if (completed !== 'true' && skipped !== 'true') {
+      localStorage.setItem(STORAGE_KEYS.COMPLETED, 'true');
+      localStorage.setItem(STORAGE_KEYS.PROGRESS, '0');
+    }
+    return false;
   } catch {
-    return true;
+    return false;
   }
 }
 
