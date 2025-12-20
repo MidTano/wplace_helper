@@ -115,7 +115,6 @@ export async function startAutoPainter(_intervalMs = 35000) {
   try {
     try { ensureEnhancedGuard(); } catch {}
     try { setLoggingEnabled(true); log('auto', 'start', { logs: getLoggingEnabled(), ts: Date.now() }); } catch {}
-    try { ensureColorCacheTimer(); } catch {}
     try {
       const cfg0 = getAutoConfig() as any;
       const method0 = String(cfg0?.captureMethod || 'canvas');
@@ -175,8 +174,7 @@ export function stopAutoPainter() {
   runEpoch = (runEpoch + 1) | 0;
   try { resetCaptureState(); } catch {}
   try { removeCanvasInputBlocker(); } catch {}
-  try { if (colorCacheTimer) clearTimeout(colorCacheTimer); } catch {}
-  try { colorCacheTimer = null; } catch {}
+ 
   
   try { getStencilManager().setAutoSelectedMasterIdx(null as any); } catch {}
   try {
@@ -242,7 +240,6 @@ let sentAfterComplete = false;
 let selectedButtonId: number | null = null;
 let colorCacheLastUpdateAt = 0;
 let colorCacheRefreshInFlight: Promise<void> | null = null;
-let colorCacheTimer: any = null;
 
 export function getCachedColorButtons(): ColorButton[] {
   try { return Array.isArray(colorButtons) ? colorButtons.slice() : []; } catch { return []; }
@@ -488,6 +485,11 @@ async function requestColorButtons(timeoutMs = 800): Promise<ColorButton[]> {
           window.removeEventListener('message', onMsg);
           const arr0 = Array.isArray(data.buttons) ? data.buttons : [];
           const arr = normalize(arr0);
+          try {
+            const paidCount = arr.filter((b: any) => b?.paid).length;
+            const freeCount = arr.length - paidCount;
+            console.log('[wph][auto] colors received', { reqId, total: arr.length, paid: paidCount, free: freeCount });
+          } catch {}
           try { log('auto', 'colors:recv', arr.length); } catch {}
           resolve(arr);
         }
@@ -516,66 +518,54 @@ async function refreshColorCacheIfPaletteOpen(): Promise<void> {
   if (!hasAnyColorButtonsDom(8)) return;
   const now = Date.now();
   if (now - colorCacheLastUpdateAt < 250) return;
-  if (colorCacheRefreshInFlight) return;
+  if (colorCacheRefreshInFlight) {
+    await colorCacheRefreshInFlight;
+    return;
+  }
+  try { console.log('[wph][auto] refreshColorCacheIfPaletteOpen:start'); } catch {}
   colorCacheRefreshInFlight = (async () => {
     try {
-      const btns = await (async () => {
-        return new Promise<ColorButton[]>((resolve) => {
-          const reqId = Math.random().toString(36).slice(2);
-          const onMsg = (ev: MessageEvent) => {
-            const data = readChannelPayload(ev) as any;
-            if (!data) return;
-            if (data.action === 'colorButtons' && data.reqId === reqId) {
-              window.removeEventListener('message', onMsg);
-              const method = String((getAutoConfig() as any)?.colorDetectMethod || 'dom');
-              const arr0 = Array.isArray(data.buttons) ? data.buttons : [];
-              const arr = arr0.map((b: any) => {
-                try {
-                  if (!b || typeof b !== 'object') return b;
-                  const paidSvg = b.paidSvg != null ? !!b.paidSvg : !!b.paid;
-                  const paidBitmap = b.paidBitmap != null ? !!b.paidBitmap : !!b.paid;
-                  const paid = method === 'packets' ? paidBitmap : paidSvg;
-                  return { ...b, paid, paidSvg, paidBitmap };
-                } catch {
-                  return b;
-                }
-              });
-              resolve(arr as any);
-            }
-          };
-          window.addEventListener('message', onMsg);
-          try { sendChannel({ action: 'queryColors', reqId }); } catch {}
-          setTimeout(() => { window.removeEventListener('message', onMsg); resolve([]); }, 350);
-        });
-      })();
+      const btns = await new Promise<ColorButton[]>((resolve) => {
+        const reqId = Math.random().toString(36).slice(2);
+        const onMsg = (ev: MessageEvent) => {
+          const data = readChannelPayload(ev) as any;
+          if (!data) return;
+          if (data.action === 'colorButtons' && data.reqId === reqId) {
+            window.removeEventListener('message', onMsg);
+            const method = String((getAutoConfig() as any)?.colorDetectMethod || 'dom');
+            const arr0 = Array.isArray(data.buttons) ? data.buttons : [];
+            const arr = arr0.map((b: any) => {
+              try {
+                if (!b || typeof b !== 'object') return b;
+                const paidSvg = b.paidSvg != null ? !!b.paidSvg : !!b.paid;
+                const paidBitmap = b.paidBitmap != null ? !!b.paidBitmap : !!b.paid;
+                const paid = method === 'packets' ? paidBitmap : paidSvg;
+                return { ...b, paid, paidSvg, paidBitmap };
+              } catch {
+                return b;
+              }
+            });
+            resolve(arr as any);
+          }
+        };
+        window.addEventListener('message', onMsg);
+        try { sendChannel({ action: 'queryColors', reqId }); } catch {}
+        setTimeout(() => { window.removeEventListener('message', onMsg); resolve([]); }, 350);
+      });
       if (btns && btns.length) {
         colorButtons = btns;
         colorCacheLastUpdateAt = Date.now();
         try { await ensureColorMap(); } catch {}
+        try {
+          const paidCount = btns.filter(b => b?.paid).length;
+          const freeCount = btns.length - paidCount;
+          console.log('[wph][auto] refreshColorCacheIfPaletteOpen:applied', { total: btns.length, paid: paidCount, free: freeCount });
+        } catch {}
       }
     } catch {}
     finally { colorCacheRefreshInFlight = null; }
   })();
   await colorCacheRefreshInFlight;
-}
-
-function ensureColorCacheTimer() {
-  try {
-    if (colorCacheTimer) return;
-    const tick = async () => {
-      try {
-        colorCacheTimer = setTimeout(tick, 3000);
-      } catch {
-        colorCacheTimer = null;
-      }
-      try {
-        await refreshColorCacheIfPaletteOpen();
-      } catch {}
-    };
-    colorCacheTimer = setTimeout(tick, 3000);
-  } catch {
-    colorCacheTimer = null;
-  }
 }
 
 async function ensureColorMap() {
@@ -603,6 +593,10 @@ async function ensureColorMap() {
   
   const availableNow = (colorButtons || []).filter(b => b && !b.paid && Number.isFinite(b.id) && b.id > 0);
   if (!availableNow.length) { 
+    try {
+      const paidCount = colorButtons ? colorButtons.length : 0;
+      console.warn('[wph][auto] ensureColorMap: no free colors', { total: colorButtons ? colorButtons.length : 0, paidCount });
+    } catch {}
     masterToButton = MASTER_COLORS.map(() => null); 
     return; 
   }

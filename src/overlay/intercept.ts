@@ -207,11 +207,13 @@ function installPageFetchInjection() {
       } catch {}
     }
 
-    function __wph_updateOwnedFromMe(json: any): void {
+    function __wph_updateOwnedFromMe(json: any, meta: { source?: string; endpoint?: string } | null = null): void {
       try {
+        const prev = __wph_ownedBitmapCache >>> 0;
         const vRaw = (json && (json.extraColorsBitmap ?? 0)) ?? 0;
         const vNum = Number(vRaw);
         const v = (Number.isFinite(vNum) ? (vNum >>> 0) : 0);
+        if (prev > 0 && v === 0) return;
         __wph_ownedBitmapCache = v;
         __wph_ownedBitmapCacheReady = true;
         const ids = __wph_decodeOwnedColorIds(v);
@@ -895,10 +897,9 @@ function installPageFetchInjection() {
       if (data.action === 'queryColors' && data.reqId) {
         try {
           try { log('int', 'queryColors'); } catch {}
+          __wph_syncOwnedFromStorage();
           const buttons = Array.from(document.querySelectorAll('button[id^="color-"]')) as HTMLButtonElement[];
           const out: any[] = [];
-          __wph_syncOwnedFromStorage();
-          const ownedBitmap = (__wph_ownedBitmapCacheReady ? __wph_ownedBitmapCache : 0) >>> 0;
           for (const btn of buttons) {
             try {
               const idStr = String(btn.id || '').replace(/[^0-9]/g, '');
@@ -922,15 +923,9 @@ function installPageFetchInjection() {
                 const hasLockBadge = !!btn.querySelector('span.bg-base-100.rounded-full') || !!btn.querySelector('svg.center-absolute');
                 paidSvg = hasLockBadge;
               } catch {}
-              let owned = true;
-              try {
-                owned = __wph_hasColorId(idNum, ownedBitmap);
-              } catch {}
-              let paidBitmap = paidSvg;
-              try {
-                paidBitmap = !owned;
-              } catch {}
-              out.push({ id: idNum, rgb, paid: paidSvg, paidSvg, paidBitmap, label });
+              const paidBitmap = paidSvg;
+              const effectivePaid = paidSvg;
+              out.push({ id: idNum, rgb, paid: effectivePaid, paidSvg, paidBitmap, label });
             } catch {}
           }
           try {
@@ -1156,6 +1151,11 @@ function installPageXHRInjection() {
         const vRaw = (json && (json.extraColorsBitmap ?? 0)) ?? 0;
         const vNum = Number(vRaw);
         const v = (Number.isFinite(vNum) ? (vNum >>> 0) : 0);
+        const prev = Number(localStorage.getItem(LS_OWNED_BITMAP) || '0') >>> 0;
+        if (prev > 0 && v === 0) {
+          try { console.warn('[wph][owned][xhr] ignore zero update', { prev, next: v, raw: vRaw }); } catch {}
+          return;
+        }
         const ids = __wph_decodeOwnedColorIds(v);
         try { localStorage.setItem(LS_OWNED_BITMAP, String(v)); } catch {}
         try { localStorage.setItem(LS_OWNED_UPDATED_AT, String(Date.now())); } catch {}
