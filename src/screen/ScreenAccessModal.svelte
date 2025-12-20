@@ -2,6 +2,7 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { setStream, hasStream } from './captureManager';
   import { t, lang } from '../i18n';
+  import { appendToBody } from '../editor/modal/utils/appendToBody';
   export let open = false;
   const dispatch = createEventDispatcher();
   let requesting = false;
@@ -14,12 +15,12 @@
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 5 },
         audio: false,
-        selfBrowserSurface: 'include',
         preferCurrentTab: true,
       });
-      try { setStream(stream); } catch {}
+      setStream(stream);
+      requesting = false;
       dispatch('close');
-    } catch (e) {
+    } catch (err) {
       dispatch('close');
     } finally {
       requesting = false;
@@ -32,7 +33,7 @@
   $: _i18n_screen_modal_lang = $lang;
 </script>
 {#if open}
-  <div class="screen-modal-backdrop" role="dialog" aria-modal="true" aria-label={t('screen.modal.dialogAria')}>
+  <div class="screen-modal-backdrop" use:appendToBody role="dialog" aria-modal="true" aria-label={t('screen.modal.dialogAria')}>
     <div class="screen-modal">
       <div class="header">
         <div class="icon" aria-hidden="true">
@@ -82,11 +83,13 @@
   .btn-primary:hover { filter: brightness(1.05); }
   .btn-secondary { background: var(--wph-surface, rgba(255,255,255,0.95)); color: var(--wph-text, #222); border-color: var(--wph-border, rgba(0,0,0,0.1)); box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
   .btn-secondary:hover { filter: brightness(1.03); }
+  .icon svg { color: var(--wph-onPrimary, #fff); }
   .icon svg.on { filter: drop-shadow(0 0 4px var(--wph-primaryGlow, rgba(240,81,35,0.4))); }
-  .icon .ringc { stroke-dasharray: 3 3; }
-  .icon svg.on .ring { transform-box: view-box; transform-origin: 12px 12px; animation: sa_spin 4s linear infinite; }
+  .icon svg.on .ring { transform-box: view-box; transform-origin: 12px 12px; animation: sa_spin 4s linear infinite; stroke: currentColor; }
+  .icon .ringc { stroke-dasharray: 3 3; stroke: currentColor; }
+  .icon .dot { fill: currentColor; }
   .icon svg.on .dot { transform-box: view-box; transform-origin: 12px 12px; animation: sa_pulse 2s ease-in-out infinite alternate; }
-  .icon svg.on .dots { transform-box: view-box; transform-origin: 12px 12px; fill: #ffe1d6; animation: sa_spin 4s linear infinite; }
+  .icon svg.on .dots { transform-box: view-box; transform-origin: 12px 12px; fill: currentColor; animation: sa_spin 4s linear infinite; }
   @keyframes sa_pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: .95; } }
   @keyframes sa_spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
 </style>

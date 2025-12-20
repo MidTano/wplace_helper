@@ -78,8 +78,20 @@ function inject(callback: () => void) {
     }
   } catch {}
   script.textContent = `(${callback})();`;
-  document.documentElement?.appendChild(script);
-  script.remove();
+  const tryAppend = () => {
+    try {
+      const root = document.documentElement || document.head || document.body;
+      if (!root) {
+        setTimeout(tryAppend, 1);
+        return;
+      }
+      root.appendChild(script);
+      script.remove();
+    } catch {
+      try { setTimeout(tryAppend, 1); } catch {}
+    }
+  };
+  tryAppend();
 }
 
 function installPageFetchInjection() {
@@ -147,6 +159,71 @@ function installPageFetchInjection() {
     let __bm_interceptActive = false;
     let __bm_cachedContext: any = null;
     let __bm_ctxTs = 0;
+
+    const LS_OWNED_BITMAP = 'wph:ownedColorsBitmap';
+    const LS_OWNED_UPDATED_AT = 'wph:ownedColorsUpdatedAt';
+    let __wph_ownedBitmapCache: number = 0;
+    let __wph_ownedBitmapCacheReady = false;
+
+    function __wph_hasColorId(colorId: number, bitmap: number): boolean {
+      try {
+        const t = Number(colorId) | 0;
+        if (t < 0) return false;
+        if (t < 32) return true;
+        const bit = (t - 32) | 0;
+        if (bit < 0 || bit > 31) return false;
+        const b = (Number(bitmap) >>> 0);
+        return (b & (1 << bit)) !== 0;
+      } catch {
+        return false;
+      }
+    }
+
+    function __wph_decodeOwnedColorIds(bitmap: number): number[] {
+      try {
+        const b = (Number(bitmap) >>> 0);
+        const out: number[] = [];
+        for (let t = 0; t < 32; t++) out.push(t);
+        for (let bit = 0; bit < 32; bit++) {
+          if ((b & (1 << bit)) !== 0) out.push(32 + bit);
+        }
+        return out;
+      } catch {
+        return [];
+      }
+    }
+
+    function __wph_syncOwnedFromStorage(): void {
+      if (__wph_ownedBitmapCacheReady) return;
+      __wph_ownedBitmapCacheReady = true;
+      try {
+        const raw = localStorage.getItem(LS_OWNED_BITMAP);
+        const v = Number(raw);
+        if (Number.isFinite(v)) __wph_ownedBitmapCache = (v >>> 0);
+      } catch {}
+      try {
+        (window as any).__wph_ownedColorsBitmap = __wph_ownedBitmapCache;
+        (window as any).__wph_ownedColorIds = __wph_decodeOwnedColorIds(__wph_ownedBitmapCache);
+      } catch {}
+    }
+
+    function __wph_updateOwnedFromMe(json: any): void {
+      try {
+        const vRaw = (json && (json.extraColorsBitmap ?? 0)) ?? 0;
+        const vNum = Number(vRaw);
+        const v = (Number.isFinite(vNum) ? (vNum >>> 0) : 0);
+        __wph_ownedBitmapCache = v;
+        __wph_ownedBitmapCacheReady = true;
+        const ids = __wph_decodeOwnedColorIds(v);
+        try { localStorage.setItem(LS_OWNED_BITMAP, String(v)); } catch {}
+        try { localStorage.setItem(LS_OWNED_UPDATED_AT, String(Date.now())); } catch {}
+        try {
+          (window as any).__wph_ownedColorsBitmap = v;
+          (window as any).__wph_ownedColorIds = ids;
+        } catch {}
+        try { sendChannel({ action: 'ownedColors', bitmap: v, ownedIds: ids }); } catch {}
+      } catch {}
+    }
     let __bm_pendingIntercept: any = null;
     let __bm_formatValid = true;
     let __bm_ignoreProtection = false;
@@ -750,7 +827,6 @@ function installPageFetchInjection() {
           }
         })();
       }
-    
       if (data.action === 'pageClick' && typeof data.x === 'number' && typeof data.y === 'number') {
         const x = Number(data.x);
         const y = Number(data.y);
@@ -758,17 +834,6 @@ function installPageFetchInjection() {
           try { log('int', 'pageClick:start', x, y); } catch {}
           const container = document.querySelector('div.maplibregl-canvas-container') as any;
           const canvas = document.querySelector('canvas.maplibregl-canvas') as any;
-          const map = (window as any).map || (container && (container._map || container.__map)) || (canvas && (canvas._map || canvas.__map));
-          if (map && typeof map.unproject === 'function' && typeof map.fire === 'function') {
-            try {
-              const lngLat = map.unproject([x, y]);
-              const originalEvent = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
-              try { Object.defineProperty(originalEvent, 'which', { get: () => 1 }); } catch {}
-              map.fire('click', { type: 'click', point: { x, y }, lngLat, originalEvent });
-              try { log('int', 'pageClick:map', x, y); } catch {}
-            } catch {}
-            return;
-          }
           const target: any = canvas || container || document.elementFromPoint(x, y) || document.body;
           const baseMouse: MouseEventInit = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0 };
           const basePointer: any = { bubbles: true, cancelable: true, composed: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: x, clientY: y, pressure: 0 };
@@ -793,12 +858,47 @@ function installPageFetchInjection() {
           }, 30);
         } catch {}
       }
+
+      if (data.action === 'pagePaint' && typeof data.x === 'number' && typeof data.y === 'number') {
+        const x = Number(data.x);
+        const y = Number(data.y);
+        try {
+          try { log('int', 'pagePaint:start', x, y); } catch {}
+          const container = document.querySelector('div.maplibregl-canvas-container') as any;
+          const canvas = document.querySelector('canvas.maplibregl-canvas') as any;
+          const target: any = canvas || container || document.elementFromPoint(x, y) || document.body;
+
+          const baseMouse: MouseEventInit = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0 };
+          const basePointer: any = { bubbles: true, cancelable: true, composed: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: x, clientY: y, pressure: 0 };
+
+          const dispatchKey = (type: 'keydown' | 'keyup') => {
+            try {
+              const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true, composed: true, key: ' ', code: 'Space' } as any);
+              try { Object.defineProperty(ev, 'keyCode', { get: () => 32 }); } catch {}
+              try { Object.defineProperty(ev, 'which', { get: () => 32 }); } catch {}
+              try { Object.defineProperty(ev, 'charCode', { get: () => 32 }); } catch {}
+              try { document.dispatchEvent(ev); } catch {}
+              try { target.dispatchEvent(ev as any); } catch {}
+            } catch {}
+          };
+
+          dispatchKey('keyup');
+          try { target.dispatchEvent(new PointerEvent('pointermove', { ...basePointer, pressure: 0 })); } catch {}
+          try { target.dispatchEvent(new MouseEvent('mousemove', baseMouse)); } catch {}
+
+          dispatchKey('keydown');
+          dispatchKey('keyup');
+          try { log('int', 'pagePaint:space', x, y); } catch {}
+        } catch {}
+      }
    
       if (data.action === 'queryColors' && data.reqId) {
         try {
           try { log('int', 'queryColors'); } catch {}
           const buttons = Array.from(document.querySelectorAll('button[id^="color-"]')) as HTMLButtonElement[];
           const out: any[] = [];
+          __wph_syncOwnedFromStorage();
+          const ownedBitmap = (__wph_ownedBitmapCacheReady ? __wph_ownedBitmapCache : 0) >>> 0;
           for (const btn of buttons) {
             try {
               const idStr = String(btn.id || '').replace(/[^0-9]/g, '');
@@ -817,16 +917,20 @@ function installPageFetchInjection() {
               }
               if (m) rgb = [Number(m[1])||0, Number(m[2])||0, Number(m[3])||0];
               const label = btn.getAttribute('aria-label') || '';
-              let paid = false;
+              let paidSvg = false;
               try {
-                const svgs = Array.from(btn.getElementsByTagName('svg')) as SVGElement[];
-                for (const el of svgs) {
-                  const cs2 = getComputedStyle(el as any);
-                  const rect = (el as any).getBoundingClientRect ? (el as any).getBoundingClientRect() : { width: 0, height: 0 };
-                  if (cs2 && cs2.display !== 'none' && cs2.visibility !== 'hidden' && rect.width > 0 && rect.height > 0) { paid = true; break; }
-                }
+                const hasLockBadge = !!btn.querySelector('span.bg-base-100.rounded-full') || !!btn.querySelector('svg.center-absolute');
+                paidSvg = hasLockBadge;
               } catch {}
-              out.push({ id: idNum, rgb, paid, label });
+              let owned = true;
+              try {
+                owned = __wph_hasColorId(idNum, ownedBitmap);
+              } catch {}
+              let paidBitmap = paidSvg;
+              try {
+                paidBitmap = !owned;
+              } catch {}
+              out.push({ id: idNum, rgb, paid: paidSvg, paidSvg, paidBitmap, label });
             } catch {}
           }
           try {
@@ -982,6 +1086,7 @@ function installPageFetchInjection() {
           if (hasMeSegment && ct.includes('json')) {
             try {
               const json = await cloned.json();
+              try { __wph_updateOwnedFromMe(json); } catch {}
               window.postMessage({ source: 'wplace-svelte', endpoint: String(endpoint), jsonData: json }, '*');
             } catch {}
           }
@@ -1029,6 +1134,38 @@ function installPageXHRInjection() {
         window.postMessage({ ...payload, source: WGUARD_CHANNEL_SOURCE }, '*');
       } catch {}
     }
+
+    const LS_OWNED_BITMAP = 'wph:ownedColorsBitmap';
+    const LS_OWNED_UPDATED_AT = 'wph:ownedColorsUpdatedAt';
+    function __wph_decodeOwnedColorIds(bitmap: number): number[] {
+      try {
+        const b = (Number(bitmap) >>> 0);
+        const out: number[] = [];
+        for (let t = 0; t < 32; t++) out.push(t);
+        for (let bit = 0; bit < 32; bit++) {
+          if ((b & (1 << bit)) !== 0) out.push(32 + bit);
+        }
+        return out;
+      } catch {
+        return [];
+      }
+    }
+
+    function __wph_updateOwnedFromMe(json: any): void {
+      try {
+        const vRaw = (json && (json.extraColorsBitmap ?? 0)) ?? 0;
+        const vNum = Number(vRaw);
+        const v = (Number.isFinite(vNum) ? (vNum >>> 0) : 0);
+        const ids = __wph_decodeOwnedColorIds(v);
+        try { localStorage.setItem(LS_OWNED_BITMAP, String(v)); } catch {}
+        try { localStorage.setItem(LS_OWNED_UPDATED_AT, String(Date.now())); } catch {}
+        try {
+          (window as any).__wph_ownedColorsBitmap = v;
+          (window as any).__wph_ownedColorIds = ids;
+        } catch {}
+        try { sendChannel({ action: 'ownedColors', bitmap: v, ownedIds: ids }); } catch {}
+      } catch {}
+    }
     
     try {
       const originalOpen = XMLHttpRequest.prototype.open;
@@ -1058,6 +1195,7 @@ function installPageXHRInjection() {
                     }
                   } catch {}
                   if (json) {
+                    try { __wph_updateOwnedFromMe(json); } catch {}
                     sendChannel({ endpoint: urlStr, jsonData: json });
                   }
                 }

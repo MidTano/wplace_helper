@@ -61,6 +61,7 @@ export default class stencilManager {
   
   
   autoSelectedMasterIdx: number | null = null;
+  autoSelectedMasters: Set<number> | null = null;
   
   private tileCounts: Map<string, Uint32Array> = new Map();
 
@@ -80,6 +81,23 @@ export default class stencilManager {
 
   setAutoSelectedMasterIdx(idx: number | null) {
     if (idx == null || !Number.isFinite(idx as any)) this.autoSelectedMasterIdx = null; else this.autoSelectedMasterIdx = Number(idx);
+  }
+
+  setAutoSelectedMasters(list: number[] | null) {
+    try {
+      if (!Array.isArray(list) || !list.length) {
+        this.autoSelectedMasters = null;
+        return;
+      }
+      const uniq = new Set<number>();
+      for (let i = 0; i < list.length; i++) {
+        const n = Number((list as any)[i]);
+        if (Number.isFinite(n)) uniq.add(n);
+      }
+      this.autoSelectedMasters = uniq.size ? uniq : null;
+    } catch {
+      this.autoSelectedMasters = null;
+    }
   }
 
   setPendingColorIdx(idx: number | null) {
@@ -118,12 +136,9 @@ export default class stencilManager {
     const tileKey = `${String(tileCoords[0]).padStart(4, '0')},${String(tileCoords[1]).padStart(4, '0')}`;
     const s = this.current;
     let ignoreWrong = false;
-    let colorMatchThresh = 18;
     try {
       const cfg = getAutoConfig();
       ignoreWrong = !!cfg.ignoreWrongColor;
-      const t = Number((cfg as any)?.enhancedThresh);
-      if (Number.isFinite(t)) colorMatchThresh = Math.max(0, Math.min(64, Math.round(t)));
     } catch {}
 
     const hasTouch = s.tilePrefixes && s.tilePrefixes.has(tileKey);
@@ -235,11 +250,7 @@ export default class stencilManager {
               if (a < 5) continue;
               const r = sd[si], g = sd[si + 1], b = sd[si + 2];
               const idx = nearestColorIndexFast(r, g, b);
-              
-              if (this.autoSelectedMasterIdx != null && idx !== this.autoSelectedMasterIdx) {
-                sd[si + 3] = 0; 
-                continue;
-              }
+
               const mr = MASTER_COLORS[idx].rgb[0];
               const mg = MASTER_COLORS[idx].rgb[1];
               const mb = MASTER_COLORS[idx].rgb[2];
@@ -263,9 +274,8 @@ export default class stencilManager {
               }
               let isBaseMatch = false;
               if (baseOpaque) {
-                const dr = tr - mr, dg = tg - mg, db = tb - mb;
-                const md = Math.max(Math.abs(dr), Math.abs(dg), Math.abs(db));
-                isBaseMatch = (md <= colorMatchThresh);
+                const tileIdx = nearestColorIndexFast(tr, tg, tb);
+                isBaseMatch = (tileIdx === idx);
               }
               if (isBaseMatch) { sd[si + 3] = 0; continue; }
               hasChanges = true;
@@ -278,7 +288,18 @@ export default class stencilManager {
               if (pendColorIdx == null || idx === pendColorIdx) {
                 pend.add(`${ax},${ay}`);
               }
-              if (this.autoSelectedMasterIdx != null) {
+
+              let show = true;
+              if (this.autoSelectedMasters != null) {
+                if (!this.autoSelectedMasters.has(idx)) show = false;
+              } else if (this.autoSelectedMasterIdx != null && idx !== this.autoSelectedMasterIdx) {
+                show = false;
+              }
+              if (!show) {
+                sd[si + 3] = 0;
+                continue;
+              }
+              if (this.autoSelectedMasterIdx != null && idx === this.autoSelectedMasterIdx) {
                 sd[si] = 0; sd[si + 1] = 0; sd[si + 2] = 240; sd[si + 3] = 255;
               } else {
                 sd[si] = mr; sd[si + 1] = mg; sd[si + 2] = mb; sd[si + 3] = 255;

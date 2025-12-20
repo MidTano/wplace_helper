@@ -1,16 +1,71 @@
 <script>
   import { startAutoPainter, stopAutoPainterManual, isAutoRunning } from '../screen/autoPainter';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { log } from '../overlay/log';
   import AutoModeMenu from './AutoModeMenu.svelte';
   import { t, lang } from '../i18n';
+  import { getAutoConfig } from '../screen/autoConfig';
+  import { hasStream } from '../screen/captureManager';
+  import ScreenAccessModal from '../screen/ScreenAccessModal.svelte';
 
   let on = false;
   let menuOpen = false;
   let menuX = 0;
   let menuY = 0;
   let btnEl;
-  onMount(() => { try { on = isAutoRunning(); } catch {} });
+  let syncTimer;
+  let captureTimer;
+  let captureMethod = 'canvas';
+  let captureOk = false;
+  let showScreenAccessModal = false;
+  onMount(() => {
+    try { on = isAutoRunning(); } catch {}
+    try {
+      syncTimer = setInterval(() => {
+        try {
+          const v = isAutoRunning();
+          if (v !== on) on = v;
+        } catch {}
+      }, 250);
+    } catch {}
+
+    try {
+      captureTimer = setInterval(() => {
+        try {
+          captureMethod = getAutoConfig()?.captureMethod || 'canvas';
+        } catch {
+          captureMethod = 'canvas';
+        }
+        try {
+          captureOk = captureMethod === 'display' ? !!hasStream() : false;
+        } catch {
+          captureOk = false;
+        }
+      }, 350);
+    } catch {}
+
+    try {
+      const onMsg = (ev) => {
+        const d = ev && ev.data;
+        if (!d || d.source !== 'wplace-svelte') return;
+        if (d.action === 'screenStreamChanged') {
+          try {
+            captureOk = captureMethod === 'display' ? !!d.has : false;
+          } catch {
+            captureOk = false;
+          }
+        }
+      };
+      window.addEventListener('message', onMsg);
+      return () => {
+        try { window.removeEventListener('message', onMsg); } catch {}
+      };
+    } catch {}
+  });
+  onDestroy(() => {
+    try { if (syncTimer) clearInterval(syncTimer); } catch {}
+    try { if (captureTimer) clearInterval(captureTimer); } catch {}
+  });
 
   async function toggle() {
     if (on) {
@@ -48,18 +103,63 @@
   $: _i18n_automode_lang = $lang;
   $: L_autoTip = ($lang, t('btn.autoMode.tooltip'));
   $: L_autoAria = ($lang, t('btn.autoMode.aria'));
+  $: L_capture = ($lang, captureOk ? t('screen.status.on') : t('screen.status.off'));
+
+  function onDotClick(e) {
+    try { e.preventDefault(); } catch {}
+    try { e.stopPropagation(); } catch {}
+    if (captureMethod !== 'display') return;
+    if (captureOk) return;
+    showScreenAccessModal = true;
+  }
 </script>
 
-<button bind:this={btnEl} class="tm-fab {on ? 'tm-primary' : ''}" type="button" on:click={toggle} on:contextmenu={openMenu} data-label={L_autoTip} aria-label={L_autoAria} aria-pressed={on} data-tutorial="auto-mode">
-  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
-    <path d="M9 15C8.44771 15 8 15.4477 8 16C8 16.5523 8.44771 17 9 17C9.55229 17 10 16.5523 10 16C10 15.4477 9.55229 15 9 15Z"/>
-    <path d="M14 16C14 15.4477 14.4477 15 15 15C15.5523 15 16 15.4477 16 16C16 16.5523 15.5523 17 15 17C14.4477 17 14 16.5523 14 16Z"/>
-    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1C10.8954 1 10 1.89543 10 3C10 3.74028 10.4022 4.38663 11 4.73244V7H6C4.34315 7 3 8.34315 3 10V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V10C21 8.34315 19.6569 7 18 7H13V4.73244C13.5978 4.38663 14 3.74028 14 3C14 1.89543 13.1046 1 12 1ZM5 10C5 9.44772 5.44772 9 6 9H7.38197L8.82918 11.8944C9.16796 12.572 9.86049 13 10.618 13H13.382C14.1395 13 14.832 12.572 15.1708 11.8944L16.618 9H18C18.5523 9 19 9.44772 19 10V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V10ZM13.382 11L14.382 9H9.61803L10.618 11H13.382Z"/>
-    <path d="M1 14C0.447715 14 0 14.4477 0 15V17C0 17.5523 0.447715 18 1 18C1.55228 18 2 17.5523 2 17V15C2 14.4477 1.55228 14 1 14Z"/>
-    <path d="M22 15C22 14.4477 22.4477 14 23 14C23.5523 14 24 14.4477 24 15V17C24 17.5523 23.5523 18 23 18C22.4477 18 22 17.5523 22 17V15Z"/>
-  </svg>
-</button>
+<div class="auto-wrap">
+  <button
+    class="capture-dot {captureMethod === 'display' ? (captureOk ? 'ok' : 'bad') : 'off'}"
+    type="button"
+    aria-label={L_capture}
+    title={L_capture}
+    on:click={onDotClick}
+  ></button>
+
+  <button bind:this={btnEl} class="tm-fab {on ? 'tm-primary' : ''}" type="button" on:click={toggle} on:contextmenu={openMenu} data-label={L_autoTip} aria-label={L_autoAria} aria-pressed={on} data-tutorial="auto-mode">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
+      <path d="M9 15C8.44771 15 8 15.4477 8 16C8 16.5523 8.44771 17 9 17C9.55229 17 10 16.5523 10 16C10 15.4477 9.55229 15 9 15Z"/>
+      <path d="M14 16C14 15.4477 14.4477 15 15 15C15.5523 15 16 15.4477 16 16C16 16.5523 15.5523 17 15 17C14.4477 17 14 16.5523 14 16Z"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1C10.8954 1 10 1.89543 10 3C10 3.74028 10.4022 4.38663 11 4.73244V7H6C4.34315 7 3 8.34315 3 10V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V10C21 8.34315 19.6569 7 18 7H13V4.73244C13.5978 4.38663 14 3.74028 14 3C14 1.89543 13.1046 1 12 1ZM5 10C5 9.44772 5.44772 9 6 9H7.38197L8.82918 11.8944C9.16796 12.572 9.86049 13 10.618 13H13.382C14.1395 13 14.832 12.572 15.1708 11.8944L16.618 9H18C18.5523 9 19 9.44772 19 10V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V10ZM13.382 11L14.382 9H9.61803L10.618 11H13.382Z"/>
+      <path d="M1 14C0.447715 14 0 14.4477 0 15V17C0 17.5523 0.447715 18 1 18C1.55228 18 2 17.5523 2 17V15C2 14.4477 1.55228 14 1 14Z"/>
+      <path d="M22 15C22 14.4477 22.4477 14 23 14C23.5523 14 24 14.4477 24 15V17C24 17.5523 23.5523 18 23 18C22.4477 18 22 17.5523 22 17V15Z"/>
+    </svg>
+  </button>
+</div>
 
 <AutoModeMenu open={menuOpen} x={menuX} y={menuY} on:close={() => menuOpen = false} />
+
+{#if showScreenAccessModal}
+  <ScreenAccessModal open={showScreenAccessModal} on:close={()=>showScreenAccessModal=false} />
+{/if}
+
+<style>
+  .auto-wrap { position: relative; display: inline-block; }
+  .capture-dot {
+    position: absolute;
+    right: -4px;
+    top: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.35);
+    padding: 0;
+    margin: 0;
+    background: #ef4444;
+    cursor: pointer;
+    z-index: 2;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.15);
+  }
+  .capture-dot.ok { background: #22c55e; }
+  .capture-dot.bad { background: #ef4444; }
+  .capture-dot.off { opacity: 0.25; cursor: default; }
+</style>
 
 

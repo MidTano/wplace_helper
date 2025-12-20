@@ -28,6 +28,7 @@ export async function buildShareFromCurrent(): Promise<{ payload: any; firstUrl?
   let name = '';
   if (file) {
     const filename = (file as any).name || 'image.png';
+    name = filename;
     const uploadPromises = [
       uploadToCatbox(file as Blob, filename).catch(() => ''),
       uploadToUguu(file as Blob, filename).catch(() => ''),
@@ -42,7 +43,7 @@ export async function buildShareFromCurrent(): Promise<{ payload: any; firstUrl?
       }
       if (urls.length >= 3) break;
     }
-    if (urls.length > 0) {
+    if (!name && urls.length > 0) {
       name = fileNameFromUrl(urls[0]);
     }
   }

@@ -212,17 +212,20 @@
   .picker-close { width: 28px; height: 28px; border-radius: 6px; border: none; background: var(--wph-surface, rgba(255,255,255,0.06)); color: #fff; cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: all .15s ease; }
   .picker-close:hover { background: var(--wph-surface2, rgba(255,255,255,0.12)); transform: scale(1.05); }
   .picker-body { padding: 16px; }
-  .picker-sv-area { width: 100%; height: 180px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); position: relative; cursor: crosshair; margin-bottom: 16px; user-select: none; overflow: hidden; }
+  .picker-sv-area { width: 100%; height: 180px; border-radius: 8px; border: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.2); position: relative; cursor: crosshair; margin-bottom: 16px; user-select: none; overflow: hidden; background-clip: padding-box; box-sizing: border-box; }
   .picker-sv-cursor { position: absolute; width: 14px; height: 14px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.4); }
   .picker-sliders { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
   .slider-row { display: grid; grid-template-columns: 35px 1fr 60px; gap: 10px; align-items: center; }
   .slider-row:first-child { grid-template-columns: 35px 1fr; }
   .slider-label { font-size: 12px; font-weight: 600; opacity: 0.9; color: #fff; }
-  .color-slider { width: 100%; height: 10px; border-radius: 5px; outline: none; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); cursor: pointer; }
-  .color-slider::-webkit-slider-track { width: 100%; height: 10px; border-radius: 5px; border: none; }
+  .color-slider { width: 100%; height: 10px; border-radius: 5px; outline: none; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.1); border: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3); cursor: pointer; padding: 0; box-sizing: border-box; }
+  .color-slider::-webkit-slider-runnable-track { width: 100%; height: 10px; border-radius: 5px; border: none; background: transparent; }
   .color-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: white; cursor: pointer; border: 3px solid rgba(0,0,0,0.5); box-shadow: 0 3px 8px rgba(0,0,0,0.5); margin-top: -5px; }
-  .color-slider::-moz-range-track { width: 100%; height: 10px; border-radius: 5px; border: none; }
+  .color-slider::-moz-range-track { width: 100%; height: 10px; border-radius: 5px; border: none; background: rgba(255,255,255,0.1); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3); }
   .color-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: white; cursor: pointer; border: 3px solid rgba(0,0,0,0.5); box-shadow: 0 3px 8px rgba(0,0,0,0.5); }
-  .hue-slider { background: linear-gradient(to right, rgb(255,0,0) 0%, rgb(255,255,0) 16.66%, rgb(0,255,0) 33.33%, rgb(0,255,255) 50%, rgb(0,0,255) 66.66%, rgb(255,0,255) 83.33%, rgb(255,0,0) 100%); border: 2px solid rgba(255,255,255,0.5); }
-  .color-input { width: 60px; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-size: 13px; text-align: center; outline: none; }
+  .hue-slider { background: linear-gradient(to right, rgb(255,0,0) 0%, rgb(255,255,0) 16.66%, rgb(0,255,0) 33.33%, rgb(0,255,255) 50%, rgb(0,0,255) 66.66%, rgb(255,0,255) 83.33%, rgb(255,0,0) 100%); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5); }
+  .hue-slider::-moz-range-track { background: linear-gradient(to right, rgb(255,0,0) 0%, rgb(255,255,0) 16.66%, rgb(0,255,0) 33.33%, rgb(0,255,255) 50%, rgb(0,0,255) 66.66%, rgb(255,0,255) 83.33%, rgb(255,0,0) 100%); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5); }
+  .color-input { width: 60px; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-size: 13px; text-align: center; outline: none; appearance: textfield; -moz-appearance: textfield; }
+  .color-input::-webkit-outer-spin-button,
+  .color-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 </style>

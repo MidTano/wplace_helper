@@ -14,6 +14,12 @@
   import { postChannelMessage, applyMaskOverride, readMaskFlagFromStorage } from '../wguard/core/channel';
   import { MASTER_COLORS } from '../editor/palette';
   import { playSendOrbitalEffect } from '../effects/SendEffect';
+  import CustomSelect from '../editor/CustomSelect.svelte';
+  import QrOverlayAnimModal from '../qrmusic/QrOverlayAnimModal.svelte';
+  import BootSettingsModal from '../boot/BootSettingsModal.svelte';
+  import InfoIcon from '../ui/InfoIcon.svelte';
+  import ScreenAccessModal from '../screen/ScreenAccessModal.svelte';
+  import { hasStream } from '../screen/captureManager';
   
 
   let open = false;
@@ -36,9 +42,24 @@
   let isDraggingHue = false;
   let showThemeModal = false;
   let showIdleModal = false;
+  let showQrAnimModal = false;
+  let showBootModal = false;
+  let showScreenAccessModal = false;
   const LIGHT_THEME = 'custom-winter';
-  const DARK_THEME = 'fiord';
+  const DARK_THEME = 'dark';
   let isDarkTheme = false;
+  
+  let captureMethod = 'canvas';
+  let isMobile = false;
+  let captureMethodOptions = [];
+  let colorDetectMethod = 'dom';
+  let colorDetectMethodOptions = [];
+  
+  function isMobileDevice() {
+    try {
+      return !!(window && window.matchMedia && window.matchMedia('(max-width: 720px), (hover: none) and (pointer: coarse)').matches);
+    } catch { return false; }
+  }
   
   function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -51,6 +72,10 @@
 
   function openThemeModal() {
     showThemeModal = true;
+  }
+
+  function openQrAnimModal() {
+    showQrAnimModal = true;
   }
   
   function rgbToHex(r, g, b) {
@@ -115,8 +140,11 @@
       const r = node.getBoundingClientRect();
       const w = r.width || 1;
       const h = r.height || 1;
-      const offset = 4;
-      const radius = 8 + offset;
+      const baseRadius = 8;
+      const borderW = 2;
+      const strokeW = 2.5;
+      const offset = borderW / 2 + strokeW / 2;
+      const radius = Math.max(0, baseRadius - offset);
       const x1 = offset;
       const y1 = offset;
       const x2 = w - offset;
@@ -156,7 +184,8 @@
   }
 
   function onChangeNumber(key, ev) {
-    const v = Number(ev?.currentTarget?.value || ev?.target?.value || 0) || 0;
+    const raw = Number(ev?.currentTarget?.value || ev?.target?.value || 0) || 0;
+    const v = key === 'interClickDelayMs' ? Math.max(1, raw) : raw;
     cfg = updateAutoConfig({ [key]: v });
   }
   function onChangeBool(key, ev) {
@@ -198,6 +227,64 @@
     } catch {}
   }
 
+  let bmMode = (cfg && cfg.bmMode) ? cfg.bmMode : 'random';
+  let bmModeOptions = [];
+  $: if (cfg && (cfg.bmMode || 'random') !== bmMode) bmMode = cfg.bmMode || 'random';
+  $: bmModeOptions = ($lang, [
+    { value: 'random', label: t('settings.bm.mode.random') },
+    { value: 'topDown', label: t('settings.bm.mode.topDown') },
+    { value: 'bottomUp', label: t('settings.bm.mode.bottomUp') },
+    { value: 'leftRight', label: t('settings.bm.mode.leftRight') },
+    { value: 'rightLeft', label: t('settings.bm.mode.rightLeft') },
+    { value: 'diagDown', label: t('settings.bm.mode.diagDown') },
+    { value: 'diagUp', label: t('settings.bm.mode.diagUp') },
+    { value: 'diagDownRight', label: t('settings.bm.mode.diagDownRight') },
+    { value: 'diagUpRight', label: t('settings.bm.mode.diagUpRight') },
+    { value: 'centerOut', label: t('settings.bm.mode.centerOut') },
+    { value: 'edgesIn', label: t('settings.bm.mode.edgesIn') },
+  ]);
+
+  let bmColorOrder = (cfg && cfg.bmColorOrder) ? cfg.bmColorOrder : 'highToLow';
+  let bmColorOrderOptions = [];
+  $: if (cfg && (cfg.bmColorOrder || 'highToLow') !== bmColorOrder) bmColorOrder = cfg.bmColorOrder || 'highToLow';
+  $: bmColorOrderOptions = ($lang, [
+    { value: 'highToLow', label: t('settings.bm.colorOrder.highToLow') },
+    { value: 'lowToHigh', label: t('settings.bm.colorOrder.lowToHigh') },
+    { value: 'random', label: t('settings.bm.colorOrder.random') },
+  ]);
+
+  $: captureMethodOptions = ($lang, isMobile
+    ? [
+      { value: 'canvas', label: t('screen.capture.method.canvas') },
+    ]
+    : [
+      { value: 'canvas', label: t('screen.capture.method.canvas') },
+      { value: 'display', label: t('screen.capture.method.display') },
+    ]
+  );
+
+  $: if (cfg && (cfg.captureMethod || 'canvas') !== captureMethod) captureMethod = cfg.captureMethod || 'canvas';
+  $: if (cfg && (cfg.colorDetectMethod || 'dom') !== colorDetectMethod) colorDetectMethod = cfg.colorDetectMethod || 'dom';
+
+  $: colorDetectMethodOptions = ($lang, [
+    { value: 'dom', label: t('color.detect.method.dom') },
+    { value: 'packets', label: t('color.detect.method.packets') },
+  ]);
+  
+  function onChangeCaptureMethod(value) {
+    if (isMobile) return;
+    captureMethod = value;
+    cfg = updateAutoConfig({ captureMethod: value });
+    if (value === 'display') {
+      showScreenAccessModal = true;
+    }
+  }
+
+  function onChangeColorDetectMethod(value) {
+    colorDetectMethod = value;
+    cfg = updateAutoConfig({ colorDetectMethod: value });
+  }
+
   function readThemePreference() {
     try {
       const value = localStorage.getItem('theme');
@@ -211,6 +298,8 @@
     isDarkTheme = enabled;
     try {
       localStorage.setItem('theme', enabled ? DARK_THEME : LIGHT_THEME);
+      document.cookie = `theme=${enabled ? 'dark' : 'custom-winter'}; path=/; domain=.wplace.live; max-age=31536000; samesite=lax`;
+      document.cookie = `snowflakes-enabled=false; path=/; domain=.wplace.live; max-age=31536000; samesite=lax`;
       window.location.reload();
     } catch {}
   }
@@ -305,16 +394,31 @@
       const r = btnEl?.getBoundingClientRect?.();
       const W = Math.max(0, window.innerWidth || 0);
       const H = Math.max(0, window.innerHeight || 0);
-      const pad = 10;
-      const topMenuHeight = 110;
       const mwRaw = popEl?.offsetWidth || 0;
       const mhRaw = popEl?.offsetHeight || 0;
-      const mw = Math.max(260, mwRaw || 300);
-      const mh = mhRaw || 500;
-      const nx = Math.max(pad, Math.min(Math.round((r?.left || 0) + (r?.width || 0)/2 - mw/2), W - mw - pad));
-      let ny = Math.round((r?.bottom || 0) + 8);
-      if (ny + mh > H - pad) {
-        ny = Math.max(topMenuHeight + pad, H - mh - pad);
+      const isMobile = (() => {
+        try {
+          return !!(window && window.matchMedia && window.matchMedia('(max-width: 720px), (hover: none) and (pointer: coarse)').matches);
+        } catch { return false; }
+      })();
+      const pad = isMobile ? 12 : 10;
+      const bottomPad = isMobile ? 24 : pad;
+      const topMenuHeight = isMobile ? 72 : 110;
+      const mw = isMobile
+        ? Math.max(260, Math.min(W - pad * 2, mwRaw || (W - pad * 2)))
+        : Math.max(260, mwRaw || 300);
+      const maxAvailH = Math.max(200, H - (topMenuHeight + pad + bottomPad));
+      const mh = isMobile
+        ? Math.max(240, Math.min(maxAvailH, mhRaw || maxAvailH))
+        : (mhRaw || 500);
+      const nx = isMobile
+        ? Math.max(pad, Math.min(Math.round((W - mw) / 2), W - mw - pad))
+        : Math.max(pad, Math.min(Math.round((r?.left || 0) + (r?.width || 0)/2 - mw/2), W - mw - pad));
+      let ny = isMobile
+        ? Math.round((H - mh) / 2)
+        : Math.round((r?.bottom || 0) + 8);
+      if (ny + mh > H - bottomPad) {
+        ny = Math.max(topMenuHeight + pad, H - mh - bottomPad);
       }
       ny = Math.max(topMenuHeight + pad, ny);
       posX = nx; posY = ny;
@@ -324,6 +428,20 @@
   onMount(() => {
     cfg = getAutoConfig();
     readThemePreference();
+    isMobile = isMobileDevice();
+    captureMethod = cfg?.captureMethod || 'canvas';
+    colorDetectMethod = cfg?.colorDetectMethod || 'dom';
+    if (isMobile) {
+      if (captureMethod !== 'canvas') {
+        captureMethod = 'canvas';
+        cfg = updateAutoConfig({ captureMethod: 'canvas' });
+      }
+    }
+    if (captureMethod === 'display') {
+      try {
+        if (!hasStream()) showScreenAccessModal = true;
+      } catch {}
+    }
     try { postChannelMessage({ action: 'bm:setBypass', enabled: !!cfg.wguardBypassProtection }); } catch {}
     try { postChannelMessage({ action: 'bm:setMask', enabled: 'sync' }); } catch {}
     try { applyMaskOverride(readMaskFlagFromStorage()); } catch {}
@@ -364,66 +482,130 @@
     <div class="title">{t('settings.auto.title')}</div>
     
     <div class="row">
-      <label for="cfg-series-wait">{t('settings.seriesWait')}</label>
+      <div class="label-with-info">
+        <label for="cfg-series-wait">{t('settings.seriesWait')}</label>
+        <InfoIcon title={t('settings.seriesWait')} content={t('settings.info.seriesWait')} position="top" />
+      </div>
       <input id="cfg-series-wait" type="number" min="0" step="1" bind:value={cfg.seriesWaitSec} on:input={(e)=>onChangeNumber('seriesWaitSec', e)} />
+    </div>
+
+    <div class="row">
+      <div class="label-with-info">
+        <label for="cfg-interclick">{t('settings.interClickDelay')}</label>
+        <InfoIcon title={t('settings.interClickDelay')} content={t('settings.info.interClickDelay')} position="top" />
+      </div>
+      <input id="cfg-interclick" type="number" min="0" step="1" bind:value={cfg.interClickDelayMs} on:input={(e)=>onChangeNumber('interClickDelayMs', e)} />
+    </div>
+
+    <div class="row bm-mode-row">
+      <div class="label-with-info">
+        <label for="cfg-bm-mode">{t('settings.bm.mode')}</label>
+        <InfoIcon title={t('settings.bm.mode')} content={t('settings.info.bmMode')} position="top" />
+      </div>
+      <CustomSelect bind:value={bmMode} options={bmModeOptions} onChange={() => { cfg = updateAutoConfig({ bmMode }); }} showModePreview={true} previewAnchorSelector="#tm-settings-popover" previewOffsetX={62} />
+    </div>
+
+    <div class="row bm-mode-row">
+      <div class="label-with-info">
+        <label for="cfg-bm-color-order">{t('settings.bm.colorOrder')}</label>
+        <InfoIcon title={t('settings.bm.colorOrder')} content={t('settings.info.bmColorOrder')} position="top" />
+      </div>
+      <CustomSelect bind:value={bmColorOrder} options={bmColorOrderOptions} onChange={() => { cfg = updateAutoConfig({ bmColorOrder }); }} />
     </div>
     
     <div class="row">
-      <label for="cfg-rand-extra">{t('settings.randomExtraWait')}</label>
+      <div class="label-with-info">
+        <label for="cfg-rand-extra">{t('settings.randomExtraWait')}</label>
+        <InfoIcon title={t('settings.randomExtraWait')} content={t('settings.info.randomExtraWait')} position="top" />
+      </div>
       <input id="cfg-rand-extra" type="number" min="0" step="1" bind:value={cfg.randomExtraWaitMaxSec} on:input={(e)=>onChangeNumber('randomExtraWaitMaxSec', e)} />
     </div>
     
     <div class="row">
-      <label for="cfg-bm-batch">{t('settings.bm.batchLimit')}</label>
+      <div class="label-with-info">
+        <label for="cfg-bm-batch">{t('settings.bm.batchLimit')}</label>
+        <InfoIcon title={t('settings.bm.batchLimit')} content={t('settings.info.bmBatchLimit')} position="top" />
+      </div>
       <input id="cfg-bm-batch" type="number" min="0" step="1" bind:value={cfg.bmBatchLimit} on:input={(e)=>onChangeNumber('bmBatchLimit', e)} />
     </div>
-    
-    <!--
+
     <div class="row toggle-row">
-      <label for="cfg-bm-multi">{t('settings.bm.multiColor')}</label>
-      <label class="toggle-control" aria-label={t('settings.bm.multiColor')}>
-        <input id="cfg-bm-multi" type="checkbox" checked={cfg.bmMultiColor} on:change={(e)=>onChangeBool('bmMultiColor', e)} />
-        <span class="toggle-track"></span>
-      </label>
-    </div>
-    -->
-    <div class="row toggle-row">
-      <label for="cfg-ignore-wrong">{t('settings.bm.ignoreWrong')}</label>
+      <div class="label-with-info">
+        <label for="cfg-ignore-wrong">{t('settings.bm.ignoreWrong')}</label>
+        <InfoIcon title={t('settings.bm.ignoreWrong')} content={t('settings.info.ignoreWrongColor')} position="top" />
+      </div>
       <label class="toggle-control" aria-label={t('settings.bm.ignoreWrong')}>
         <input id="cfg-ignore-wrong" type="checkbox" checked={cfg.ignoreWrongColor} on:change={(e)=>onChangeBool('ignoreWrongColor', e)} />
         <span class="toggle-track"></span>
       </label>
     </div>
-    <!--
+
     <div class="row toggle-row">
-      <label for="cfg-bypass-wguard">{t('settings.bm.bypassWguard')}</label>
-      <label class="toggle-control" aria-label={t('settings.bm.bypassWguard')}>
-        <input id="cfg-bypass-wguard" type="checkbox" checked={cfg.wguardBypassProtection} on:change={(e)=>onChangeBool('wguardBypassProtection', e)} />
-        <span class="toggle-track"></span>
-      </label>
-    </div>
-    -->
-    <div class="row toggle-row">
-      <label for="cfg-mask-bm">{t('settings.bm.maskAsBM')}</label>
+      <div class="label-with-info">
+        <label for="cfg-mask-bm">{t('settings.bm.maskAsBM')}</label>
+        <InfoIcon title={t('settings.bm.maskAsBM')} content={t('settings.info.maskAsBM')} position="top" />
+      </div>
       <label class="toggle-control" aria-label={t('settings.bm.maskAsBM')}>
         <input id="cfg-mask-bm" type="checkbox" checked={cfg.maskAsBlueMarble} on:change={(e)=>onChangeBool('maskAsBlueMarble', e)} />
         <span class="toggle-track"></span>
       </label>
     </div>
     <div class="row toggle-row send-effect-row">
-      <label for="cfg-send-effect">{t('settings.sendEffect.title')}</label>
-      <button type="button" class="editor-btn send-test-btn" on:click={runSendEffectTest}>{t('settings.sendEffect.test')}</button>
+      <div class="label-with-info">
+        <label for="cfg-send-effect">{t('settings.sendEffect.title')}</label>
+        <InfoIcon title={t('settings.sendEffect.title')} content={t('settings.info.sendEffect')} position="top" />
+      </div>
+      <div class="btn-with-info">
+        <button type="button" class="editor-btn send-test-btn" on:click={runSendEffectTest}>{t('settings.sendEffect.test')}</button>
+        <InfoIcon title={t('settings.sendEffect.test')} content={t('settings.info.sendEffectTest')} position="top" />
+      </div>
       <label class="toggle-control" aria-label={t('settings.sendEffect.title')}>
         <input id="cfg-send-effect" type="checkbox" checked={cfg.sendEffectEnabled} on:change={(e)=>onChangeBool('sendEffectEnabled', e)} />
         <span class="toggle-track"></span>
       </label>
     </div>
     <div class="row toggle-row">
-      <label for="cfg-theme-toggle">{t('settings.interface.dark')}</label>
+      <div class="label-with-info">
+        <label for="cfg-theme-toggle">{t('settings.interface.dark')}</label>
+        <InfoIcon title={t('settings.interface.dark')} content={t('settings.info.darkMap')} position="top" />
+      </div>
       <label class="toggle-control" aria-label={t('settings.interface.dark')}>
         <input id="cfg-theme-toggle" type="checkbox" checked={isDarkTheme} on:change={(e)=>applyThemePreference(e?.currentTarget?.checked ?? false)} />
         <span class="toggle-track"></span>
       </label>
+    </div>
+    
+    <div class="row capture-method-row">
+      <label for="cfg-capture-method">{t('screen.capture.method')}</label>
+      <div class="capture-method-inline">
+        <CustomSelect 
+          bind:value={captureMethod} 
+          options={captureMethodOptions} 
+          onChange={(v) => { onChangeCaptureMethod(v); }} 
+          disabled={isMobile}
+        />
+        <InfoIcon 
+          title={t('screen.capture.info.title')}
+          content={isMobile ? t('screen.capture.mobile.only') : (t('screen.capture.info.canvas') + '\n\n' + t('screen.capture.info.display'))}
+          position="top"
+        />
+      </div>
+    </div>
+
+    <div class="row capture-method-row">
+      <label for="cfg-color-detect-method">{t('color.detect.method')}</label>
+      <div class="capture-method-inline">
+        <CustomSelect 
+          bind:value={colorDetectMethod}
+          options={colorDetectMethodOptions}
+          onChange={(v) => { onChangeColorDetectMethod(v); }}
+        />
+        <InfoIcon 
+          title={t('color.detect.info.title')}
+          content={t('color.detect.info.dom') + '\n\n' + t('color.detect.info.packets')}
+          position="top"
+        />
+      </div>
     </div>
     <div class="color-section" role="group" aria-labelledby="color-section-label">
       <div class="color-label" id="color-section-label">{t('settings.enhancedBackground')}</div>
@@ -466,6 +648,11 @@
     <div class="color-section" role="group" aria-labelledby="theme-section-label">
       <div class="color-label" id="theme-section-label">{t('settings.interface.title')}</div>
       <div class="quick-actions" role="group" aria-label={t('theme.modal.quick.actions')}>
+        <button class="editor-btn qa-btn" title={t('settings.qr.anim.title')} aria-label={t('settings.qr.anim.title')} on:click={openQrAnimModal}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm10 0h2v2h-2v-2zm-2 2h2v2h-2v-2zm4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm-2 0h2v2h-2v-2z" />
+          </svg>
+        </button>
         <button class="editor-btn qa-btn" title={t('theme.modal.quick.theme')} aria-label={t('theme.modal.quick.theme')} on:click={openThemeModal}>
           <svg viewBox="0 0 32 32" width="18" height="18" fill="currentColor" aria-hidden="true">
             <circle cx="10" cy="12" r="2"/>
@@ -481,6 +668,11 @@
             <path d="M2,12v8a3,3,0,0,0,3,3h5V15H6v2H8v4H5a1,1,0,0,1-1-1V12a1,1,0,0,1,1-1h5V9H5A3,3,0,0,0,2,12Z"/>
             <polygon points="30 11 30 9 22 9 22 23 24 23 24 17 29 17 29 15 24 15 24 11 30 11"/>
             <polygon points="12 9 12 11 15 11 15 21 12 21 12 23 20 23 20 21 17 21 17 11 20 11 20 9 12 9"/>
+          </svg>
+        </button>
+        <button class="editor-btn qa-btn qa-boot-btn" title={t('btn.bootSettings.title')} aria-label={t('btn.bootSettings.aria')} on:click={() => { showBootModal = true; }}>
+          <svg class="boot-spinner" viewBox="0 0 50 50" width="18" height="18" aria-hidden="true">
+            <circle class="boot-spinner-path" cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
           </svg>
         </button>
       </div>
@@ -504,13 +696,19 @@
 
 <ThemeModal bind:open={showThemeModal} />
 <IdleSettingsModal bind:open={showIdleModal} />
-
+{#if showBootModal}
+  <BootSettingsModal open on:close={()=>showBootModal=false} />
+{/if}
+{#if showScreenAccessModal}
+  <ScreenAccessModal open={showScreenAccessModal} on:close={()=>showScreenAccessModal=false} />
+{/if}
 {#if showColorPicker}
   <div class="color-picker-backdrop" use:appendToBody on:click={closeColorPicker} role="button" tabindex="-1" on:keydown={(e)=>{if(e.key==='Escape')closeColorPicker();}}></div>
   <ColorPicker x={pickerX} y={pickerY} value={cfg.enhancedBackgroundColor}
     on:change={(e)=>{ cfg = updateAutoConfig({ enhancedBackgroundColor: e.detail.value }); triggerRedrawDebounced(); }}
     on:close={closeColorPicker} />
 {/if}
+<QrOverlayAnimModal bind:open={showQrAnimModal} />
 </div>
 
 <style>
@@ -533,6 +731,58 @@
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.35) transparent;
+    transform-origin: top center;
+    will-change: transform, opacity, filter, box-shadow;
+    animation: wphSettingsPopIn 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .tm-settings-popover > * {
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: wphSettingsItemIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: 45ms;
+  }
+  .tm-settings-popover > :nth-child(1) { animation-delay: 45ms; }
+  .tm-settings-popover > :nth-child(2) { animation-delay: 72ms; }
+  .tm-settings-popover > :nth-child(3) { animation-delay: 99ms; }
+  .tm-settings-popover > :nth-child(4) { animation-delay: 126ms; }
+  .tm-settings-popover > :nth-child(5) { animation-delay: 153ms; }
+  .tm-settings-popover > :nth-child(6) { animation-delay: 180ms; }
+  .tm-settings-popover > :nth-child(7) { animation-delay: 207ms; }
+  .tm-settings-popover > :nth-child(8) { animation-delay: 234ms; }
+  .tm-settings-popover > :nth-child(9) { animation-delay: 261ms; }
+  .tm-settings-popover > :nth-child(10) { animation-delay: 288ms; }
+  .tm-settings-popover > :nth-child(11) { animation-delay: 315ms; }
+  .tm-settings-popover > :nth-child(12) { animation-delay: 342ms; }
+  .tm-settings-popover > :nth-child(13) { animation-delay: 369ms; }
+  .tm-settings-popover > :nth-child(14) { animation-delay: 396ms; }
+  .tm-settings-popover > :nth-child(15) { animation-delay: 423ms; }
+  .tm-settings-popover > :nth-child(16) { animation-delay: 450ms; }
+  .tm-settings-popover > :nth-child(17) { animation-delay: 477ms; }
+  .tm-settings-popover > :nth-child(18) { animation-delay: 504ms; }
+  .tm-settings-popover > :nth-child(19) { animation-delay: 531ms; }
+  .tm-settings-popover > :nth-child(20) { animation-delay: 558ms; }
+  .tm-settings-popover > :nth-child(21) { animation-delay: 585ms; }
+  .tm-settings-popover > :nth-child(22) { animation-delay: 612ms; }
+  .tm-settings-popover > :nth-child(23) { animation-delay: 639ms; }
+  .tm-settings-popover > :nth-child(24) { animation-delay: 666ms; }
+  .tm-settings-popover > :nth-child(25) { animation-delay: 693ms; }
+
+  @keyframes wphSettingsPopIn {
+    0% { opacity: 0; transform: translateY(-18px) scale(0.96); filter: blur(10px); box-shadow: 0 10px 24px rgba(0,0,0,0.28); }
+    60% { opacity: 1; transform: translateY(0) scale(1.02); filter: blur(0); box-shadow: 0 22px 52px rgba(0,0,0,0.55); }
+    100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); box-shadow: 0 18px 40px rgba(0,0,0,0.45); }
+  }
+
+  @keyframes wphSettingsItemIn {
+    0% { opacity: 0; transform: translateY(16px) scale(0.985); }
+    70% { opacity: 1; transform: translateY(0) scale(1.01); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tm-settings-popover { animation: none; }
+    .tm-settings-popover > * { animation: none; opacity: 1; }
   }
 
   .tm-settings-popover::-webkit-scrollbar {
@@ -562,6 +812,23 @@
     border: 0;
   }
 
+  @media (max-width: 720px), (hover: none) and (pointer: coarse) {
+    .tm-settings-popover {
+      width: min(520px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+      max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+      max-height: calc(100dvh - 112px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      padding: 16px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+      border-radius: 16px;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-gutter: stable;
+    }
+    .tm-settings-popover::-webkit-scrollbar { width: 6px; height: 6px; }
+    .tm-settings-popover .row { grid-template-columns: 1fr 120px; }
+    .tm-settings-popover .row.bm-mode-row { grid-template-columns: 1fr; gap: 8px; align-items: stretch; }
+    .tm-settings-popover .row.bm-mode-row label { white-space: normal; }
+  }
+
   .tm-settings-popover {
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.35) transparent;
@@ -576,6 +843,27 @@
     gap: 10px;
     align-items: center;
     margin: 8px 0;
+  }
+
+  .label-with-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .btn-with-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tm-settings-popover .row.bm-mode-row {
+    grid-template-columns: max-content 1fr;
+  }
+
+  .tm-settings-popover .row.bm-mode-row label {
+    white-space: nowrap;
   }
 
 
@@ -638,13 +926,14 @@
     content: '';
     position: absolute;
     left: 2px;
-    top: 2px;
+    top: 50%;
     width: 18px;
     height: 18px;
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     transition: all .2s ease;
+    transform: translateY(-50%);
   }
 
   .toggle-control input:checked + .toggle-track {
@@ -653,9 +942,18 @@
   }
 
   .toggle-control input:checked + .toggle-track::after {
-    transform: translateX(18px);
+    transform: translate(18px, -50%);
   }
   .tm-settings-popover .row label { font-size: 12px; opacity: 0.95; }
+  .tm-settings-popover input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  .tm-settings-popover input[type="number"]::-webkit-outer-spin-button,
+  .tm-settings-popover input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
   .tm-settings-popover input {
     width: 100%;
     padding: 6px 8px;
@@ -667,7 +965,11 @@
     transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
   }
   .tm-settings-popover input:hover { background: var(--wph-surface2, rgba(255,255,255,0.1)); }
-  .tm-settings-popover input:focus { border-color: var(--wph-border, rgba(255,255,255,0.28)); box-shadow: 0 0 0 2px var(--wph-surface, rgba(255,255,255,0.08)) inset; }
+  .tm-settings-popover input:focus,
+  .tm-settings-popover input:focus-visible {
+    border-color: var(--wph-primary, #f05123);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--wph-primary, #f05123) 35%, transparent);
+  }
   
   .tm-settings-popover .color-section {
     margin: 12px 0;
@@ -687,12 +989,33 @@
   .tm-settings-popover .editor-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.07); color: #fff; cursor: pointer; }
   .tm-settings-popover .editor-btn.editor-primary { background: var(--wph-primary, #f05123); border-color: rgba(255,255,255,0.25); }
   .tm-settings-popover .qa-btn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+
+  .tm-settings-popover .qa-boot-btn .boot-spinner { display: block; animation: bootSpinnerRotate 1.35s linear infinite; }
+  .tm-settings-popover .qa-boot-btn .boot-spinner-path { stroke-dasharray: 1, 200; stroke-dashoffset: 0; animation: bootSpinnerDash 1.35s ease-in-out infinite; }
+
+  @keyframes bootSpinnerRotate { 100% { transform: rotate(360deg); } }
+  @keyframes bootSpinnerDash {
+    0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
+    50% { stroke-dasharray: 90, 200; stroke-dashoffset: -35; }
+    100% { stroke-dasharray: 90, 200; stroke-dashoffset: -125; }
+  }
   .tm-settings-popover .color-presets {
     display: flex;
     gap: 8px;
     margin-bottom: 10px;
   }
   .tm-settings-popover .color-actions { margin-top: 16px; }
+  
+  .tm-settings-popover .capture-method-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .tm-settings-popover .capture-method-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
   .tm-settings-popover .color-preset {
     width: 40px;
     height: 40px;
@@ -712,13 +1035,13 @@
   }
   .tm-settings-popover .color-preset .ants {
     position: absolute;
-    inset: -4px;
-    width: calc(100% + 8px);
-    height: calc(100% + 8px);
+    inset: 0;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
     opacity: 0;
-    left: -4px;
-    top: -4px;
+    left: 0;
+    top: 0;
   }
   .tm-settings-popover .color-preset .ants path {
     stroke: var(--wph-primary, #f3734d);

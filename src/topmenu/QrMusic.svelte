@@ -2,12 +2,11 @@
   import { onMount, onDestroy } from 'svelte';
   import { appendToBody } from '../editor/modal/utils/appendToBody';
   import { t, lang } from '../i18n';
-  import { addOrUpdate } from './historyStore';
   import { getPalette } from '../editor/palette';
   import { detectService, normalizeUrl } from './qrmusic/normalize';
   import { shorten } from './qrmusic/shortener';
   import { encodeV2 } from './qrmusic/codec';
-  import { setSelectedFile, setMoveMode, setCurrentHistoryId } from '../overlay/state';
+  import { setSelectedFile, setMoveMode } from '../overlay/state';
   import { markElement } from '../wguard';
   let popOpen = false;
   let open = false;
@@ -35,7 +34,7 @@
   $: _render = (open, drawSymbols(lastSymbols));
   $: _qrmusic_on = (()=>{ try{ (window)['__wph_qrmusic_on'] = !!enabled }catch{} return enabled })();
   async function onPreview(){ try{ const svc = detectService(url); const urlN = normalizeUrl(url, svc); const sh = await shorten(urlN); if(!sh) return; const { symbols } = encodeV2({ provider: sh.provider, service: svc, slug: sh.slug }); drawSymbols(symbols); }catch{} }
-  async function onPlace(){ try{ const svc = detectService(url); const urlN = normalizeUrl(url, svc); const sh = await shorten(urlN); if(!sh) return; const { symbols } = encodeV2({ provider: sh.provider, service: svc, slug: sh.slug }); drawSymbols(symbols); await new Promise(res=>setTimeout(res,0)); const n=5; const small=document.createElement('canvas'); try{ markElement(small) }catch{} small.width=n; small.height=n; const ctx=small.getContext('2d',{ willReadFrequently:true }); if(!ctx) return; ctx.imageSmoothingEnabled=false; const m=buildMatrixFromSymbols(symbols); for(let y=0;y<n;y++){ for(let x=0;x<n;x++){ const c=FREE32[m[y][x]%FREE32.length]; ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`; ctx.fillRect(x,y,1,1); } } const saveBlob = await new Promise((resolve)=>{ small.toBlob((b)=>resolve(b),'image/png') }); if(!saveBlob) return; const name = `qr_music_${Date.now()}.png`; let file; try{ file = new File([saveBlob], name, { type: 'image/png' }); }catch{ file = saveBlob } const meta = await addOrUpdate(file, name, null); try{ setCurrentHistoryId(meta?.id || null); }catch{} try{ setSelectedFile(file); }catch{} try{ setMoveMode(true); }catch{} open = false }catch{} }
+  async function onPlace(){ try{ const svc = detectService(url); const urlN = normalizeUrl(url, svc); const sh = await shorten(urlN); if(!sh) return; const { symbols } = encodeV2({ provider: sh.provider, service: svc, slug: sh.slug }); drawSymbols(symbols); await new Promise(res=>setTimeout(res,0)); const n=5; const small=document.createElement('canvas'); try{ markElement(small) }catch{} small.width=n; small.height=n; const ctx=small.getContext('2d',{ willReadFrequently:true }); if(!ctx) return; ctx.imageSmoothingEnabled=false; const m=buildMatrixFromSymbols(symbols); for(let y=0;y<n;y++){ for(let x=0;x<n;x++){ const c=FREE32[m[y][x]%FREE32.length]; ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`; ctx.fillRect(x,y,1,1); } } const saveBlob = await new Promise((resolve)=>{ small.toBlob((b)=>resolve(b),'image/png') }); if(!saveBlob) return; const name = `qr_music_${Date.now()}.png`; let file; try{ file = new File([saveBlob], name, { type: 'image/png' }); }catch{ file = saveBlob } try{ setSelectedFile(file); }catch{} try{ setMoveMode(true); }catch{} open = false }catch{} }
   function closeModal(){ open = false }
   async function updatePosition(){ try{ await Promise.resolve(); const r = btnEl?.getBoundingClientRect?.(); const W = Math.max(0, window.innerWidth||0); const H = Math.max(0, window.innerHeight||0); const pad = 10; const topMenuHeight = 110; const mwRaw = popEl?.offsetWidth||0; const mhRaw = popEl?.offsetHeight||0; const mw = Math.max(200, mwRaw||220); const mh = mhRaw||64; const nx = Math.max(pad, Math.min(Math.round((r?.left||0)+(r?.width||0)/2 - mw/2), W - mw - pad)); let ny = Math.round((r?.bottom||0)+8); if(ny+mh>H-pad){ ny = Math.max(topMenuHeight+pad, H - mh - pad) } ny = Math.max(topMenuHeight+pad, ny); posX = nx; posY = ny }catch{} }
   function openPopover(){ try{ if(hideTm){ clearTimeout(hideTm); hideTm=0 } }catch{} popOpen = true; updatePosition() }

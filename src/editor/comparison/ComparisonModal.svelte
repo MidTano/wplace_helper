@@ -20,6 +20,14 @@
   let modalRef;
   let backdropRef;
 
+  function isMobileViewport() {
+    try {
+      return !!(window && window.matchMedia && window.matchMedia('(max-width: 720px), (hover: none) and (pointer: coarse)').matches);
+    } catch { return false; }
+  }
+
+  let isMobile = false;
+
   
   $: images = $comparisonImages;
   $: imageCount = images.length;
@@ -74,6 +82,15 @@
   
   onMount(() => {
     document.addEventListener('keydown', handleKeyDown);
+    try { isMobile = isMobileViewport(); } catch {}
+    try {
+      if (isMobile && $comparisonImages.length > 2) {
+        const extra = $comparisonImages.slice(2);
+        for (const img of extra) {
+          try { comparisonActions.removeImage(img.id); } catch {}
+        }
+      }
+    } catch {}
   });
 
   onDestroy(() => {
@@ -127,10 +144,18 @@
           <div class="editor-group">
             <div class="editor-group-title">{t('comparisonModal.controls')}</div>
             <ul class="hint-list">
-              <li><span>{t('comparisonModal.controls.wheel')}</span> — {t('comparisonModal.controls.wheelDesc')}</li>
-              <li><span>{t('comparisonModal.controls.drag')}</span> — {t('comparisonModal.controls.dragDesc')}</li>
-              <li><span>{t('comparisonModal.controls.space')}</span> — {t('comparisonModal.controls.spaceDesc')}</li>
-              <li><span>{t('comparisonModal.controls.escape')}</span> — {t('comparisonModal.controls.escapeDesc')}</li>
+              {#if isMobile}
+                <li><span>{t('comparisonModal.controls.touchPan')}</span> — {t('comparisonModal.controls.touchPanDesc')}</li>
+                <li><span>{t('comparisonModal.controls.touchZoom')}</span> — {t('comparisonModal.controls.touchZoomDesc')}</li>
+                <li><span>{t('comparisonModal.controls.touchMenu')}</span> — {t('comparisonModal.controls.touchMenuDesc')}</li>
+                <li><span>{t('comparisonModal.controls.touchReset')}</span> — {t('comparisonModal.controls.touchResetDesc')}</li>
+                <li><span>{t('comparisonModal.controls.touchClose')}</span> — {t('comparisonModal.controls.touchCloseDesc')}</li>
+              {:else}
+                <li><span>{t('comparisonModal.controls.wheel')}</span> — {t('comparisonModal.controls.wheelDesc')}</li>
+                <li><span>{t('comparisonModal.controls.drag')}</span> — {t('comparisonModal.controls.dragDesc')}</li>
+                <li><span>{t('comparisonModal.controls.space')}</span> — {t('comparisonModal.controls.spaceDesc')}</li>
+                <li><span>{t('comparisonModal.controls.escape')}</span> — {t('comparisonModal.controls.escapeDesc')}</li>
+              {/if}
             </ul>
           </div>
         </div>
@@ -151,7 +176,7 @@
             />
           {:else}
             <div class="empty-state">
-              <div class="empty-icon">📊</div>
+              <div class="empty-icon">INFO</div>
               <div class="empty-title">{t('comparisonModal.empty.title')}</div>
               <div class="empty-text">
                 {@html t('comparisonModal.empty.text')}

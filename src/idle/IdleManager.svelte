@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import IdleScreen from './IdleScreen.svelte';
   import { idleSettingsStore, getRandomFavoriteGif, addGif } from './store';
+  import { getAutoConfig } from '../screen/autoConfig';
 
   let idleTimeoutMs = 5000;
   $: idleTimeoutMs = Math.max(5000, Math.min(7200 * 1000, Math.round((($idleSettingsStore?.idleTimeoutSec) || 5) * 1000)));
@@ -11,13 +12,28 @@
   let startHiding = false;
   let currentGif = { url: '', offsetY: 0, offsetX: 0, width: null as number | null, height: null as number | null };
   let manualActive = false;
+  let captureMethod = 'canvas';
   const DEFAULT_GIF_URL = 'https://media.tenor.com/cZCGGNbpWskAAAAi/miyulily-vtuber.gif';
+  
+  function isCaptureEnabled() {
+    try {
+      const cfg = getAutoConfig();
+      captureMethod = cfg?.captureMethod || 'canvas';
+      return captureMethod === 'display';
+    } catch {
+      return false;
+    }
+  }
 
   function scheduleIdle() {
     if (idleTimer !== null) {
       clearTimeout(idleTimer);
     }
     if (!$idleSettingsStore?.enabled) {
+      return;
+    }
+    
+    if (isCaptureEnabled()) {
       return;
     }
     
@@ -49,6 +65,10 @@
   }
 
   function triggerIdleNow() {
+    if (isCaptureEnabled()) {
+      return;
+    }
+    
     if (idleTimer !== null) { try { clearTimeout(idleTimer); } catch {} idleTimer = null; }
     manualActive = true;
     const last = $idleSettingsStore?.lastShownGifId || undefined;

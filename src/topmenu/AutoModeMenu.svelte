@@ -4,7 +4,9 @@
   import { getStencilManager } from '../template/stencilManager';
   import { getAutoAllowedMasters, setAutoAllowedMasters, isAutoRunning, getAutoSavedCounts } from '../screen/autoPainter';
   import { t } from '../i18n';
+  import { sendChannel } from '../wguard/core/channel';
   import { appendToBody } from '../editor/modal/utils/appendToBody';
+  import { getAutoConfig } from '../screen/autoConfig';
 
   export let open = false;
   export let x = 0;
@@ -18,6 +20,64 @@
   const dispatch = createEventDispatcher();
   let enhanced = false;
   let rgbToButtonId = new Map();
+
+  function readOwnedBitmap() {
+    try {
+      const raw = localStorage.getItem('wph:ownedColorsBitmap');
+      const v = Number(raw);
+      if (Number.isFinite(v)) return (v >>> 0);
+    } catch {}
+    return 0;
+  }
+
+  async function readOwnedSetDom() {
+    try {
+      let buttons = [];
+      try { buttons = await queryColors(650); } catch { buttons = []; }
+      if (!buttons || buttons.length === 0) {
+        try { openPaletteRobust(); } catch {}
+        try { await new Promise(r => setTimeout(r, 240)); } catch {}
+        try { buttons = await queryColors(800); } catch { buttons = []; }
+      }
+      if (!buttons || buttons.length === 0) return null;
+      const out = new Set();
+      for (const b of buttons) {
+        try {
+          const rgb = b && b.rgb;
+          if (!Array.isArray(rgb) || rgb.length < 3) continue;
+          const paidSvg = b.paidSvg != null ? !!b.paidSvg : !!b.paid;
+          if (!paidSvg) out.add(`${rgb[0]},${rgb[1]},${rgb[2]}`);
+        } catch {}
+      }
+      return out;
+    } catch {
+      return null;
+    }
+  }
+
+  function hasColorIdx(idx, bitmap) {
+    try {
+      const t = Number(idx) | 0;
+      if (t < 0) return false;
+      if (t < 32) return true;
+      const bit = (t - 32) | 0;
+      if (bit < 0 || bit > 31) return false;
+      const b = Number(bitmap) >>> 0;
+      return (b & (1 << bit)) !== 0;
+    } catch { return false; }
+  }
+
+  function applyEnhancedFilter(selected) {
+    try {
+      const sm = getStencilManager();
+      const list = Array.isArray(selected) ? selected.map(n => Number(n)).filter(n => Number.isFinite(n)) : [];
+      try { sm.setAutoSelectedMasters(list.length ? list : null); } catch {}
+      try { sm.setAutoSelectedMasterIdx(list.length === 1 ? list[0] : null); } catch {}
+      if (sm.enhanced) {
+        try { sendChannel({ action: 'reloadTiles' }); } catch {}
+      }
+    } catch {}
+  }
 
   function openPaletteRobust() {
     const sels = [
@@ -199,63 +259,40 @@
           if (saved && Array.isArray(saved)) countsUse = saved;
         }
       } catch {}
-      const allowed = new Set(getAutoAllowedMasters());
+      const allowedArr = getAutoAllowedMasters();
+      const allowed = new Set(allowedArr);
+      applyEnhancedFilter(allowedArr);
 
-      
-      let buttons = await queryColors(700);
-      if (!buttons || !buttons.length) {
-        try { openPaletteRobust(); } catch {}
-        await new Promise(r => setTimeout(r, 240));
-        buttons = await queryColors(900);
+      const cfg = getAutoConfig();
+      const method = String((cfg && cfg.colorDetectMethod) || 'dom');
+      const ownedBitmap = readOwnedBitmap();
+      let ownedSetDom = null;
+      if (method === 'dom') {
+        try { ownedSetDom = await readOwnedSetDom(); } catch { ownedSetDom = null; }
       }
-      if (!buttons || !buttons.length) {
+      const isOwned = (idx) => {
         try {
-          const fb = (window && (window).__wph_lastColorButtons) || [];
-          if (Array.isArray(fb) && fb.length) {
-            buttons = fb;
+          const t = Number(idx) | 0;
+          if (t < 0) return false;
+          if (t < 32) return true;
+          if (method === 'dom') {
+            if (!ownedSetDom) return hasColorIdx(t, ownedBitmap);
+            const rgb = MASTER_COLORS[t]?.rgb;
+            const k = Array.isArray(rgb) ? `${rgb[0]},${rgb[1]},${rgb[2]}` : '';
+            return !!k && ownedSetDom.has(k);
           }
-        } catch {}
-      }
-      if (!buttons || !buttons.length) {
-        const local = scanColorsLocal();
-        if (local && local.length) {
-          buttons = local;
+          return hasColorIdx(t, ownedBitmap);
+        } catch {
+          return false;
         }
-      }
-      
-      try {
-        rgbToButtonId = new Map();
-        for (const b of (buttons||[])) {
-          if (b && Array.isArray(b.rgb) && Number.isFinite(b.id)) {
-            const k = `${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`;
-            if (!rgbToButtonId.has(k)) rgbToButtonId.set(k, b.id);
-          }
-        }
-      } catch {}
-      let freeRgbSet = new Set();
-      try {
-        const freeButtons = (buttons||[]).filter(b => b && !b.paid && Array.isArray(b.rgb));
-        const freeRgbKeys = freeButtons.map(b => `${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`);
-        freeRgbSet = new Set(freeRgbKeys);
-        const tmpMatched = [];
-        const unknownRgb = [];
-        for (const b of freeButtons) {
-          const idx = MASTER_COLORS.findIndex(c => c.rgb[0] === b.rgb[0] && c.rgb[1] === b.rgb[1] && c.rgb[2] === b.rgb[2]);
-          if (idx >= 0) tmpMatched.push(idx); else unknownRgb.push(`${b.rgb[0]},${b.rgb[1]},${b.rgb[2]}`);
-        }
-        const matchedUnique = Array.from(new Set(tmpMatched)).sort((a,b)=>a-b);
-        const countsNonZero = [];
-        for (let i = 0; i < (countsUse?.length||0); i++) if ((countsUse[i]||0) > 0) countsNonZero.push(i);
-        const inter = matchedUnique.filter(i => countsNonZero.includes(i));
-      } catch {}
-      const isFreeByRgb = (rgb) => freeRgbSet.has(`${rgb[0]},${rgb[1]},${rgb[2]}`);
+      };
 
       const base = MASTER_COLORS.map((c, idx) => ({
         idx,
         name: c.name,
         rgb: c.rgb,
         count: (countsUse && countsUse[idx]) || 0,
-        available: isFreeByRgb(c.rgb),
+        available: isOwned(idx),
         checked: false,
       }));
       let filtered = base.filter(it => it.count > 0);
@@ -302,6 +339,7 @@
   function persist() {
     const selected = items.filter(i => i.checked).map(i => i.idx);
     setAutoAllowedMasters(selected);
+    applyEnhancedFilter(selected);
   }
   function selectAll() { items = items.map(i => ({ ...i, checked: i.available })); persist(); }
   function clearAll() { items = items.map(i => ({ ...i, checked: false })); persist(); }

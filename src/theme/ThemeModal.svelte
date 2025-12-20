@@ -2,6 +2,7 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { themeStore, setPreset, setPrimary } from './store';
   import { listPresetNames, getPreset } from './presets';
+  import { applyCustomTheme as applyCustomThemeTokens } from './applyTheme';
   import { appendToBody } from '../editor/modal/utils/appendToBody';
   import { t } from '../i18n';
   import ColorPicker from '../ui/ColorPicker.svelte';
@@ -135,15 +136,22 @@
   }
   
   function applyCustomTheme(theme) {
-    const el = document.documentElement;
-    if (theme.primary) el.style.setProperty('--wph-primary', theme.primary);
-    if (theme.primary2) el.style.setProperty('--wph-primary2', theme.primary2);
-    if (theme.surface) el.style.setProperty('--wph-surface', theme.surface);
-    if (theme.surface2) el.style.setProperty('--wph-surface2', theme.surface2);
-    if (theme.border) el.style.setProperty('--wph-border', theme.border);
-    if (theme.text) el.style.setProperty('--wph-text', theme.text);
-    if (theme.bg) el.style.setProperty('--wph-bg', theme.bg);
-    setPrimary(theme.primary, 'custom');
+    try {
+      applyCustomThemeTokens({
+        primary: theme?.primary,
+        primary2: theme?.primary2,
+        bg: theme?.bg,
+        surface: theme?.surface,
+        surface2: theme?.surface2,
+        border: theme?.border,
+        text: theme?.text,
+        muted: theme?.muted,
+        success: theme?.success,
+        warning: theme?.warning,
+        error: theme?.error
+      });
+    } catch {}
+    themeStore.update(s => ({ ...s, preset: 'custom', primary: theme?.primary || s.primary }));
   }
   
   function deleteCustomTheme(id) {

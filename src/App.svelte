@@ -22,13 +22,12 @@
   import MediaOverlayTikTok from './media/MediaOverlayTikTok.svelte';
   import MediaOverlaySpotify from './media/MediaOverlaySpotify.svelte';
   import MediaOverlaySoundCloud from './media/MediaOverlaySoundCloud.svelte';
-  import ScreenAccessModal from './screen/ScreenAccessModal.svelte';
-  import { hasStream as hasScreenStream } from './screen/captureManager';
 
   let showPanel = true;
   let imgBitmap = null;
   let editorOpen = false;
   let currentFile = null; 
+  let topMenuReady = false;
   
   let copyArtOpen = false;
   let galleryOpen = false;
@@ -37,7 +36,6 @@
   let galleryErrorKey = '';
   let galleryJob = 0;
   let galleryProfiles = {};
-  let screenAccessOpen = false;
 
   function openGallery() {
     galleryOpen = true;
@@ -167,6 +165,16 @@
 
   onMount(async () => {
     try {
+      const isActive = !!(window).__wphBootOverlayActive;
+      topMenuReady = !isActive;
+      const onDone = () => { topMenuReady = true; };
+      if (!topMenuReady) {
+        window.addEventListener('wph:boot-overlay:done', onDone, { once: true });
+      }
+    } catch {
+      topMenuReady = true;
+    }
+    try {
       window.addEventListener('tutorial:open-editor', async (e) => {
         const file = e.detail?.file;
         if (file) {
@@ -203,31 +211,34 @@
         } catch {}
       }, 5000);
     } catch {}
-    try { if (!hasScreenStream()) { screenAccessOpen = true; } } catch {}
   });
 </script>
-<TopMenu onPick={pick} onClear={clearImg} on:historyLoad={(e)=>{
-  try {
-    const { blob, meta } = e.detail || {};
-    if (blob) {
-      currentFile = blob;
-      try { setCurrentHistoryId(meta?.id || null); } catch {}
-      setSelectedFile(currentFile);
-      
-      if (meta && meta.origin && Array.isArray(meta.origin)) {
-        setOriginCoords(meta.origin);
-      } else if (meta && meta.coords && typeof meta.coords === 'object' && meta.coords.x!=null && meta.coords.y!=null) {
-        const c = meta.coords;
-        setOriginCoords([0, 0, c.x|0, c.y|0]);
+{#if topMenuReady}
+  <TopMenu onPick={pick} onClear={clearImg} on:historyLoad={(e)=>{
+    try {
+      const { blob, meta } = e.detail || {};
+      if (blob) {
+        currentFile = blob;
+        try { setCurrentHistoryId(meta?.id || null); } catch {}
+        setSelectedFile(currentFile);
+        
+        if (meta && meta.origin && Array.isArray(meta.origin)) {
+          setOriginCoords(meta.origin);
+        } else if (meta && meta.coords && typeof meta.coords === 'object' && meta.coords.x!=null && meta.coords.y!=null) {
+          const c = meta.coords;
+          setOriginCoords([0, 0, c.x|0, c.y|0]);
+        }
+        rebuildStencilFromState();
       }
-      rebuildStencilFromState();
-    }
-  } catch {}
-}} on:copyArt={()=>{ copyArtOpen = true; }} on:galleryOpen={openGallery}/>
+    } catch {}
+  }} on:copyArt={()=>{ copyArtOpen = true; }} on:galleryOpen={openGallery}/>
+{/if}
 
 <IdleManager />
 
-<ChargeToast />
+{#if topMenuReady}
+  <ChargeToast />
+{/if}
 
 
 
@@ -311,8 +322,6 @@
   }}
   on:close={() => { editorOpen = false; cleanupEditorBackdrops(); }}
 />
-
-<ScreenAccessModal open={screenAccessOpen} on:close={()=>{ screenAccessOpen = false; }} />
 
 <TutorialManager />
 

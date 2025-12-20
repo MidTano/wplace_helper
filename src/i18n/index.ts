@@ -2,9 +2,10 @@ import { writable, get } from 'svelte/store';
 import type { Translations } from './ru';
 import { ru } from './ru';
 import { en } from './en';
+import { zh } from './zh';
 import { getPersistentItem, setPersistentItem } from '../wguard/stealth/store';
 
-export type Locale = 'ru' | 'en';
+export type Locale = 'ru' | 'en' | 'zh';
 
 const STORAGE_KEY = 'wguard:lang';
 const MANUAL_KEY = 'wph:lang:manual';
@@ -12,13 +13,14 @@ const MANUAL_KEY = 'wph:lang:manual';
 const DICTS: Record<Locale, Translations> = {
   ru,
   en,
+  zh,
 };
 
 function readManualOverride(): Locale | null {
   try {
     const storage = typeof window !== 'undefined' ? window.localStorage : null;
     const raw = storage?.getItem?.(MANUAL_KEY) ?? null;
-    if (raw === 'ru' || raw === 'en') return raw;
+    if (raw === 'ru' || raw === 'en' || raw === 'zh') return raw;
   } catch {}
   return null;
 }
@@ -38,7 +40,7 @@ function readInitialLang(): Locale {
   if (manualOverride) return manualOverride;
   try {
     const v = getPersistentItem(STORAGE_KEY);
-    if (v === 'ru' || v === 'en') return v;
+    if (v === 'ru' || v === 'en' || v === 'zh') return v;
   } catch {}
   try {
     const langs: string[] = [];
@@ -54,6 +56,7 @@ function readInitialLang(): Locale {
     for (const l of langs) {
       if (l === 'ru' || l.startsWith('ru-')) return 'ru';
       if (l === 'en' || l.startsWith('en-')) return 'en';
+      if (l === 'zh' || l.startsWith('zh-')) return 'zh';
     }
   } catch {}
   return 'en';
@@ -72,7 +75,10 @@ export function setLang(v: Locale, opts?: { manual?: boolean }) {
   lang.set(v);
 }
 export function toggleLang() {
-  const next = get(lang) === 'ru' ? 'en' : 'ru';
+  const cur = get(lang);
+  const order: Locale[] = ['ru', 'en', 'zh'];
+  const idx = order.indexOf(cur);
+  const next = order[(idx >= 0 ? idx + 1 : 0) % order.length];
   setLang(next, { manual: true });
 }
 
@@ -83,5 +89,6 @@ export function t(key: string): string {
   if (Object.prototype.hasOwnProperty.call(dict, key)) return dict[key];
   if (Object.prototype.hasOwnProperty.call(ru, key)) return ru[key];
   if (Object.prototype.hasOwnProperty.call(en, key)) return en[key];
+  if (Object.prototype.hasOwnProperty.call(zh, key)) return zh[key];
   return key;
 }

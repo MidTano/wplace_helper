@@ -38,7 +38,7 @@
   
   function onMessage(e) {
     const data = e?.data;
-    if (!data || data.source !== 'wplace-svelte') return;
+    if (!data || (data.source !== 'wplace-svelte' && data.source !== 'wguard-svelte')) return;
     if (typeof data.endpoint === 'string' && data.jsonData) {
       try {
         const u = new URL(String(data.endpoint), location.href);
@@ -60,7 +60,6 @@
       window.addEventListener('message', onMessage);
       removeListener = () => window.removeEventListener('message', onMessage);
     }
-    
   });
   onDestroy(() => { try { removeListener && removeListener(); } catch {} });
 

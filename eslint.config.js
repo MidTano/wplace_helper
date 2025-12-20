@@ -25,6 +25,10 @@ export default [
       'unused-imports': unusedImports,
     },
     rules: {
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-constant-condition': 'off',
       
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -37,18 +41,16 @@ export default [
       
       
       'unused-imports/no-unused-imports': 'error',
-      'unused-imports/no-unused-vars': [
-        'warn',
+      
+      
+      '@typescript-eslint/no-unused-expressions': [
+        'error',
         {
-          vars: 'all',
-          varsIgnorePattern: '^_',
-          args: 'after-used',
-          argsIgnorePattern: '^_',
+          allowShortCircuit: true,
+          allowTernary: true,
+          allowTaggedTemplates: true,
         },
       ],
-      
-      
-      '@typescript-eslint/no-unused-expressions': 'error',
     },
   },
 
@@ -69,18 +71,13 @@ export default [
     },
     rules: {
       ...svelte.configs.recommended.rules,
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-constant-condition': 'off',
       
       
       'unused-imports/no-unused-imports': 'error',
-      'unused-imports/no-unused-vars': [
-        'warn',
-        {
-          vars: 'all',
-          varsIgnorePattern: '^_',
-          args: 'after-used',
-          argsIgnorePattern: '^_',
-        },
-      ],
       
       
       '@typescript-eslint/no-unused-vars': [

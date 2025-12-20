@@ -24,9 +24,19 @@ export const ru: Translations = {
 
   'btn.autoMode.tooltip': 'Авторежим — ПКМ для настроек',
   'btn.autoMode.aria': 'Авторежим. ПКМ для настроек',
+  'btn.bootSettings.title': 'Настройки загрузки',
+  'btn.bootSettings.aria': 'Открыть настройки загрузки',
+
+  'boot.overlay.start': 'ЗАГРУЗИТЬ',
+  'boot.overlay.cancel': 'ОТМЕНА',
+  'boot.overlay.close.aria': 'Закрыть',
+  'boot.overlay.pref.showStats.label': 'Показывать экран со статистикой',
+  'boot.overlay.pref.showStats.aria': 'Показывать экран со статистикой',
+  'boot.overlay.pref.showStats.tooltip': 'Если выключить, загрузочный экран со статистикой больше не будет показываться при запуске.',
 
   'lang.ru': 'Русский',
   'lang.en': 'English',
+  'lang.zh': '中文',
   'lang.title': 'Язык интерфейса',
 
   
@@ -54,6 +64,16 @@ export const ru: Translations = {
   'screen.modal.body': 'Чтобы улучшить работу оверлея, может понадобиться доступ к окну (захват экрана). Нажмите «Понятно», и браузер покажет стандартный запрос. Вы можете выбрать окно/вкладку или нажать «Отмена». Скрипт продолжит работу в любом случае.',
   'screen.modal.requesting': 'Запрос…',
   'screen.modal.errNoGetDisplayMedia': 'getDisplayMedia недоступен в этом браузере',
+  'screen.capture.method': 'Метод захвата экрана',
+  'screen.capture.method.canvas': 'Захват с сайта',
+  'screen.capture.method.display': 'Демонстрация экрана',
+  'screen.capture.info.title': 'Информация о методах захвата',
+  'screen.capture.info.canvas': 'Захват с сайта:\n• Запасной метод без разрешений\n• Останавливается при сворачивании окна\n• Используй, если запрещён захват экрана',
+  'screen.capture.info.display': 'Демонстрация экрана (по умолчанию на ПК):\n• Работает даже при свернутом окне\n• Требует разрешения браузера\n• Можно выбрать вкладку/экран в диалоге',
+  'screen.capture.mobile.only': 'На мобильных устройствах доступен только метод захвата с сайта',
+  'screen.capture.idle.disabled': 'При захвате экрана функция idle экрана отключена',
+  'screen.capture.idle.tooltip': 'У вас включен захват экрана. Функция idle экрана недоступна при использовании захвата.',
+  'idle.mobile.disabled': 'Idle экран недоступен на мобильных устройствах',
 
   
   'settings.auto.title': 'Настройки авторежима',
@@ -80,6 +100,10 @@ export const ru: Translations = {
   'settings.bm.mode.diagUpRight': 'Диагонали ↖',
   'settings.bm.mode.centerOut': 'От центра к краям',
   'settings.bm.mode.edgesIn': 'К центру',
+  'settings.bm.colorOrder': 'Порядок установки',
+  'settings.bm.colorOrder.highToLow': 'Много → мало',
+  'settings.bm.colorOrder.lowToHigh': 'Мало → много',
+  'settings.bm.colorOrder.random': 'Случайно',
   'settings.bm.batchLimit': 'Лимит серии (0 — авто)',
   'settings.bm.colorsHint': 'Цвета берутся из меню авто-режима (ПКМ)',
   'settings.bm.multiColor': 'Ставить всеми выбранными цветами',
@@ -99,14 +123,41 @@ export const ru: Translations = {
   'settings.sendEffect.test': 'Тест',
   'settings.seriesWait': 'Пауза между сериями (сек)',
   'settings.randomExtraWait': 'Случайная добавка (сек, 0=выкл)',
+  'settings.info.seriesWait': 'Сколько ждать перед началом следующей серии кликов. Больше число — реже рисует.',
+  'settings.info.interClickDelay': 'Пауза между отдельными кликами в серии. 1 мс — максимально быстро. Увеличь, если игра не успевает.',
+  'settings.info.bmMode': 'Как обходить пиксели на экране (снизу вверх, сверху вниз и т.д.). Это влияет только на порядок кликов.',
+  'settings.info.bmColorOrder': 'В каком порядке брать цвета: сначала те, где больше всего пикселей, или наоборот.',
+  'settings.info.randomExtraWait': 'Добавляет случайную паузу к паузе между сериями. 0 — выключено.',
+  'settings.info.bmBatchLimit': 'Сколько кликов сделать за одну серию. 0 — скрипт сам остановит серию.',
+  'settings.info.ignoreWrongColor': 'Если включить, скрипт пропускает пиксель, когда выбран не тот цвет или цвет не совпал.',
+  'settings.info.maskAsBM': 'Включает маскировку под BlueMarble. Обычно не нужно. Включай только если есть проблемы/ошибки.',
+  'settings.info.sendEffect': 'Показывает красивый эффект после серии кликов. Это только визуально.',
+  'settings.info.sendEffectTest': 'Проверка эффекта: запускает анимацию прямо сейчас, без покраски.',
+  'settings.info.darkMap': 'Переключает тему карты (тёмная/светлая). Страница перезагрузится.',
   'settings.enhancedBackground': 'Фон улучшенного режима',
   'settings.interface.title': 'Настройки интерфейса',
   'settings.interface.dark': 'Тёмная карта',
   'settings.colorPicker.title': 'Выбор цвета',
 
+  'settings.qr.anim.title': 'Обводка QR',
+  'settings.qr.anim.classic': 'Классика',
+  'settings.qr.anim.neon': 'Неон',
+  'settings.qr.anim.double': 'Двойная',
+  'settings.qr.anim.dashed': 'Пунктир',
+  'settings.qr.anim.corners': 'Уголки',
+  'settings.qr.anim.glass': 'Стекло',
+  'settings.qr.anim.pixel': 'Пиксельная',
+
   
   'screen.status.on': 'Экран: доступ есть',
   'screen.status.off': 'Экран: нет доступа',
+
+  'color.detect.method': 'Метод определения доступных цветов',
+  'color.detect.method.dom': 'Палитра (SVG) — стабильный',
+  'color.detect.method.packets': 'Данные сайта (пакеты) — быстрый',
+  'color.detect.info.title': 'Информация о методах цветов',
+  'color.detect.info.dom': 'Палитра (SVG):\n• Открывает палитру и проверяет значок блокировки на кнопках\n• Обычно самый точный способ\n• Может требовать открытие меню покраски',
+  'color.detect.info.packets': 'Данные сайта (пакеты):\n• Берёт список купленных цветов из данных сайта\n• Быстрее и без открытия палитры\n• Иногда может ошибаться/не обновляться',
 
   
   'history.empty': 'Пока пусто',
@@ -241,6 +292,12 @@ export const ru: Translations = {
   'hotkeys.common.mmb': 'СКМ',
   'hotkeys.common.add': 'добавить',
   'hotkeys.common.subtract': 'вычесть',
+
+  'hotkeys.help.title.mobile': 'Управление на телефоне',
+  'hotkeys.group.gestures': 'Жесты',
+  'hotkeys.gestures.draw': 'Рисование — 1 палец',
+  'hotkeys.gestures.pan': 'Перемещение/панорама — 2 пальца',
+  'hotkeys.gestures.zoom': 'Зум — свести/развести 2 пальца',
 
   
   'editor.stats.total': 'всего',
@@ -431,6 +488,16 @@ export const ru: Translations = {
   'comparisonModal.controls.spaceDesc': 'сброс вида',
   'comparisonModal.controls.escape': 'Escape',
   'comparisonModal.controls.escapeDesc': 'закрыть',
+  'comparisonModal.controls.touchPan': 'Панорама',
+  'comparisonModal.controls.touchPanDesc': 'перетаскивание одним пальцем',
+  'comparisonModal.controls.touchZoom': 'Зум',
+  'comparisonModal.controls.touchZoomDesc': 'pinch двумя пальцами',
+  'comparisonModal.controls.touchMenu': 'Меню',
+  'comparisonModal.controls.touchMenuDesc': 'тап по цифре изображения',
+  'comparisonModal.controls.touchReset': 'Сброс вида',
+  'comparisonModal.controls.touchResetDesc': 'кнопка «Сбросить вид»',
+  'comparisonModal.controls.touchClose': 'Закрыть',
+  'comparisonModal.controls.touchCloseDesc': 'кнопка «×» или тап по фону',
   'comparisonModal.empty.title': 'Недостаточно изображений',
   'comparisonModal.empty.text': 'Для сравнения необходимо минимум 2 изображения.<br>Добавьте изображения через главное окно редактора.',
   'comparisonModal.empty.button': 'Вернуться к редактору',
@@ -687,7 +754,73 @@ export const ru: Translations = {
   'editor.edge.thin': 'Тонкие границы',
 
   'editor.post.simplifyRegions': 'Упростить области (пкс)',
-  'editor.post.modeFilterSize': 'Размер фильтра моды (N×N)'
+  'editor.post.modeFilterSize': 'Размер фильтра моды (N×N)',
+
+  'boot.hint.title': 'ПОДСКАЗКА',
+
+  'boot.hint.cat.hotkeys': 'Горячие клавиши',
+  'boot.hint.cat.qrmusic': 'QR Музыка',
+  'boot.hint.cat.wguard': 'WGuard',
+  'boot.hint.cat.themes': 'Темы',
+  'boot.hint.cat.idle': 'Idle экран',
+  'boot.hint.cat.copyart': 'CopyArt',
+  'boot.hint.cat.gallery': 'Галерея',
+  'boot.hint.cat.history': 'История',
+  'boot.hint.cat.editor': 'Редактор',
+
+  'boot.hint.text.hotkeys.altc': 'Alt+C: скопировать данные шаринга (картинка + координаты/камера) в буфер. Потом можно вставить их через Alt+V на этой или другой странице.',
+  'boot.hint.text.hotkeys.altv': 'Alt+V: вставить ранее скопированный шаринг (Alt+C). Хелпер попробует загрузить изображение и восстановить позицию, чтобы продолжить работу с тем же артом.',
+  'boot.hint.text.hotkeys.altl': 'Alt+L: показать Idle экран вручную. Удобно, если хочешь быстро проверить, как выглядит заставка и как она закрывается кликом.',
+
+  'boot.hint.text.editor.tools': 'В редакторе можно быстро переключать инструменты: B — кисть, E — ластик, I — пипетка, S — выделение, M — магия, G — градиент. Это ускоряет точную ручную правку.',
+  'boot.hint.text.editor.undoRedo': 'В редакторе: Ctrl+Z отменяет последнее действие, Ctrl+Shift+Z возвращает отменённое. Используй это, чтобы быстро сравнивать варианты и не бояться экспериментировать.',
+
+  'boot.hint.text.qrmusic.what': 'QR Музыка кодирует ссылку (YouTube/TikTok/Spotify/SoundCloud) в маленький пиксельный QR‑тайл 5×5. Такой тайл можно разместить на карте, чтобы другие открывали медиа из рисунка.',
+  'boot.hint.text.qrmusic.how': 'Открой QR Музыку в верхнем меню, нажми «Добавить», вставь ссылку и проверь предпросмотр. Нажми «Разместить», чтобы подготовить QR‑тайл как изображение для установки.',
+
+  'boot.hint.text.wguard.what': 'WGuard — защитный модуль, который помогает хелперу работать стабильнее и безопаснее. Обычно его не нужно настраивать: он работает автоматически в фоне.',
+
+  'boot.hint.text.themes.what': 'Темы меняют внешний вид интерфейса хелпера. Если что-то плохо читается, попробуй другую тему или настрой свой набор цветов для лучшего контраста.',
+
+  'boot.hint.text.idle.what': 'Idle экран включается, когда ты некоторое время не двигаешь мышь и не нажимаешь клавиши. Он показывает гифку и закрывается кликом по фону.',
+  'boot.hint.text.idle.timeout': 'В настройках Idle экрана можно выбрать, через сколько секунд бездействия показывать заставку. Поставь небольшой таймер, чтобы быстро проверить работу режима.',
+  'boot.hint.text.idle.favorites': 'Добавляй гифки и отмечай их как избранные — тогда Idle экран будет показывать именно любимые варианты. Если избранного нет, авто-показ может не сработать.',
+  'boot.hint.text.idle.capture': 'Если включён захват экрана (display), Idle экран может быть отключён, чтобы не мешать захвату и авто-логике. Это нормальное ограничение режима.',
+
+  'boot.hint.text.copyart.what': 'CopyArt собирает изображение из тайлов карты вокруг выбранного места. Это удобно, чтобы сохранить большой арт, сделать референс или отправить в редактор.',
+  'boot.hint.text.copyart.grid': 'В CopyArt выбери размер сетки N×N (1/3/5/7/9 или кастом). Чем больше сетка, тем больше запросов и тем дольше сборка.',
+  'boot.hint.text.copyart.slow': 'Если сборка в CopyArt идёт медленно, уменьшай сетку или увеличивай паузы между запросами. На больших областях это сильно повышает стабильность.',
+
+  'boot.hint.text.gallery.what': 'Галерея — это просмотр и публикация работ. Можно загружать арты, смотреть авторов, фильтровать ленту и быстро переходить к месту работы на карте.',
+  'boot.hint.text.gallery.token': 'Для публикации и удаления своих работ нужен токен (My Token). С токеном хелпер понимает, какие работы твои, и показывает действия только для них.',
+  'boot.hint.text.gallery.likeBlock': 'В галерее можно лайкать и блокировать авторов. Блок скрывает нежелательный контент, а лайки помогают собрать подборку понравившихся работ.',
+  'boot.hint.text.gallery.viewMap': 'Кнопка «Показать на карте» открывает сохранённую позицию работы. Это быстрый способ перейти к арту без ручного поиска по координатам.',
+
+  'boot.hint.text.history.what': 'История сохраняет последние загруженные изображения (до 10) для быстрого возврата. Если случайно обновил страницу — открой историю и восстанови арт в один клик.',
+
+  'boot.hint.text.editor.what': 'Редактор изображения подготавливает картинку под пиксель-арт: размер пикселя, палитра, дизеринг и ручная правка. Используй его перед размещением, чтобы снизить число ошибок на карте.',
+  'boot.hint.text.editor.pixelSize': 'В редакторе увеличивай Pixel size, чтобы сделать изображение более крупнопиксельным. Меньше деталей — быстрее покраска, но грубее итоговый вид.',
+  'boot.hint.text.editor.dither': 'Дизеринг помогает делать плавные переходы в ограниченной палитре. Он полезен для градиентов, но может добавить зернистость — подбирай метод под стиль.',
+  'boot.hint.text.editor.palette': 'Выбирай палитру под задачу: full — максимум цветов, free — только бесплатные, custom — свой набор. Ограничение палитры часто делает стиль чище и предсказуемее.',
+  'boot.hint.text.editor.hotkeys': 'В редакторе: B/E/I/S/M/G быстро переключают инструменты, Ctrl+Z отменяет, Ctrl+Shift+Z возвращает. Это быстрее, чем каждый раз кликать по кнопкам.',
+
+  'boot.settings.title': 'Настройки загрузки',
+  'boot.settings.toggle.aria': 'Включить загрузочный экран',
+  'boot.settings.state.on': 'Вкл',
+  'boot.settings.state.off': 'Выкл',
+  'boot.settings.duration.label': 'Время показа (сек)',
+  'boot.settings.duration.hint': 'Диапазон 5–60 секунд. По умолчанию 10 секунд.',
+  'boot.settings.sounds.aria': 'Отключить звуки',
+  'boot.settings.sounds.label': 'Отключить звуки',
+  'boot.settings.sounds.tooltip': 'Без кнопки «ЗАГРУЗИТЬ» нельзя запустить звуковые анимации.',
+  'boot.settings.hideLoad.aria': 'Скрыть кнопку ЗАГРУЗИТЬ',
+  'boot.settings.hideLoad.label': 'Скрыть кнопку «ЗАГРУЗИТЬ»',
+
+  'boot.stats.mode.manual': 'РУЧНОЙ РЕЖИМ',
+  'boot.stats.mode.auto': 'АВТОРЕЖИМ',
+  'boot.stats.range.today': 'Сегодня',
+  'boot.stats.range.week': '7 дней',
+  'boot.stats.range.all': 'Всё время',
+  'boot.stats.clicks': 'Клики'
 }
 ;
-

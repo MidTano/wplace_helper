@@ -2,7 +2,15 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { getStencilManager } from '../template/stencilManager';
   import { listenWGuardEvent, WGuardEvents } from '../wguard/core/events';
+  import { isAutoRunning } from '../screen/autoPainter';
+  import { recordManualTick, recordManualPlacedFromRemaining } from '../stats/realStats';
   export let inline = false; 
+
+  let isMobile = false;
+  function detectMobile() {
+    try { return !!(window && window.matchMedia && window.matchMedia('(max-width: 720px), (hover: none) and (pointer: coarse)').matches); }
+    catch { return false; }
+  }
 
   let percent = 0;
   let totalDots = 0;
@@ -63,6 +71,8 @@
   const earlyWindowMs = 350; 
   
   let tileUpdateArrivedSinceEnd = false;
+
+  let lastCountsByColor = null;
 
   
   let showAllPhaseActive = false;
@@ -235,6 +245,7 @@
       }
       const newTotalDots = Number(cur.totalDots) || 0;
       const remainingArr = sm.getRemainingCountsTotal?.() || [];
+      const byColor = Array.isArray(remainingArr) ? remainingArr.map((v) => (v | 0)) : [];
       const newRemaining = Array.isArray(remainingArr) ? remainingArr.reduce((a,b)=>a + (b|0), 0) : 0;
       const newDone = Math.max(0, newTotalDots - newRemaining);
       const p = newTotalDots > 0 ? (newDone / newTotalDots) * 100 : 0;
@@ -345,6 +356,7 @@
       if (!cur) {
         visible = false;
         percent = 0;
+        try { recordManualTick(false); } catch {}
         return;
       }
       const newTotalDots = Number(cur.totalDots) || 0;
@@ -423,8 +435,16 @@
         prevPercent = newPercent;
         prevRemaining = newRemaining;
       }
+
+      try { lastCountsByColor = byColor; } catch { lastCountsByColor = null; }
+
+      try {
+        const autoOn = (() => { try { return isAutoRunning(); } catch { return false; } })();
+        recordManualTick(!!enhancedOn && !autoOn);
+      } catch {}
     } catch {
       visible = false; percent = 0; enhancedOn = false;
+      try { recordManualTick(false); } catch {}
     }
   }
   
@@ -436,6 +456,16 @@
       const d = ev?.data;
       if (!d || d.source !== 'wplace-svelte') return;
       if (d.action === 'tileUpdated') {
+        try {
+          const autoOn = (() => { try { return isAutoRunning(); } catch { return false; } })();
+          if (!autoOn && enhancedOn && lastCountsByColor && Array.isArray(lastCountsByColor)) {
+            const sm = getStencilManager();
+            const afterArr = sm.getRemainingCountsTotal?.() || [];
+            const after = Array.isArray(afterArr) ? afterArr.map((v) => (v | 0)) : [];
+            recordManualPlacedFromRemaining(lastCountsByColor, after);
+          }
+        } catch {}
+
         try { lastTileUpdatedTs = Date.now(); } catch {}
         
         if (showAllPhaseActive) {
@@ -575,6 +605,11 @@
                 deltaShift = 0;
               }
             } catch {}
+            if (isMobile) {
+              const barH = Math.max(40, Math.round(rb?.height || 60));
+              deltaShift = Math.max(deltaShift, 0) + Math.round(barH) + 24;
+              deltaBase = Math.max(deltaBase, Math.round(barH / 2) + 14);
+            }
           } catch {}
       }
     } catch (e) { topPx = 60; }
@@ -583,6 +618,7 @@
   let unsubEnhanced = null;
   
   onMount(() => {
+    isMobile = detectMobile();
     calcPercent();
     updateTop();
     timer = setInterval(calcPercent, 800);
@@ -653,7 +689,7 @@
   </div>
 {:else}
   {#if visible}
-    <div class="loadbar" data-persist={persistDeltas} aria-label={`Loader: ${ariaPercent(percent)}%`} style={`top:${topPx}px; left:${barLeft}px; width:${barWidth}px`}>
+    <div class="loadbar" class:mobile={isMobile} data-persist={persistDeltas} aria-label={`Loader: ${ariaPercent(percent)}%`} style={`top:${topPx}px; left:${barLeft}px; width:${barWidth}px`}>
       <div class="plate" style={plateStyle} class:impact-on={impactOn} data-ilevel={impactLevel} data-boost={impactBoost}>
         <div class="track">
           <div class="fill" style={`--pct:${percent}`}></div>
@@ -960,6 +996,13 @@
   }
   .delta[data-dir="down"] { animation-name: deltaLifeImpact; }
   .delta .val { letter-spacing: .2px; animation: valImpact 460ms ease-out 80ms both; }
+
+  @media (max-width: 720px), (hover: none) and (pointer: coarse) {
+    .delta-layer .stack.left,
+    .delta-layer .stack.right {
+      transform: translateY(calc(var(--deltas-shift, 0px) + 32px));
+    }
+  }
 
   
   .delta::after {

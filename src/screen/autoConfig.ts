@@ -1,5 +1,13 @@
 import { getPersistentItem, setPersistentItem } from '../wguard/stealth/store';
 
+function isMobileDevice(): boolean {
+  try {
+    return !!(window && window.matchMedia && window.matchMedia('(max-width: 720px), (hover: none) and (pointer: coarse)').matches);
+  } catch {
+    return false;
+  }
+}
+
 export type AutoConfig = {
   
   minDist: number;
@@ -15,6 +23,7 @@ export type AutoConfig = {
   afterSelectWaitSec: number;
   useDirectPlacement: boolean;
   bmMode: 'random' | 'topDown' | 'bottomUp' | 'leftRight' | 'rightLeft' | 'snakeRow' | 'snakeCol' | 'diagDown' | 'diagUp' | 'diagDownRight' | 'diagUpRight' | 'centerOut' | 'edgesIn';
+  bmColorOrder: 'highToLow' | 'lowToHigh' | 'random';
   bmSelectedMasterIdx: number | null;
   bmOnlySelected: boolean;
   bmMultiColor: boolean;
@@ -27,21 +36,27 @@ export type AutoConfig = {
   randomExtraWaitMaxSec: number;
   enhancedBackgroundColor: string;
   sendEffectEnabled: boolean;
+  qrOverlayAnim: 'classic' | 'neon' | 'double' | 'dashed' | 'corners' | 'glass';
   autoBuyPlus30: boolean;
   autoBuyPlus5Max: boolean;
+  captureMethod: 'canvas' | 'display';
+  colorDetectMethod: 'dom' | 'packets';
 };
 
 const LS_KEY = 'wguard:auto-config';
 
+const defaultCaptureMethod = isMobileDevice() ? 'canvas' : 'display';
+
 const defaults: AutoConfig = {
   minDist: 5,
-  interClickDelayMs: 65,
+  interClickDelayMs: 1,
   enhancedThresh: 18,
   tileUpdatedTimeoutSec: 60,
   switchPreWaitSec: 1,
   afterSelectWaitSec: 1,
   useDirectPlacement: false,
   bmMode: 'random',
+  bmColorOrder: 'highToLow',
   bmSelectedMasterIdx: null,
   bmOnlySelected: false,
   bmMultiColor: true,
@@ -54,14 +69,18 @@ const defaults: AutoConfig = {
   randomExtraWaitMaxSec: 0,
   enhancedBackgroundColor: '#080808',
   sendEffectEnabled: false,
+  qrOverlayAnim: 'glass',
   autoBuyPlus30: false,
   autoBuyPlus5Max: false,
+  captureMethod: defaultCaptureMethod,
+  colorDetectMethod: 'dom',
 };
 
 let current: AutoConfig = { ...defaults };
 
 function load(): void {
   try {
+    let changed = false;
     let raw = getPersistentItem(LS_KEY);
     if (!raw) {
       try {
@@ -93,16 +112,30 @@ function load(): void {
       afterSelectWaitSec:   (parsed.afterSelectWaitSec   != null) ? Number(parsed.afterSelectWaitSec)   : (parsed.afterSelectWaitMs   != null ? Math.max(0, Math.round(Number(parsed.afterSelectWaitMs)   / 1000)) : undefined),
     };
     current = { ...defaults, ...parsed, ...cleanUndefined(fromLegacy) } as any;
+    try {
+      current.interClickDelayMs = Math.max(1, Number((current as any).interClickDelayMs ?? defaults.interClickDelayMs) || 1);
+      if (current.interClickDelayMs === 65 || current.interClickDelayMs === 70) {
+        current.interClickDelayMs = 1;
+        changed = true;
+      }
+    } catch { current.interClickDelayMs = 1; changed = true; }
     if (current && typeof current.bmMode === 'string') {
       const m = String(current.bmMode);
       if (m === 'spiralOutCW' || m === 'spiralOutCCW' || m === 'spiralInCW' || m === 'spiralInCCW' || m === 'outsideIn') {
         current.bmMode = 'random';
       }
     }
+    try {
+      const a = String((current as any).qrOverlayAnim || 'glass');
+      const allowed = ['classic', 'neon', 'double', 'dashed', 'corners', 'glass'];
+      (current as any).qrOverlayAnim = allowed.includes(a) ? (a as any) : 'glass';
+      if (!allowed.includes(a)) { changed = true; }
+    } catch {}
     current.persistAutoRun = true;
     const hadDirectPlacement = current.useDirectPlacement === true;
     current.useDirectPlacement = false;
-    if (hadDirectPlacement) { save(); }
+    if (hadDirectPlacement) { changed = true; }
+    if (changed) save();
   } catch {}
 }
 
@@ -120,6 +153,7 @@ try { if (typeof window !== 'undefined') load(); } catch {}
 export function getAutoConfig(): AutoConfig { return current; }
 export function updateAutoConfig(patch: Partial<AutoConfig>): AutoConfig {
   current = { ...current, ...patch };
+  try { current.interClickDelayMs = Math.max(1, Number(current.interClickDelayMs) || 1); } catch { current.interClickDelayMs = 1; }
   current.useDirectPlacement = false;
   current.persistAutoRun = true;
   save();

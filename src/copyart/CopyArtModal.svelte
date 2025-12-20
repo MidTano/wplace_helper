@@ -373,6 +373,7 @@
 
     prevCtx = null; checkerPattern = null;
     selectionRect = null; selecting = false;
+    try { if (isMobileViewport()) setTopmenuSuppressed(false); } catch {}
     dispatch('close');
   }
 
@@ -1955,6 +1956,20 @@
   onDestroy(() => {
     try { unsubscribe && unsubscribe(); } catch {}
     try { window.removeEventListener('resize', fitPreview); } catch {}
+    try { if (_wphTopmenuRevealTimer) { clearTimeout(_wphTopmenuRevealTimer); _wphTopmenuRevealTimer = 0; } } catch {}
+    try { if (_wphTopmenuHostAnim) { _wphTopmenuHostAnim.cancel(); _wphTopmenuHostAnim = null; } } catch {}
+    try {
+      const el = getTopmenuPortalHost();
+      if (el) {
+        try { el.style.transition = ''; } catch {}
+        try { el.style.opacity = ''; } catch {}
+        try { el.style.pointerEvents = ''; } catch {}
+        try { el.style.transform = ''; } catch {}
+        try { el.style.filter = ''; } catch {}
+      }
+    } catch {}
+    try { document.documentElement.classList.remove('wph-mobile-copyart-open'); } catch {}
+    try { document.documentElement.classList.remove('wph-mobile-topmenu-reveal'); } catch {}
   });
 
   
@@ -1968,6 +1983,141 @@
     try { if (animId) cancelAnimationFrame(animId); } catch {}
     animId = 0; currentQueue = []; loadedMap = new Set(); loadedCount = 0;
   }
+
+  let mobilePanelOpen = false;
+  function toggleMobilePanel() { mobilePanelOpen = !mobilePanelOpen; }
+  function closeMobilePanel() { mobilePanelOpen = false; }
+
+  let _wphCopyArtWasOpen = false;
+  let _wphTopmenuRevealTimer = 0;
+  let _wphTopmenuHostAnim = null;
+  let _wphTopmenuHostPrev = null;
+  function isMobileViewport() {
+    try {
+      return !!(window && window.matchMedia && window.matchMedia('(max-width: 720px), (hover: none) and (pointer: coarse)').matches);
+    } catch { return false; }
+  }
+  function getTopmenuPortalHost() {
+    try {
+      const host = (window).__wphPortalHost;
+      if (host && host.host instanceof HTMLElement) return host.host;
+      if (host && host instanceof HTMLElement) return host;
+      return null;
+    } catch { return null; }
+  }
+  function hideTopmenuPortalHost() {
+    try {
+      if (!isMobileViewport()) return;
+      const el = getTopmenuPortalHost();
+      if (!el) return;
+      try { if (_wphTopmenuHostAnim) { _wphTopmenuHostAnim.cancel(); _wphTopmenuHostAnim = null; } } catch {}
+      try {
+        if (!_wphTopmenuHostPrev) {
+          _wphTopmenuHostPrev = {
+            display: el.style.display,
+            opacity: el.style.opacity,
+            pointerEvents: el.style.pointerEvents,
+            transition: el.style.transition,
+            transform: el.style.transform,
+            filter: el.style.filter,
+            visibility: el.style.visibility
+          };
+        }
+      } catch {}
+      try { el.style.transition = ''; } catch {}
+      try { el.style.opacity = '0'; } catch {}
+      try { el.style.pointerEvents = 'none'; } catch {}
+      try { el.style.transform = ''; } catch {}
+      try { el.style.filter = ''; } catch {}
+      try { el.style.visibility = ''; } catch {}
+      try { el.style.display = 'none'; } catch {}
+    } catch {}
+  }
+  function showTopmenuPortalHost() {
+    try {
+      if (!isMobileViewport()) return;
+      const el = getTopmenuPortalHost();
+      if (!el) return;
+      try { if (_wphTopmenuHostAnim) { _wphTopmenuHostAnim.cancel(); _wphTopmenuHostAnim = null; } } catch {}
+      const prev = _wphTopmenuHostPrev;
+      try {
+        if (prev) {
+          try { el.style.display = prev.display; } catch {}
+          try { el.style.pointerEvents = prev.pointerEvents; } catch {}
+          try { el.style.transition = prev.transition; } catch {}
+          try { el.style.transform = prev.transform; } catch {}
+          try { el.style.filter = prev.filter; } catch {}
+          try { el.style.visibility = prev.visibility; } catch {}
+        } else {
+          try { el.style.display = ''; } catch {}
+          try { el.style.pointerEvents = 'auto'; } catch {}
+          try { el.style.transition = ''; } catch {}
+          try { el.style.transform = ''; } catch {}
+          try { el.style.filter = ''; } catch {}
+          try { el.style.visibility = ''; } catch {}
+        }
+      } catch {}
+      try { el.style.opacity = '0'; } catch {}
+      try { el.style.pointerEvents = (prev && prev.pointerEvents) ? prev.pointerEvents : 'auto'; } catch {}
+      try {
+        _wphTopmenuHostAnim = el.animate(
+          [
+            { opacity: 0 },
+            { opacity: 1 }
+          ],
+          { duration: 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'both' }
+        );
+        try {
+          _wphTopmenuHostAnim.finished.then(() => {
+            try { if (_wphTopmenuHostAnim) { _wphTopmenuHostAnim.cancel(); _wphTopmenuHostAnim = null; } } catch {}
+            try {
+              const prev2 = _wphTopmenuHostPrev;
+              if (prev2) {
+                try { el.style.opacity = prev2.opacity; } catch {}
+                try { el.style.pointerEvents = prev2.pointerEvents; } catch {}
+                try { el.style.transition = prev2.transition; } catch {}
+                try { el.style.transform = prev2.transform; } catch {}
+                try { el.style.filter = prev2.filter; } catch {}
+                try { el.style.visibility = prev2.visibility; } catch {}
+                _wphTopmenuHostPrev = null;
+              } else {
+                try { el.style.opacity = '1'; } catch {}
+              }
+            } catch {}
+          });
+        } catch {}
+      } catch {}
+    } catch {}
+  }
+  function setTopmenuSuppressed(suppressed) {
+    try {
+      if (suppressed) {
+        try { document.documentElement.classList.add('wph-mobile-copyart-open'); } catch {}
+        try { document.documentElement.classList.remove('wph-mobile-topmenu-reveal'); } catch {}
+        try { if (_wphTopmenuRevealTimer) { clearTimeout(_wphTopmenuRevealTimer); _wphTopmenuRevealTimer = 0; } } catch {}
+        try { hideTopmenuPortalHost(); } catch {}
+      } else {
+        try { document.documentElement.classList.remove('wph-mobile-copyart-open'); } catch {}
+        try { document.documentElement.classList.add('wph-mobile-topmenu-reveal'); } catch {}
+        try { if (_wphTopmenuRevealTimer) clearTimeout(_wphTopmenuRevealTimer); } catch {}
+        try { showTopmenuPortalHost(); } catch {}
+        try {
+          _wphTopmenuRevealTimer = window.setTimeout(() => {
+            try { document.documentElement.classList.remove('wph-mobile-topmenu-reveal'); } catch {}
+          }, 650);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  $: if (open && !_wphCopyArtWasOpen) {
+    _wphCopyArtWasOpen = true;
+    try { setTopmenuSuppressed(true); } catch {}
+  }
+  $: if (!open && _wphCopyArtWasOpen) {
+    _wphCopyArtWasOpen = false;
+    try { setTopmenuSuppressed(false); } catch {}
+  }
 </script>
 
 {#if open}
@@ -1975,10 +2125,21 @@
     <div class="ca-modal" transition:scale={{ start: 0.96, opacity: 0.08, duration: 160 }}>
       <div class="ca-header">
         <div class="title">{t('copyart.title')}</div>
-        <button class="close-x" on:click={close} aria-label={t('btn.close')}>×</button>
+        <div class="header-actions">
+          <button class="panel-toggle" type="button" on:click={toggleMobilePanel} aria-label="panel">
+            <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
+              <rect x="6" y="8" width="20" height="2" />
+              <rect x="10" y="15" width="16" height="2" />
+              <rect x="14" y="22" width="12" height="2" />
+              <rect width="32" height="32" fill="none" />
+            </svg>
+          </button>
+          <button class="close-x" on:click={close} aria-label={t('btn.close')}>×</button>
+        </div>
       </div>
       <div class="ca-body">
-        <div class="left">
+        <button type="button" class="mobile-panel-backdrop" class:open={mobilePanelOpen} on:click={closeMobilePanel} aria-label="close panel"></button>
+        <div class="left" class:mobile-open={mobilePanelOpen}>
           <div class="group card">
             <div class="label">{t('copyart.center')}</div>
             {#if center}
@@ -2205,7 +2366,7 @@
         </div>
       </div>
       <div class="ca-footer">
-        <div class="row">
+        <div class="row footer-row">
           <div class="hint">{t('copyart.controlsHint')}</div>
           <div style="flex:1"></div>
           <button class="editor-btn" on:click={clearSelection} disabled={!selectionRect || saving}>{t('copyart.clearSelection')}</button>
@@ -2281,7 +2442,7 @@
 {/if}
 
 <style>
-  .ca-backdrop { position: fixed; inset: 0; background: var(--wph-backdrop, rgba(0,0,0,0.5)); display: grid; place-items: center; z-index: 1000004; }
+  .ca-backdrop { position: fixed; inset: 0; background: var(--wph-backdrop, rgba(0,0,0,0.5)); display: grid; place-items: center; z-index: 1000004; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   
   .ca-modal { width: min(1000px, 95vw); max-height: min(88vh, 900px); display: flex; flex-direction: column; border-radius: 16px; overflow: auto; background: var(--wph-surface, rgba(17,17,17,0.96)); color: var(--wph-text, #fff); border: 1px solid var(--wph-border, rgba(255,255,255,0.15)); box-shadow: 0 16px 36px rgba(0,0,0,0.5); backdrop-filter: blur(8px); }
   .ca-header { 
@@ -2293,6 +2454,23 @@
     border-bottom: 1px solid var(--wph-border, rgba(255,255,255,0.1));
     background: var(--wph-surface2, rgba(255,255,255,0.03));
   }
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  .panel-toggle {
+    display: none;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--wph-surface, rgba(255,255,255,0.06));
+    color: var(--wph-text, #fff);
+    border: none;
+    cursor: pointer;
+    transition: all .15s ease;
+    flex-shrink: 0;
+    padding: 0;
+  }
+  .panel-toggle:hover { background: var(--wph-surface2, rgba(255,255,255,0.12)); transform: scale(1.05); }
   .ca-header .title { 
     font-weight: 600; 
     font-size: 15px;
@@ -2338,7 +2516,7 @@
   .hint { opacity: .85; font-size: 12px; }
 
   
-  .qr-dialog-backdrop { position: fixed; inset: 0; background: var(--wph-backdrop, rgba(0,0,0,0.55)); display: grid; place-items: center; z-index: 1000005; }
+  .qr-dialog-backdrop { position: fixed; inset: 0; background: var(--wph-backdrop, rgba(0,0,0,0.55)); display: grid; place-items: center; z-index: 1000005; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .qr-dialog { width: min(560px, 92vw); background: var(--wph-surface, rgba(17,17,17,0.97)); color: var(--wph-text, #fff); border: 1px solid var(--wph-border, rgba(255,255,255,0.15)); border-radius: 14px; box-shadow: 0 16px 36px rgba(0,0,0,0.5); padding: 12px; display: grid; gap: 10px; }
 
   .save-toast, .assem-toast, .parts-toast { position: absolute; left: 50%; transform: translateX(-50%); width: min(560px, 94%); background: var(--wph-surface, rgba(20,20,24,0.96)); color: var(--wph-text, #fff); border: 1px solid var(--wph-border, rgba(255,255,255,0.14)); border-radius: 12px; box-shadow: 0 18px 40px rgba(0,0,0,0.55); padding: 10px 12px; z-index: 10; backdrop-filter: blur(6px); pointer-events: none; }
@@ -2380,7 +2558,11 @@
   .row { display: flex; gap: 8px; }
   .row label { flex: 1; white-space: normal; }
   .row .num { flex: 0 0 120px; }
-  .num { height: 28px; border-radius: 8px; border: 1px solid var(--wph-border, rgba(255,255,255,0.14)); background: var(--wph-surface, rgba(255,255,255,0.06)); color: var(--wph-text, #fff); padding: 0 8px; }
+  .num { height: 28px; border-radius: 8px; border: 1px solid var(--wph-border, rgba(255,255,255,0.14)); background: var(--wph-surface, rgba(255,255,255,0.06)); color: var(--wph-text, #fff); padding: 0 8px; appearance: textfield; -moz-appearance: textfield; }
+  .num:focus,
+  .num:focus-visible { outline: none; border-color: var(--wph-primary, #f05123); box-shadow: 0 0 0 2px var(--wph-focusRing, rgba(240,81,35,0.2)); }
+  .num::-webkit-outer-spin-button,
+  .num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .editor-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.07); color: #fff; cursor: pointer; }
   .editor-btn:disabled { opacity: .6; cursor: default; }
   .editor-btn.editor-primary { background: var(--wph-primary, #f05123); border-color: rgba(255,255,255,0.25); }
@@ -2396,17 +2578,90 @@
     padding: 0 10px; 
     font-size: 13px;
     text-align: center;
+    appearance: textfield;
+    -moz-appearance: textfield;
   }
-  .custom-size-input:focus { 
+  .custom-size-input:focus,
+  .custom-size-input:focus-visible { 
     outline: none; 
     border-color: var(--wph-primary, #f05123); 
     box-shadow: 0 0 0 2px var(--wph-focusRing, rgba(240,81,35,0.2)); 
   }
+  .custom-size-input::-webkit-outer-spin-button,
+  .custom-size-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .custom-hint { 
     font-size: 11px; 
     opacity: 0.7; 
     text-align: center; 
     color: var(--wph-muted, rgba(255,255,255,0.65));
+  }
+
+  .mobile-panel-backdrop { display: none; border: none; padding: 0; }
+
+  @media (max-width: 720px) {
+    .ca-backdrop { place-items: stretch; }
+    .ca-modal {
+      width: 100vw;
+      max-height: none;
+      height: 100dvh;
+      border-radius: 0;
+      overflow: hidden;
+    }
+    .ca-header { padding: 12px 12px; }
+    .panel-toggle { display: inline-flex; }
+    .close-x { width: 32px; height: 32px; border-radius: 8px; }
+
+    .ca-body {
+      grid-template-columns: 1fr;
+      position: relative;
+      min-height: 0;
+    }
+    .right { grid-column: 1; overflow: hidden; }
+
+    .left {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: min(92vw, 360px);
+      max-width: 100%;
+      background: var(--wph-surface, rgba(17,17,17,0.98));
+      border-right: 1px solid var(--wph-border, rgba(255,255,255,0.14));
+      box-shadow: 0 18px 46px rgba(0,0,0,0.6);
+      transform: translateX(-102%);
+      transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 6;
+      padding-bottom: 18px;
+    }
+    .left.mobile-open { transform: translateX(0); }
+
+    .mobile-panel-backdrop {
+      display: block;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      z-index: 5;
+    }
+    .mobile-panel-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .ca-footer { padding: 10px 10px; }
+    .footer-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+    .footer-row > div[style="flex:1"] { display: none; }
+    .ca-footer .hint { display: none; }
+    .footer-row .editor-btn {
+      width: 100%;
+      padding: 12px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .footer-row .editor-btn:nth-of-type(1) { grid-column: 1 / -1; }
   }
   .custom-tile .name { 
     color: var(--wph-text, rgba(255,255,255,0.9)); 

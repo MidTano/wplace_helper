@@ -3,8 +3,12 @@
   
   export let value = '';
   export let options = [];
-  export let onChange = () => {};
+  export let onChange = (_value) => {};
   export let showModePreview = false;
+  export let previewModes = null;
+  export let previewAnchorSelector = '';
+  export let previewOffsetX = 16;
+  export let disabled = false;
   
   let isOpen = false;
   let selectRef;
@@ -13,13 +17,14 @@
   let visualizerPosition = { x: 0, y: 0 };
   
   function toggleOpen() {
+    if (disabled) return;
     isOpen = !isOpen;
   }
   
   function selectOption(optionValue) {
     value = optionValue;
     isOpen = false;
-    onChange();
+    onChange(optionValue);
   }
   
   function handleClickOutside(event) {
@@ -40,12 +45,28 @@
     if (!showModePreview) {
       return;
     }
+
+    if (Array.isArray(previewModes) && previewModes.length && !previewModes.includes(optionValue)) {
+      showPreview = false;
+      return;
+    }
     
     const target = event.currentTarget;
     const rect = target.getBoundingClientRect();
+
+    let ax = rect.right;
+    try {
+      if (previewAnchorSelector && typeof previewAnchorSelector === 'string') {
+        const el = document.querySelector(previewAnchorSelector);
+        if (el && el.getBoundingClientRect) {
+          const r2 = el.getBoundingClientRect();
+          ax = r2.right;
+        }
+      }
+    } catch {}
     
     visualizerPosition = {
-      x: rect.right + 16,
+      x: ax + previewOffsetX,
       y: rect.top + rect.height / 2
     };
     
@@ -71,6 +92,8 @@
     type="button"
     class="select-trigger" 
     class:open={isOpen}
+    class:disabled={disabled}
+    disabled={disabled}
     on:click|stopPropagation={toggleOpen}
   >
     <span class="select-value">{selectedLabel}</span>
@@ -109,20 +132,17 @@
   
   .select-trigger {
     width: 100%;
-    height: 36px;
-    padding: 6px 12px;
-    background: var(--wph-surface, rgba(255,255,255,0.08));
-    border: 1px solid var(--wph-border, rgba(255,255,255,0.2));
-    color: var(--wph-text, #fff);
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
+    height: 42px;
+    border-radius: 10px;
+    border: 1px solid var(--wph-border, rgba(255,255,255,0.14));
+    background: var(--wph-surface, rgba(255,255,255,0.06));
+    color: inherit;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    transition: all .15s ease;
+    padding: 0 12px;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, opacity .15s ease;
   }
   
   .select-trigger:hover {
@@ -130,10 +150,15 @@
     border-color: var(--wph-border, rgba(255,255,255,0.28));
   }
   
-  .select-trigger.open {
-    background: var(--wph-surface2, rgba(255,255,255,0.12));
+  .custom-select.is-open .select-trigger.open {
     border-color: var(--wph-primary, #f05123);
-    box-shadow: 0 0 0 3px var(--wph-focusRing, rgba(240,81,35,0.28));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--wph-primary, #f05123) 35%, transparent);
+  }
+
+  .select-trigger.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    pointer-events: none;
   }
   
   .select-value {

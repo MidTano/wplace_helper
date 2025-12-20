@@ -542,7 +542,9 @@
   .gm-body::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.4)}
   .gm-body::-webkit-scrollbar-button{display:none;width:0;height:0;background:transparent;border:0}
   .gm-loading,.gm-error,.gm-empty{text-align:center;font-size:0.95rem;opacity:0.85;display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .gm-empty{grid-column:1 / -1;justify-self:center;align-self:center;max-width:560px;width:100%;}
   .gm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;}
+  .gm-list:has(.gm-empty){display:flex;align-items:center;justify-content:center;}
   .gm-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;display:grid;grid-template-rows:190px 1fr auto;min-height:330px;transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;}
   .gm-card-thumb-wrap{position:relative;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.12)}
   .gm-card-thumb{background-color:rgba(0,0,0,0.42);background-image:linear-gradient(45deg,rgba(255,255,255,0.08) 25%,transparent 25%),linear-gradient(-45deg,rgba(255,255,255,0.08) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,rgba(255,255,255,0.08) 75%),linear-gradient(-45deg,transparent 75%,rgba(255,255,255,0.08) 75%);background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0;height:100%;width:100%;object-fit:contain;object-position:center;display:block;image-rendering:pixelated;}

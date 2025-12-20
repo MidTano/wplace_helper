@@ -1,10 +1,11 @@
 <script>
   import { t, toggleLang, lang } from '../i18n';
   $: current = $lang;
+  $: currentLabel = t(`lang.${current}`);
   function onClick() { toggleLang(); }
 </script>
 
-<button class="tm-fab tm-tip" on:click={onClick} aria-label={t('btn.language')} data-label={`${t('btn.language')}: ${current === 'ru' ? t('lang.ru') : t('lang.en')}`}>
+<button class="tm-fab tm-tip" on:click={onClick} aria-label={t('btn.language')} data-label={`${t('btn.language')}: ${currentLabel}`}>
   <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
     <rect x="18" y="19" width="6" height="2"/>
     <rect x="18" y="15" width="12" height="2"/>

@@ -542,6 +542,12 @@
         }
         return;
       }
+
+      try {
+        if (isMobileViewport() && $comparisonImages.length >= 2) {
+          return;
+        }
+      } catch {}
       
       if (!$canAddMore) {
         console.warn('Достигнут лимит изображений для сравнения');
@@ -668,6 +674,129 @@
   let backdropRef;
   let panelRef;
   let panelScrollTop = 0; 
+  let mobilePanelOpen = false;
+  function toggleMobilePanel() { mobilePanelOpen = !mobilePanelOpen; }
+  function closeMobilePanel() { mobilePanelOpen = false; }
+  function isMobileViewport() {
+    try {
+      return !!(window && window.matchMedia && window.matchMedia('(max-width: 720px), (hover: none) and (pointer: coarse)').matches);
+    } catch { return false; }
+  }
+  function getTopmenuEl() {
+    try {
+      const host = (window).__wphPortalHost;
+      if (host && typeof host.querySelector === 'function') return host.querySelector('.topmenu-root');
+      return null;
+    } catch { return null; }
+  }
+  let _wphEditorWasOpen = false;
+  let _wphTopmenuRevealTimer = 0;
+  let _wphTopmenuElAnim = null;
+  let _wphTopmenuElPrev = null;
+  function hideTopmenuEl() {
+    try {
+      if (!isMobileViewport()) return;
+      const el = getTopmenuEl();
+      if (!el) return;
+      try { if (_wphTopmenuElAnim) { _wphTopmenuElAnim.cancel(); _wphTopmenuElAnim = null; } } catch {}
+      try {
+        if (!_wphTopmenuElPrev) {
+          _wphTopmenuElPrev = {
+            display: el.style.display,
+            opacity: el.style.opacity,
+            pointerEvents: el.style.pointerEvents,
+            transition: el.style.transition,
+            transform: el.style.transform,
+            filter: el.style.filter,
+            visibility: el.style.visibility
+          };
+        }
+      } catch {}
+      try { el.style.transition = ''; } catch {}
+      try { el.style.opacity = '0'; } catch {}
+      try { el.style.pointerEvents = 'none'; } catch {}
+      try { el.style.transform = ''; } catch {}
+      try { el.style.filter = ''; } catch {}
+      try { el.style.visibility = ''; } catch {}
+      try { el.style.display = 'none'; } catch {}
+    } catch {}
+  }
+  function showTopmenuEl() {
+    try {
+      if (!isMobileViewport()) return;
+      const el = getTopmenuEl();
+      if (!el) return;
+      try { if (_wphTopmenuElAnim) { _wphTopmenuElAnim.cancel(); _wphTopmenuElAnim = null; } } catch {}
+      const prev = _wphTopmenuElPrev;
+      try {
+        if (prev) {
+          try { el.style.display = prev.display; } catch {}
+          try { el.style.pointerEvents = prev.pointerEvents; } catch {}
+          try { el.style.transition = prev.transition; } catch {}
+          try { el.style.transform = prev.transform; } catch {}
+          try { el.style.filter = prev.filter; } catch {}
+          try { el.style.visibility = prev.visibility; } catch {}
+        } else {
+          try { el.style.display = ''; } catch {}
+          try { el.style.pointerEvents = 'auto'; } catch {}
+          try { el.style.transition = ''; } catch {}
+          try { el.style.transform = ''; } catch {}
+          try { el.style.filter = ''; } catch {}
+          try { el.style.visibility = ''; } catch {}
+        }
+      } catch {}
+      try { el.style.opacity = '0'; } catch {}
+      try { el.style.pointerEvents = (prev && prev.pointerEvents) ? prev.pointerEvents : 'auto'; } catch {}
+      try {
+        _wphTopmenuElAnim = el.animate(
+          [
+            { opacity: 0 },
+            { opacity: 1 }
+          ],
+          { duration: 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'both' }
+        );
+        try {
+          _wphTopmenuElAnim.finished.then(() => {
+            try { if (_wphTopmenuElAnim) { _wphTopmenuElAnim.cancel(); _wphTopmenuElAnim = null; } } catch {}
+            try {
+              const prev2 = _wphTopmenuElPrev;
+              if (prev2) {
+                try { el.style.opacity = prev2.opacity; } catch {}
+                try { el.style.pointerEvents = prev2.pointerEvents; } catch {}
+                try { el.style.transition = prev2.transition; } catch {}
+                try { el.style.transform = prev2.transform; } catch {}
+                try { el.style.filter = prev2.filter; } catch {}
+                try { el.style.visibility = prev2.visibility; } catch {}
+                _wphTopmenuElPrev = null;
+              } else {
+                try { el.style.opacity = '1'; } catch {}
+              }
+            } catch {}
+          }).catch(() => {});
+        } catch {}
+      } catch {}
+    } catch {}
+  }
+  function setTopmenuSuppressed(suppressed) {
+    try {
+      if (suppressed) {
+        try { document.documentElement.classList.add('wph-mobile-editor-open'); } catch {}
+        try { document.documentElement.classList.remove('wph-mobile-topmenu-reveal'); } catch {}
+        try { if (_wphTopmenuRevealTimer) { clearTimeout(_wphTopmenuRevealTimer); _wphTopmenuRevealTimer = 0; } } catch {}
+        try { hideTopmenuEl(); } catch {}
+      } else {
+        try { document.documentElement.classList.remove('wph-mobile-editor-open'); } catch {}
+        try { document.documentElement.classList.add('wph-mobile-topmenu-reveal'); } catch {}
+        try { if (_wphTopmenuRevealTimer) clearTimeout(_wphTopmenuRevealTimer); } catch {}
+        try { showTopmenuEl(); } catch {}
+        try {
+          _wphTopmenuRevealTimer = window.setTimeout(() => {
+            try { document.documentElement.classList.remove('wph-mobile-topmenu-reveal'); } catch {}
+          }, 650);
+        } catch {}
+      }
+    } catch {}
+  }
   
   let waitingForCoords = false;
   let qrFileName = '';
@@ -1037,6 +1166,12 @@
   $: brushColorCss = rgbToCss(brushColorRGB);
   const COMPACT_ROW = 14;
   let hoverPalette = false;
+  function togglePaletteOpen() {
+    try {
+      if (!isMobileViewport()) return;
+      hoverPalette = !hoverPalette;
+    } catch {}
+  }
   function getColorName(rgb) {
     const item = MASTER_COLORS.find(c => c.rgb[0]===rgb[0] && c.rgb[1]===rgb[1] && c.rgb[2]===rgb[2]);
     return item ? item.name : `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
@@ -1242,6 +1377,10 @@
   let isPanning = false;
   let panStartPointerX = 0, panStartPointerY = 0;
   let panStartX = 0, panStartY = 0;
+
+  let touchPointers = new Map();
+  let touchGesture = null;
+  let touchIgnoreSingle = false;
   
   let isSizing = false;
   let sizeStartY = 0;
@@ -1286,6 +1425,12 @@
     zoomPanelOpen = true;
   }
   function closeZoomPanelSoon(delay = 1400) {
+    try {
+      if (isMobileViewport()) {
+        zoomPanelOpen = true;
+        return;
+      }
+    } catch {}
     try { if (zoomPanelHideTimer) clearTimeout(zoomPanelHideTimer); } catch {}
     zoomPanelHideTimer = setTimeout(() => { zoomPanelOpen = false; zoomPanelHideTimer = null; }, Math.max(0, delay|0));
   }
@@ -1551,6 +1696,175 @@
     params.sizingContext = sizingContext;
     return createStageMouseUpHandler(params)();
   }
+
+  function onStagePointerDownWrapper(e) {
+    try {
+      if (e && e.pointerType === 'mouse') return;
+      if (!editMode) return;
+      try {
+        if (e && e.pointerType === 'touch') {
+          touchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          touchPointers = touchPointers;
+          if (touchPointers.size >= 2) {
+            touchIgnoreSingle = true;
+            touchGesture = null;
+            try { cancelSmoothStroke(); } catch {}
+            isDrawing = false;
+            isPanning = false;
+            isSelecting = false;
+            gradientDragging = false;
+            isSizing = false;
+            try { if (sizingContext) sizingContext.active = false; } catch {}
+
+            const pts = Array.from(touchPointers.values());
+            const a = pts[0];
+            const b = pts[1];
+            const cx = (a.x + b.x) / 2;
+            const cy = (a.y + b.y) / 2;
+            const dx = (a.x - b.x);
+            const dy = (a.y - b.y);
+            const dist = Math.max(1, Math.hypot(dx, dy));
+
+            const rect = outputBox?.getBoundingClientRect();
+            const m0 = getDisplayMetricsLocal();
+            if (rect && m0) {
+              const x = cx - rect.left;
+              const y = cy - rect.top;
+              const worldX = (x - (m0.ox + panX)) / m0.scale;
+              const worldY = (y - (m0.oy + panY)) / m0.scale;
+              touchGesture = { cx, cy, dist, zoom0: zoom, worldX, worldY };
+            }
+
+            try { e.preventDefault(); } catch {}
+            try { e.stopPropagation(); } catch {}
+            try { e.currentTarget && e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+            return;
+          }
+        }
+      } catch {}
+      try { e.preventDefault(); } catch {}
+      try { e.stopPropagation(); } catch {}
+      try { e.currentTarget && e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+      const params = createMouseEventParams();
+      params.sizingContext = sizingContext;
+      return createStageMouseDownHandler(params)(e);
+    } catch {}
+  }
+  function onStagePointerMoveWrapper(e) {
+    try {
+      if (e && e.pointerType === 'mouse') return;
+      if (!editMode) return;
+      if (e && e.pointerType === 'touch') {
+        if (touchPointers && touchPointers.has(e.pointerId)) {
+          touchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          touchPointers = touchPointers;
+        }
+        if (touchGesture && touchPointers && touchPointers.size >= 2) {
+          const pts = Array.from(touchPointers.values());
+          const a = pts[0];
+          const b = pts[1];
+          const cx = (a.x + b.x) / 2;
+          const cy = (a.y + b.y) / 2;
+          const dx = (a.x - b.x);
+          const dy = (a.y - b.y);
+          const dist = Math.max(1, Math.hypot(dx, dy));
+          const ratio = dist / Math.max(1, touchGesture.dist);
+          const newZoom = Math.max(0.05, Math.min(32, (touchGesture.zoom0 || zoom) * ratio));
+
+          const rect = outputBox?.getBoundingClientRect();
+          const newM = getDisplayMetrics(outputBox, outW, outH, newZoom, true);
+          if (rect && newM) {
+            const x = cx - rect.left;
+            const y = cy - rect.top;
+            const newPanX = x - newM.ox - (touchGesture.worldX * newM.scale);
+            const newPanY = y - newM.oy - (touchGesture.worldY * newM.scale);
+            zoom = newZoom;
+            panX = Math.round(newPanX);
+            panY = Math.round(newPanY);
+            layoutStage();
+            drawOverlay(hoverPx, hoverPy);
+            openZoomPanel();
+            closeZoomPanelSoon(1500);
+          }
+
+          try { e.preventDefault(); } catch {}
+          try { e.stopPropagation(); } catch {}
+          return;
+        }
+        if (touchIgnoreSingle) {
+          try { e.preventDefault(); } catch {}
+          try { e.stopPropagation(); } catch {}
+          return;
+        }
+      }
+      const params = createMouseEventParams();
+      params.sizingContext = sizingContext;
+      return createStageMouseMoveHandler(params)(e);
+    } catch {}
+  }
+  function onStagePointerUpWrapper(e) {
+    try {
+      if (e && e.pointerType === 'mouse') return;
+      if (!editMode) return;
+      if (e && e.pointerType === 'touch') {
+        try { if (touchPointers) touchPointers.delete(e.pointerId); } catch {}
+        touchPointers = touchPointers;
+
+        if (touchGesture) {
+          if (!touchPointers || touchPointers.size < 2) {
+            touchGesture = null;
+            touchIgnoreSingle = false;
+          }
+          if (!touchPointers || touchPointers.size === 0) {
+            touchIgnoreSingle = false;
+          }
+          try { e.currentTarget && e.currentTarget.releasePointerCapture && e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+          try { e.preventDefault(); } catch {}
+          try { e.stopPropagation(); } catch {}
+          return;
+        }
+
+        if (touchIgnoreSingle) {
+          if (!touchPointers || touchPointers.size === 0) {
+            touchIgnoreSingle = false;
+          }
+          try { e.currentTarget && e.currentTarget.releasePointerCapture && e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+          try { e.preventDefault(); } catch {}
+          try { e.stopPropagation(); } catch {}
+          return;
+        }
+      }
+      try { e.currentTarget && e.currentTarget.releasePointerCapture && e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+      const params = createMouseEventParams();
+      params.sizingContext = sizingContext;
+      return createStageMouseUpHandler(params)();
+    } catch {}
+  }
+  function onStagePointerCancelWrapper(e) {
+    try {
+      if (e && e.pointerType === 'mouse') return;
+      if (!editMode) return;
+      if (e && e.pointerType === 'touch') {
+        try { if (touchPointers) touchPointers.delete(e.pointerId); } catch {}
+        touchPointers = touchPointers;
+        if (touchGesture && (!touchPointers || touchPointers.size < 2)) {
+          touchGesture = null;
+          touchIgnoreSingle = false;
+        }
+        if (!touchPointers || touchPointers.size === 0) {
+          touchIgnoreSingle = false;
+        }
+        try { e.currentTarget && e.currentTarget.releasePointerCapture && e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+        try { e.preventDefault(); } catch {}
+        try { e.stopPropagation(); } catch {}
+        return;
+      }
+      try { e.currentTarget && e.currentTarget.releasePointerCapture && e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+      const params = createMouseEventParams();
+      params.sizingContext = sizingContext;
+      return createStageMouseUpHandler(params)();
+    } catch {}
+  }
   
   function onWindowMouseUpWrapper() {
     const params = createMouseEventParams();
@@ -1683,6 +1997,67 @@
     if (len <= 6) return 7;     
     return 8;                   
   })();
+
+  function adjustMobileToolParam(delta) {
+    try {
+      if (!editMode) return false;
+      if (!isMobileViewport()) return false;
+      if (activeTool === 'brush') {
+        brushSize = clampSize(brushSize + delta);
+        drawOverlay(hoverPx, hoverPy);
+        return true;
+      }
+      if (activeTool === 'eraser') {
+        eraserSize = clampSize(eraserSize + delta);
+        drawOverlay(hoverPx, hoverPy);
+        return true;
+      }
+      if (activeTool === 'select') {
+        selectSize = clampSize(selectSize + delta);
+        drawOverlay(hoverPx, hoverPy);
+        return true;
+      }
+      if (activeTool === 'magic') {
+        magicTolerance = clampTolerance(magicTolerance + (delta * 4));
+        drawOverlay(hoverPx, hoverPy);
+        return true;
+      }
+      return false;
+    } catch { return false; }
+  }
+
+  function onZoomPanelPlus() {
+    if (!adjustMobileToolParam(1)) zoomIn();
+  }
+  function onZoomPanelMinus() {
+    if (!adjustMobileToolParam(-1)) zoomOut();
+  }
+
+  $: zoomPanelValueText = (() => {
+    try {
+      if (editMode && isMobileViewport()) {
+        if (activeTool === 'brush') return String(brushSize);
+        if (activeTool === 'eraser') return String(eraserSize);
+        if (activeTool === 'select') return String(selectSize);
+        if (activeTool === 'magic') return String(magicTolerance);
+      }
+    } catch {}
+    return zoomPercentText;
+  })();
+
+  $: zoomPanelValueFontSize = (() => {
+    try {
+      if (editMode && isMobileViewport()) {
+        const raw = String(zoomPanelValueText);
+        const len = raw.length;
+        if (len <= 2) return 11;
+        if (len <= 3) return 10;
+        if (len <= 4) return 9;
+        return 8;
+      }
+    } catch {}
+    return zoomFontSize;
+  })();
   function zoomTo(newZoom, focusX = -1, focusY = -1) {
     try {
       if (!outputBox || !outW || !outH) return;
@@ -1778,7 +2153,9 @@
   function drawOverlayImmediate(px, py) {
     const m = getDisplayMetricsLocal();
     if (!m) return;
+    if (!overlayCanvas) return;
     const ctx = overlayCanvas.getContext('2d');
+    if (!ctx) return;
     const size = activeTool === 'brush' ? brushSize : (activeTool === 'eraser' ? eraserSize : (activeTool === 'select' ? selectSize : undefined));
     
     
@@ -2823,6 +3200,8 @@
     
     
     try { comparisonActions.clearAll(); } catch {}
+    try { mobilePanelOpen = false; } catch {}
+    try { setTopmenuSuppressed(false); } catch {}
     
     dispatch('close');
   }
@@ -2986,10 +3365,20 @@
     });
   }
 
-  
-  
-  
+  $: if (open && !_wphEditorWasOpen) {
+    _wphEditorWasOpen = true;
+    try { setTopmenuSuppressed(true); } catch {}
+  }
+  $: if (!open && _wphEditorWasOpen) {
+    _wphEditorWasOpen = false;
+    try { setTopmenuSuppressed(false); } catch {}
+  }
+
   function onWindowResize() { layoutStage(); }
+
+  
+  
+  
 </script>
 
 <svelte:window on:resize={onWindowResize} on:wheel={onGlobalWheelWrapper} on:mousemove={onWindowMouseMoveWrapper} on:mouseup={() => { isPatternDragging = false; onWindowMouseUpWrapper(); }} on:keydown={onWindowKeyDownWrapper} />
@@ -3000,9 +3389,18 @@
        on:keydown={onBackdropKeyDownWrapper}>
     <div class="editor-modal" bind:this={modalRef} role="dialog" aria-modal="true" tabindex="-1" style="z-index: var(--z-modal);">
       <div class="editor-grid">
+        <button type="button" class="editor-mobile-panel-backdrop" class:open={mobilePanelOpen} on:click={closeMobilePanel} aria-label="close panel"></button>
         
-        <div class="editor-panel" class:locked={editMode} bind:this={panelRef}
+        <div class="editor-panel" class:locked={editMode} class:mobile-open={mobilePanelOpen} bind:this={panelRef}
              on:scroll={(e) => { try { panelScrollTop = e.currentTarget.scrollTop || 0; } catch {} }}>
+          <div class="editor-panel-mobile-header">
+            <button type="button" class="editor-panel-mobile-btn" on:click={closeMobilePanel} aria-label="collapse">
+              <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
+                <path d="M19.4 6.6 10 16l9.4 9.4 1.4-1.4L12.8 16l8-8-1.4-1.4z" />
+                <rect width="32" height="32" fill="none" />
+              </svg>
+            </button>
+          </div>
           <div class="editor-panel-title">{t('editor.panel.title')}</div>
 
           <div class="editor-group">
@@ -3025,7 +3423,7 @@
               </div>
               <div class="editor-hint">{t('editor.panel.resultSize')}: {Math.max(1, Math.floor(originalDims.w / pixelSize))} × {Math.max(1, Math.floor(originalDims.h / pixelSize))}</div>
             </div>
-                        <div class="editor-subgroup">
+            <div class="editor-subgroup">
               <div class="editor-control">
                 <div class="editor-control-title">{t('editor.panel.preblur.title')}</div>
                 <div class="editor-row">
@@ -3580,12 +3978,26 @@
         <div class="editor-output" data-tutorial="editor-preview">
           <div class="editor-output-box" bind:this={outputBox}>
             <div class="editor-output-header" class:compact={editMode}>
-              <HeaderStats {outW} {outH} {opaqueCount} {colorCount} {etaSeconds} {formatEta} compact={editMode} />
+              <button type="button" class="editor-mobile-panel-toggle" on:click={toggleMobilePanel} aria-label="panel">
+                <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
+                  <rect x="6" y="8" width="20" height="2" />
+                  <rect x="10" y="15" width="16" height="2" />
+                  <rect x="14" y="22" width="12" height="2" />
+                  <rect width="32" height="32" fill="none" />
+                </svg>
+              </button>
+              <div class="editor-mobile-stats-scroll" aria-hidden={editMode}>
+                <HeaderStats {outW} {outH} {opaqueCount} {colorCount} {etaSeconds} {formatEta} compact={editMode} />
+              </div>
+              <button type="button" class="editor-mobile-close" on:click={() => close()} aria-label={t('btn.close')}>×</button>
               {#if editMode}
                 <div class="header-palette" role="group" aria-label={t('editor.palette.group')} class:open={hoverPalette} class:disabled={stickerMode}
-                     on:mouseenter={() => hoverPalette = true}
-                     on:mouseleave={() => { hoverPalette = false; }}>
-                  <div class="palette-selected">
+                     on:mouseleave={() => { try { if (!isMobileViewport()) hoverPalette = false; } catch {} }}>
+                  <div class="palette-selected"
+                       on:mouseenter={() => { try { if (!isMobileViewport()) hoverPalette = true; } catch {} }}
+                       on:click={togglePaletteOpen}
+                       on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); togglePaletteOpen(); } }}
+                       role="button" tabindex="0">
                     {#if activeTool==='gradient' || activeTool==='eyedropper'}
                       <div class="selected-chip a" title={t('editor.palette.chipA.title')}>
                         <span class="chip-swatch" style="--c: rgb({gradientColorA[0]}, {gradientColorA[1]}, {gradientColorA[2]})"></span>
@@ -3627,8 +4039,7 @@
               {#if previewUrl}
               {#if editMode}
                 
-                <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-                <div class="edit-stage" role="application" aria-label={t('editor.editStage.aria')}
+                <button type="button" class="edit-stage" aria-label={t('editor.editStage.aria')}
                      class:panning={isPanning}
                      class:infoOpen={showInfo}
                      class:sizing={isSizing}
@@ -3637,6 +4048,10 @@
                      on:mouseleave={onStageMouseLeaveWrapper}
                      on:mousedown={onStageMouseDownWrapper}
                      on:mouseup={onStageMouseUpWrapper}
+                     on:pointerdown={onStagePointerDownWrapper}
+                     on:pointermove={onStagePointerMoveWrapper}
+                     on:pointerup={onStagePointerUpWrapper}
+                     on:pointercancel={onStagePointerCancelWrapper}
                      on:contextmenu|preventDefault
                      on:dragstart|preventDefault>
                   <canvas class="edit-canvas" bind:this={editCanvas}></canvas>
@@ -3644,7 +4059,7 @@
                   {#if showInfo}
                     <HotkeysInfoModal on:close={() => showInfo = false} />
                   {/if}
-                </div>
+                </button>
               {:else}
                 <img src={previewUrl} alt="preview" />
               {/if}
@@ -3679,7 +4094,7 @@
                           on:mouseenter={() => hoverEraserBtn = true} on:mouseleave={() => hoverEraserBtn = false}>
                     <svg fill="currentColor" viewBox="0 0 32 32" width="18" height="18" aria-hidden="true">
                       <rect x="7" y="27" width="23" height="2"/>
-                      <path d="M27.38,10.51,19.45,2.59a2,2,0,0,0-2.83,0l-14,14a2,2,0,0,0,0,2.83L7.13,24h9.59L27.38,13.34A2,2,0,0,0,27.38,10.51ZM15.89,22H8L4,18l6.31-6.31,7.93,7.92Zm3.76-3.76-7.92-7.93L18,4,26,11.93Z" transform="translate(0 0)"/>
+                      <path d="M27.38,10.51,19.45,2.59a2,2,0,0,0-2.83,0l-14,14a2,2,0,0,0,0,2.83L7.13,24h9.59L27.38,13.34A2,2,0,0,0,27.38,10.51ZM13.59,22h-2L9,24.59,7.41,23,10,20.41v-2l10-10L23.59,12ZM25,10.59,21.41,7,24,4.41,27.59,8Z" transform="translate(0 0)"/>
                       <rect width="32" height="32" fill="none" />
                     </svg>
                     {#if activeTool==='eraser' && hoverEraserBtn}
@@ -3833,7 +4248,7 @@
               <button 
                 class="add-comparison-fab" 
                 class:active={isCurrentImageInComparison}
-                disabled={!$canAddMore || working}
+                disabled={(!isCurrentImageInComparison && (working || !$canAddMore || (isMobileViewport() && $comparisonImages.length >= 2))) || (isCurrentImageInComparison && working)}
                 title={isCurrentImageInComparison ? t('editor.comparison.remove') : t('editor.comparison.add')}
                 on:click={addToComparison}
                 data-tutorial="add-comparison-fab"
@@ -3875,14 +4290,14 @@
             
             <div class="zoom-panel" class:visible={editMode} aria-hidden={!editMode}>
               <div class="zoom-card" role="region" aria-label={t('editor.zoom.controls.aria')}
-                   class:active={editMode && (zoomPanelOpen || zoomPanelHover)}
+                   class:active={editMode && (isMobileViewport() || zoomPanelOpen || zoomPanelHover)}
                    on:mouseenter={() => { zoomPanelHover = true; openZoomPanel(); }}
                    on:mouseleave={() => { zoomPanelHover = false; closeZoomPanelSoon(500); }}>
-                <button class="zoom-btn plus" on:click={zoomIn} title="+">
+                <button class="zoom-btn plus" on:click={onZoomPanelPlus} title="+">
                   <span aria-hidden="true">+</span>
                 </button>
-                <div class="zoom-value" aria-live="polite" style={`font-size:${zoomFontSize}px`}>{zoomPercentText}</div>
-                <button class="zoom-btn minus" on:click={zoomOut} title="-">
+                <div class="zoom-value" aria-live="polite" style={`font-size:${zoomPanelValueFontSize}px`}>{zoomPanelValueText}</div>
+                <button class="zoom-btn minus" on:click={onZoomPanelMinus} title="-">
                   <span aria-hidden="true">−</span>
                 </button>
                 <div class="zoom-sep" aria-hidden="true"></div>
@@ -3946,6 +4361,46 @@
     color: var(--wph-text, #fff);
     display: grid;
     grid-template-rows: 1fr;
+    transform-origin: top center;
+    will-change: transform, opacity, filter, box-shadow;
+    animation: wphEditorModalIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: 500ms;
+  }
+
+  .editor-panel > * {
+    opacity: 1;
+    will-change: transform, opacity;
+    animation: wphEditorPanelItemIn 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: 570ms;
+  }
+  .editor-panel > :nth-child(1) { animation-delay: 570ms; }
+  .editor-panel > :nth-child(2) { animation-delay: 598ms; }
+  .editor-panel > :nth-child(3) { animation-delay: 626ms; }
+  .editor-panel > :nth-child(4) { animation-delay: 654ms; }
+  .editor-panel > :nth-child(5) { animation-delay: 682ms; }
+  .editor-panel > :nth-child(6) { animation-delay: 710ms; }
+  .editor-panel > :nth-child(7) { animation-delay: 738ms; }
+  .editor-panel > :nth-child(8) { animation-delay: 766ms; }
+  .editor-panel > :nth-child(9) { animation-delay: 794ms; }
+  .editor-panel > :nth-child(10) { animation-delay: 822ms; }
+  .editor-panel > :nth-child(11) { animation-delay: 850ms; }
+  .editor-panel > :nth-child(12) { animation-delay: 878ms; }
+
+  @keyframes wphEditorModalIn {
+    0% { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1); filter: blur(0); box-shadow: 0 16px 36px rgba(0,0,0,0.5); }
+    55% { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1.02); filter: blur(0); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+    100% { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1); filter: blur(0); box-shadow: 0 16px 36px rgba(0,0,0,0.5); }
+  }
+
+  @keyframes wphEditorPanelItemIn {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    55% { opacity: 1; transform: translateY(0) scale(1.01); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .editor-modal { animation: none; }
+    .editor-panel > * { animation: none; opacity: 1; }
   }
   .editor-grid {
     display: grid;
@@ -3969,12 +4424,15 @@
     min-height: 0; 
     position: relative; 
   }
+
+  .editor-panel-mobile-header { display: none; }
   
-  .editor-panel.locked > *:not(.panel-lock) { pointer-events: none; filter: blur(3px); }
+  .editor-panel.locked > *:not(.panel-lock):not(.editor-panel-mobile-header) { pointer-events: none; filter: blur(3px); }
   .editor-panel.locked :is(input, select, button, textarea, a, [tabindex]) { pointer-events: none; }
   .editor-panel.locked :is(input, select, button, textarea, a, [tabindex]) { -webkit-user-select: none; user-select: none; }
   
   .editor-panel.locked .panel-lock, .editor-panel.locked .panel-lock * { pointer-events: auto; }
+  .editor-panel.locked .editor-panel-mobile-header, .editor-panel.locked .editor-panel-mobile-header * { pointer-events: auto; filter: none; }
   
   .editor-panel.locked * { scrollbar-width: none; }
   :global(.editor-panel.locked *::-webkit-scrollbar) { width: 0 !important; height: 0 !important; }
@@ -4117,6 +4575,13 @@
     font-weight: 600;
     text-align: center;
     transition: border-color .12s ease, box-shadow .12s ease;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  .editor-number::-webkit-outer-spin-button,
+  .editor-number::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
   .editor-number:focus {
     outline: none;
@@ -4443,13 +4908,14 @@
     content: '';
     position: absolute;
     left: 2px;
-    top: 2px;
+    top: 50%;
     width: 12px;
     height: 12px;
     border-radius: 50%;
     background: rgba(255,255,255,0.9);
     transition: transform 0.2s ease;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    transform: translateY(-50%);
   }
   
   .color-correction-toggle input:checked + .checkmark {
@@ -4458,7 +4924,7 @@
   }
   
   .color-correction-toggle input:checked + .checkmark::after {
-    transform: translateX(18px);
+    transform: translate(18px, -50%);
   }
   
   .color-correction-toggle:hover .checkmark {
@@ -4478,6 +4944,147 @@
   :global(.editor-output-header::-webkit-scrollbar) { width: 0; height: 0; }
   .editor-output-header { scrollbar-width: none; }
   .editor-output-header.compact { background: none; border-bottom: none; }
+
+  .editor-mobile-panel-backdrop { display: none; border: none; padding: 0; }
+  .editor-mobile-panel-toggle, .editor-mobile-close { display: none; }
+  .editor-mobile-stats-scroll { display: contents; }
+
+  @media (max-width: 720px), (hover: none) and (pointer: coarse) {
+    .editor-backdrop { align-items: stretch; justify-content: stretch; }
+    .editor-modal {
+      inset: 0;
+      top: 0 !important;
+      left: 0 !important;
+      transform: none !important;
+      animation: none !important;
+      animation-delay: 0ms !important;
+      width: 100vw;
+      height: 100dvh;
+      max-height: none;
+      min-height: 0;
+      border-radius: 0;
+      padding: 0;
+      border-left: 0;
+      border-right: 0;
+      border-top: 0;
+    }
+    .editor-grid {
+      grid-template-columns: 1fr;
+      gap: 0;
+      height: 100%;
+      min-height: 0;
+      position: relative;
+    }
+
+    .editor-output { min-height: 0; }
+    .editor-output-header {
+      height: calc(44px + env(safe-area-inset-top, 0px));
+      padding: calc(8px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) 8px calc(12px + env(safe-area-inset-left, 0px));
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+    }
+
+    .editor-mobile-stats-scroll {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x;
+      display: block;
+    }
+    .editor-mobile-stats-scroll::-webkit-scrollbar { display: none; }
+    :global(.editor-mobile-stats-scroll .editor-output-title) { min-width: max-content; }
+    .editor-output-box {
+      padding-top: calc(44px + env(safe-area-inset-top, 0px));
+      border-radius: 0;
+      border-left: 0;
+      border-right: 0;
+      border-bottom: 0;
+    }
+
+    .editor-panel {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: min(92vw, 360px);
+      max-width: 100%;
+      background: rgba(17,17,17,0.97);
+      border: 0;
+      border-right: 1px solid var(--wph-border, rgba(255,255,255,0.14));
+      border-radius: 0;
+      box-shadow: 0 18px 46px rgba(0,0,0,0.6);
+      transform: translateX(-102%);
+      transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 6;
+      padding: 0 10px calc(18px + env(safe-area-inset-bottom, 0px)) 10px;
+    }
+    .editor-panel.mobile-open { transform: translateX(0); }
+
+    .editor-panel-mobile-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: calc(6px + env(safe-area-inset-top, 0px)) 4px 8px 4px;
+      margin: 0 -10px 6px -10px;
+      background: rgb(17,17,17);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+    .editor-panel-mobile-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      font-size: 22px;
+    }
+    .editor-mobile-panel-backdrop {
+      display: block;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      z-index: 5;
+    }
+    .editor-mobile-panel-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .editor-mobile-panel-toggle,
+    .editor-mobile-close {
+      display: inline-flex;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      cursor: pointer;
+      position: static;
+      flex: 0 0 auto;
+      line-height: 1;
+    }
+    .editor-mobile-close { font-size: 22px; }
+  
+    .fab-container { right: calc(10px + env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+    .left-fab-slot { left: calc(10px + env(safe-area-inset-left, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+
+    .zoom-hotspot { display: none; }
+    .zoom-panel { left: calc(10px + env(safe-area-inset-left, 0px)); bottom: calc(120px + env(safe-area-inset-bottom, 0px)); opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  }
   
   .editor-output-box {
     position: relative;
@@ -4515,9 +5122,11 @@
   .header-palette .swatch::after { content: attr(data-label); position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%); background: rgba(17,17,17,0.95); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 12px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 6px 16px rgba(0,0,0,0.35); white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s ease, transform .12s ease, visibility .12s; z-index: 40; }
   .header-palette .swatch:hover::after, .header-palette .swatch:focus-visible::after { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
   .header-palette .swatch.selected { outline: 2px solid var(--wph-primary, #f05123); outline-offset: 1px; }
-  .header-palette .palette-popover { position: absolute; top: 100%; padding-top: 8px; left: 50%; z-index: 20; opacity: 0; transform: translate(-50%, 0) scale(.98); pointer-events: none; transition: opacity .15s ease, transform .15s ease; text-align: center; display: flex; flex-direction: column; align-items: center; width: max-content; }
+  .header-palette .palette-popover { position: absolute; top: 100%; padding-top: 8px; left: 50%; z-index: 20; opacity: 0; transform: translate(-50%, 0) scale(.98); visibility: hidden; transition: opacity .15s ease, transform .15s ease, visibility .15s; text-align: center; display: flex; flex-direction: column; align-items: center; width: max-content; }
+  .header-palette .palette-popover, .header-palette .palette-popover * { pointer-events: none; }
   .header-palette .palette-popover > .palette-grid { background: rgba(17,17,17,0.95); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 8px; box-shadow: 0 12px 28px rgba(0,0,0,0.45); margin: 0 auto; }
-  .header-palette.open .palette-popover, .header-palette:hover .palette-popover { opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto; }
+  .header-palette.open .palette-popover { opacity: 1; transform: translate(-50%, 0) scale(1); visibility: visible; }
+  .header-palette.open .palette-popover, .header-palette.open .palette-popover * { pointer-events: auto; }
   .header-palette .palette-grid { display: grid; grid-template-columns: repeat(14, 16px); gap: 6px; }
   .header-palette .palette-hint { margin-top: 8px; text-align: center; font-size: 12px; opacity: 1; color: #fff; background: rgba(17,17,17,0.95); padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); display: block; width: 100%; box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
   
@@ -4529,6 +5138,9 @@
   .edit-stage { position: absolute; inset: 0; cursor: crosshair; }
   .edit-stage.infoOpen { cursor: default; }
   .edit-stage.sizing { cursor: none; }
+  .edit-stage { touch-action: none; }
+  .edit-stage { overscroll-behavior: none; }
+  .edit-stage { background: transparent; border: none; padding: 0; margin: 0; outline: none; }
   .edit-canvas { position: absolute; z-index: 1; image-rendering: pixelated; image-rendering: crisp-edges; }
   .edit-canvas, .overlay-canvas { will-change: transform; }
   .overlay-canvas { position: absolute; z-index: 2; pointer-events: none; }

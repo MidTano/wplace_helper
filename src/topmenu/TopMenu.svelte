@@ -10,7 +10,6 @@
   import EnhancedColors from './EnhancedColors.svelte';
   import AutoMode from './AutoMode.svelte';
   import QrMusic from './QrMusic.svelte';
-  import ScreenAccess from './ScreenAccess.svelte';
   import Settings from './Settings.svelte';
   import Discord from './Discord.svelte';
   import Close from './Close.svelte';
@@ -46,56 +45,51 @@
 
 <div class="topmenu-root" role="toolbar" aria-label={t('topmenu.toolbar')}>
   <div class="topmenu-bar" class:collapsed={collapsed}>
-    <div class="tm-row">
-      <div class="tm-group drip" style="--drip-delay: 0ms" aria-label={t('topmenu.group.stats')}>
-      <AccountStats />
-      </div>
+    <div class="tm-row-scroll">
+      <div class="tm-row">
+        <div class="tm-group drip" style="--drip-delay: 0ms" aria-label={t('topmenu.group.stats')}>
+          <AccountStats />
+        </div>
 
-    
-      <div class="tm-group drip" style="--drip-delay: 40ms" aria-label={t('topmenu.group.art')}>
-      <button class="tm-fab tm-primary tm-tip" type="button" on:click={onPick} aria-label={L_pick} data-label={L_pick} data-tutorial="pick-button">
-        <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
-          <path d="M19,14a3,3,0,1,0-3-3A3,3,0,0,0,19,14Zm0-4a1,1,0,1,1-1,1A1,1,0,0,1,19,10Z"/>
-          
-          <path d="M26,4H6A2,2,0,0,0,4,6V26a2,2,0,0,0,2,2H26a2,2,0,0,0,2,-2V6A2,2,0,0,0,26,4Zm0,22H6V20l5-5,5.59,5.59a2,2,0,0,0,2.82,0L21,19l5,5Zm0-4.83-3.59-3.59a2,2,0,0,0-2.82,0L18,19.17l-5.59-5.59a2,2,0,0,0-2.82,0L6,17.17V6H26Z"/>
-        </svg>
-      </button>
-      <MoveToggle />
-      <button class="tm-fab tm-tip" type="button" on:click={onClear} aria-label={L_clear} data-label={L_clear}>
-        <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
-          <rect x="12" y="12" width="2" height="12"/>
-          <rect x="18" y="12" width="2" height="12"/>
-          <path d="M4,6V8H6V28a2,2,0,0,0,2,2H24a2,2,0,0,0,2-2V8h2V6ZM8,28V8H24V28Z"/>
-          <rect x="12" y="2" width="8" height="2"/>
-        </svg>
-      </button>
-        <CopyArt on:copy={(e)=>dispatch('copyArt')}/>
-        <Gallery on:open={()=>dispatch('galleryOpen')}/>
-        <History on:load={(e)=>dispatch('historyLoad', e.detail)} />
-      </div>
+        <div class="tm-group drip" style="--drip-delay: 40ms" aria-label={t('topmenu.group.art')}>
+          <button class="tm-fab tm-primary tm-tip" type="button" on:click={onPick} aria-label={L_pick} data-label={L_pick} data-tutorial="pick-button">
+            <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
+              <path d="M19,14a3,3,0,1,0-3-3A3,3,0,0,0,19,14Zm0-4a1,1,0,1,1-1,1A1,1,0,0,1,19,10Z"/>
+              <path d="M26,4H6A2,2,0,0,0,4,6V26a2,2,0,0,0,2,2H26a2,2,0,0,0,2,-2V6A2,2,0,0,0,26,4Zm0,22H6V20l5-5,5.59,5.59a2,2,0,0,0,2.82,0L21,19l5,5Zm0-4.83-3.59-3.59a2,2,0,0,0-2.82,0L18,19.17l-5.59-5.59a2,2,0,0,0-2.82,0L6,17.17V6H26Z"/>
+            </svg>
+          </button>
+          <MoveToggle />
+          <button class="tm-fab tm-tip" type="button" on:click={onClear} aria-label={L_clear} data-label={L_clear}>
+            <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true" fill="currentColor">
+              <rect x="12" y="12" width="2" height="12"/>
+              <rect x="18" y="12" width="2" height="12"/>
+              <path d="M4,6V8H6V28a2,2,0,0,0,2,2H24a2,2,0,0,0,2-2V8h2V6ZM8,28V8H24V28Z"/>
+              <rect x="12" y="2" width="8" height="2"/>
+            </svg>
+          </button>
+          <CopyArt on:copy={(e)=>dispatch('copyArt')}/>
+          <Gallery on:open={()=>dispatch('galleryOpen')}/>
+          <History on:load={(e)=>dispatch('historyLoad', e.detail)} />
+        </div>
 
-    
-      <div class="tm-group drip" style="--drip-delay: 80ms" aria-label={t('topmenu.group.tools')}>
-      <EnhancedColors />
-      <ScreenAccess />
-      <AutoMode />
-      <QrMusic />
-      </div>
+        <div class="tm-group drip" style="--drip-delay: 80ms" aria-label={t('topmenu.group.tools')}>
+          <EnhancedColors />
+          <AutoMode />
+          <QrMusic />
+        </div>
 
-    
-      <div class="tm-group drip" style="--drip-delay: 120ms" aria-label={t('topmenu.group.settings')}>
-      <Settings />
-      <Language />
-      </div>
+        <div class="tm-group drip" style="--drip-delay: 120ms" aria-label={t('topmenu.group.settings')}>
+          <Settings />
+          <Language />
+        </div>
 
-      
-      <div class="tm-group drip" style="--drip-delay: 160ms" aria-label="Discord">
-      <Discord />
-      </div>
+        <div class="tm-group drip" style="--drip-delay: 160ms" aria-label="Discord">
+          <Discord />
+        </div>
 
-    
-      <div class="tm-group tm-end drip" style="--drip-delay: 200ms" aria-label={t('topmenu.group.close')}>
-      <Close on:collapse={handleCollapse} />
+        <div class="tm-group tm-end drip" style="--drip-delay: 200ms" aria-label={t('topmenu.group.close')}>
+          <Close on:collapse={handleCollapse} />
+        </div>
       </div>
     </div>
     <div class="loadbar-slot">
@@ -145,6 +139,11 @@
     width: 100%;
   }
   .topmenu-bar.collapsed { transform: translateY(calc(-100% - 60px)); }
+  .tm-row-scroll {
+    display: block;
+    overflow: visible;
+    width: 100%;
+  }
   .tm-row {
     display: flex;
     gap: 8px;
@@ -199,6 +198,65 @@
     }
   }
   .tm-end { margin-left: auto; }
+
+  @media (max-width: 720px), (hover: none) and (pointer: coarse) {
+    .topmenu-root {
+      left: calc(10px + env(safe-area-inset-left, 0px));
+      right: calc(10px + env(safe-area-inset-right, 0px));
+      top: calc(10px + env(safe-area-inset-top, 0px));
+      transform: none;
+    }
+    .topmenu-bar {
+      width: 100%;
+      max-width: 100%;
+      padding: 6px 12px 10px 12px;
+    }
+    .tm-row-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      touch-action: pan-x;
+    }
+    .tm-row-scroll::-webkit-scrollbar { display: none; }
+    .tm-row {
+      width: max-content;
+      min-width: 100%;
+    }
+    .tm-group { flex: 0 0 auto; }
+    .tm-end { margin-left: 14px; }
+
+    :global(.tm-fab.tm-primary) {
+      background:
+        radial-gradient(circle at 50% 40%, var(--wph-primaryGlow, rgba(240,81,35,0.55)) 0%, rgba(240,81,35,0.22) 52%, var(--wph-primary, #f05123) 72%);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+    }
+
+    :global(html.wph-mobile-copyart-open) .topmenu-root {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateY(-16px);
+      transition: opacity 160ms ease, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    :global(html.wph-mobile-copyart-open) .topmenu-bar {
+      animation: none;
+    }
+
+    :global(html.wph-mobile-topmenu-reveal) .topmenu-root {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: none;
+    }
+    :global(html.wph-mobile-topmenu-reveal) .topmenu-bar {
+      will-change: transform, opacity, filter;
+      animation: wphTopmenuReturn 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes wphTopmenuReturn {
+      0% { opacity: 0; transform: translateY(-14px) scaleY(0.9); filter: blur(6px); }
+      55% { opacity: 1; transform: translateY(0) scaleY(1.04); filter: blur(0); }
+      100% { opacity: 1; transform: translateY(0) scaleY(1); filter: blur(0); }
+    }
+  }
   :global(.tm-fab) {
     width: 40px;
     height: 40px;

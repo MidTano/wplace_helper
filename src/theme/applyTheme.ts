@@ -2,6 +2,7 @@ import { ThemeTokens } from './types'
 import { buildTokensFromPreset, getPreset } from './presets'
 
 const STORAGE_KEY = 'wph_theme_v1'
+const CUSTOM_THEME_KEY = 'wph_custom_theme_active_v1'
 
 type Host = ShadowRoot | HTMLElement | Document | null | undefined
 
@@ -74,6 +75,56 @@ export function applyTheme(tokens: ThemeTokens) {
   setToken(el, 'backdrop', 'rgba(0,0,0,0.4)')
 }
 
+type CustomTheme = {
+  primary?: string
+  primary2?: string
+  bg?: string
+  surface?: string
+  surface2?: string
+  border?: string
+  text?: string
+  muted?: string
+  success?: string
+  warning?: string
+  error?: string
+}
+
+function readCustomThemeFromStorage(): CustomTheme | null {
+  try {
+    const raw = localStorage.getItem(CUSTOM_THEME_KEY)
+    if (!raw) return null
+    const v = JSON.parse(raw)
+    if (!v || typeof v !== 'object') return null
+    return v as CustomTheme
+  } catch {
+    return null
+  }
+}
+
+export function applyCustomTheme(theme: CustomTheme) {
+  const primary = String(theme?.primary || '').trim()
+  if (!primary) return
+  const neutrals: any = {}
+  if (theme.bg) neutrals.bg = theme.bg
+  if (theme.surface) neutrals.surface = theme.surface
+  if (theme.surface2) neutrals.surface2 = theme.surface2
+  if (theme.border) neutrals.border = theme.border
+  if (theme.text) neutrals.text = theme.text
+  if (theme.muted) neutrals.muted = theme.muted
+
+  const statuses: any = {}
+  if (theme.success) statuses.success = theme.success
+  if (theme.warning) statuses.warning = theme.warning
+  if (theme.error) statuses.error = theme.error
+
+  const preset: any = { name: 'custom', primary, neutrals, statuses }
+  const tokens = buildTokensFromPreset(preset)
+  if (theme.primary2) tokens.primary2 = theme.primary2
+  applyTheme(tokens)
+  try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(theme)) } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ preset: 'custom', primary })) } catch {}
+}
+
 export function applyThemeByName(name: string) {
   const p = getPreset(name)
   if (!p) return
@@ -104,8 +155,22 @@ export function loadThemeFromStorage() {
   if (name === 'defaultOrange') name = 'orange'
   if (name && getPreset(name)) {
     applyThemeByName(name)
+  } else if (name === 'custom') {
+    const ct = readCustomThemeFromStorage()
+    if (ct && ct.primary) {
+      applyCustomTheme(ct)
+    } else if (primary) {
+      applyThemePrimary(primary, 'custom')
+    } else {
+      applyThemeByName('orange')
+    }
   } else if (primary) {
-    applyThemePrimary(primary, 'custom')
+    const ct = readCustomThemeFromStorage()
+    if (ct && ct.primary && ct.primary === primary) {
+      applyCustomTheme(ct)
+    } else {
+      applyThemePrimary(primary, 'custom')
+    }
   } else {
     applyThemeByName('orange')
   }

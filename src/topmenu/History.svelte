@@ -243,7 +243,9 @@
     box-shadow: 0 12px 28px rgba(0,0,0,0.45);
     backdrop-filter: blur(6px);
     z-index: 1000011;
-    transition: opacity 0.3s ease;
+    transform-origin: top center;
+    will-change: transform, opacity, filter, box-shadow;
+    animation: wphHistoryPopIn 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.35) transparent;
   }
@@ -252,6 +254,49 @@
   }
   .tm-history-popover.ghost {
     opacity: 0;
+    animation: none;
+  }
+
+  .tm-history-popover > .empty {
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: wphHistoryItemIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: 55ms;
+  }
+
+  .tm-history-popover .list > li {
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: wphHistoryItemIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: 55ms;
+  }
+  .tm-history-popover .list > li:nth-child(1) { animation-delay: 55ms; }
+  .tm-history-popover .list > li:nth-child(2) { animation-delay: 82ms; }
+  .tm-history-popover .list > li:nth-child(3) { animation-delay: 109ms; }
+  .tm-history-popover .list > li:nth-child(4) { animation-delay: 136ms; }
+  .tm-history-popover .list > li:nth-child(5) { animation-delay: 163ms; }
+  .tm-history-popover .list > li:nth-child(6) { animation-delay: 190ms; }
+  .tm-history-popover .list > li:nth-child(7) { animation-delay: 217ms; }
+  .tm-history-popover .list > li:nth-child(8) { animation-delay: 244ms; }
+  .tm-history-popover .list > li:nth-child(9) { animation-delay: 271ms; }
+  .tm-history-popover .list > li:nth-child(10) { animation-delay: 298ms; }
+
+  @keyframes wphHistoryPopIn {
+    0% { opacity: 0; transform: translateY(-16px) scale(0.96); filter: blur(10px); box-shadow: 0 8px 20px rgba(0,0,0,0.26); }
+    60% { opacity: 1; transform: translateY(0) scale(1.02); filter: blur(0); box-shadow: 0 16px 38px rgba(0,0,0,0.55); }
+    100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); box-shadow: 0 12px 28px rgba(0,0,0,0.45); }
+  }
+
+  @keyframes wphHistoryItemIn {
+    0% { opacity: 0; transform: translateY(14px) scale(0.985); }
+    70% { opacity: 1; transform: translateY(0) scale(1.01); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tm-history-popover { animation: none; }
+    .tm-history-popover > .empty,
+    .tm-history-popover .list > li { animation: none; opacity: 1; }
   }
   .tm-history-popover::-webkit-scrollbar {
     width: 8px;

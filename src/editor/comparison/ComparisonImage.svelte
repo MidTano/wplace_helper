@@ -61,6 +61,19 @@
   let contextMenuHover = false;
   let contextMenuOpenTimer = null;
 
+  function isMobileViewport() {
+    try {
+      return !!(window && window.matchMedia && window.matchMedia('(max-width: 720px), (hover: none) and (pointer: coarse)').matches);
+    } catch { return false; }
+  }
+
+  let touchPointers = new Map();
+  let touchGesture = null;
+  let touchIgnoreSingle = false;
+  let pendingViewport = null;
+  let viewportRafId = 0;
+  let lastViewportTs = 0;
+
   
   let imageTransform = 'scale(1)';
 
@@ -199,6 +212,47 @@
     scheduleWheelDispatch();
   }
 
+  function scheduleViewportDispatch() {
+    if (viewportRafId) return;
+    viewportRafId = requestAnimationFrame((now) => {
+      viewportRafId = 0;
+      const v = pendingViewport;
+      if (!v) return;
+      if (now - lastViewportTs < MAX_RATE_MS) {
+        scheduleViewportDispatch();
+        return;
+      }
+      dispatch('viewportChange', v);
+      lastViewportTs = now;
+      pendingViewport = null;
+    });
+  }
+
+  function openContextMenuAtClient(clientX, clientY) {
+    if (!containerRef) return;
+    const rect = containerRef.getBoundingClientRect();
+    contextMenuX = clientX - rect.left;
+    contextMenuY = clientY - rect.top;
+    showContextMenu = true;
+    contextMenuHover = false;
+    try { window.dispatchEvent(new CustomEvent('tutorial:contextmenu-opened')); } catch {}
+    const isTutorialActive = document.querySelector('.tutorial-overlay');
+    if (contextMenuOpenTimer) clearTimeout(contextMenuOpenTimer);
+    try {
+      if (isMobileViewport()) {
+        contextMenuOpenTimer = null;
+        return;
+      }
+    } catch {}
+    if (!isTutorialActive) {
+      contextMenuOpenTimer = setTimeout(() => {
+        if (!contextMenuHover) {
+          showContextMenu = false;
+        }
+      }, 800);
+    }
+  }
+
   
 
   function handleMouseDown(event) {
@@ -249,27 +303,129 @@
 
   function handleContextMenu(event) {
     event.preventDefault();
-    
-    if (containerRef) {
-      const rect = containerRef.getBoundingClientRect();
-      contextMenuX = event.clientX - rect.left;
-      contextMenuY = event.clientY - rect.top;
-      showContextMenu = true;
-      contextMenuHover = false;
-      try { window.dispatchEvent(new CustomEvent('tutorial:contextmenu-opened')); } catch {}
-      
-      const isTutorialActive = document.querySelector('.tutorial-overlay');
-      
-      if (contextMenuOpenTimer) clearTimeout(contextMenuOpenTimer);
-      
-      if (!isTutorialActive) {
-        contextMenuOpenTimer = setTimeout(() => {
-          if (!contextMenuHover) {
-            showContextMenu = false;
-          }
-        }, 800);
+
+    openContextMenuAtClient(event.clientX, event.clientY);
+  }
+
+  function handleIndexClick(event) {
+    try {
+      if (!isMobileViewport()) return;
+      if (showContextMenu) closeContextMenu();
+      openContextMenuAtClient(event.clientX, event.clientY);
+    } catch {}
+  }
+
+  function onPointerDown(event) {
+    try {
+      if (!isMobileViewport()) return;
+      if (!event || event.pointerType !== 'touch') return;
+      if (!isVisible) return;
+      if (showContextMenu) {
+        const target = event.target;
+        if (target && typeof target.closest === 'function' && target.closest('.context-menu')) {
+          return;
+        }
       }
-    }
+      try { event.currentTarget?.setPointerCapture?.(event.pointerId); } catch {}
+      touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (touchPointers.size >= 2) {
+        touchIgnoreSingle = true;
+        isPanning = false;
+        try {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+        } catch {}
+        const pts = Array.from(touchPointers.values());
+        const a = pts[0];
+        const b = pts[1];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const cx = (a.x + b.x) / 2;
+        const cy = (a.y + b.y) / 2;
+        const rect = (wrapperRef || containerRef).getBoundingClientRect();
+        const focusX = cx - rect.left;
+        const focusY = cy - rect.top;
+        touchGesture = {
+          startDist: dist,
+          startCenterClient: { x: cx, y: cy },
+          startFocus: { x: focusX, y: focusY },
+          startZoom: zoom,
+          startPan: { x: pan.x, y: pan.y }
+        };
+        if (showContextMenu) closeContextMenu();
+        try { event.preventDefault(); } catch {}
+        return;
+      }
+      if (touchPointers.size === 1 && !touchIgnoreSingle) {
+        isPanning = true;
+        if (showContextMenu) closeContextMenu();
+        panStartX = pan.x;
+        panStartY = pan.y;
+        panStartPointerX = event.clientX;
+        panStartPointerY = event.clientY;
+        try { event.preventDefault(); } catch {}
+      }
+    } catch {}
+  }
+
+  function onPointerMove(event) {
+    try {
+      if (!isMobileViewport()) return;
+      if (!event || event.pointerType !== 'touch') return;
+      if (!touchPointers.has(event.pointerId)) return;
+      touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      if (touchGesture && touchPointers.size >= 2) {
+        const pts = Array.from(touchPointers.values());
+        const a = pts[0];
+        const b = pts[1];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const cx = (a.x + b.x) / 2;
+        const cy = (a.y + b.y) / 2;
+        const rect = (wrapperRef || containerRef).getBoundingClientRect();
+        const focusX = cx - rect.left;
+        const focusY = cy - rect.top;
+        const scale = dist / Math.max(1, touchGesture.startDist);
+        const newZoom = Math.max(0.05, Math.min(32, touchGesture.startZoom * scale));
+        const panAfterZoom = calculateZoomPan(touchGesture.startFocus.x, touchGesture.startFocus.y, touchGesture.startZoom, newZoom, touchGesture.startPan);
+        const cdx = focusX - touchGesture.startFocus.x;
+        const cdy = focusY - touchGesture.startFocus.y;
+        const newPan = { x: panAfterZoom.x + cdx, y: panAfterZoom.y + cdy };
+        pendingViewport = { zoom: newZoom, pan: newPan };
+        scheduleViewportDispatch();
+        try { event.preventDefault(); } catch {}
+        return;
+      }
+
+      if (touchPointers.size === 1 && isPanning && !touchIgnoreSingle && !touchGesture) {
+        const deltaX = event.clientX - panStartPointerX;
+        const deltaY = event.clientY - panStartPointerY;
+        const newPan = { x: panStartX + deltaX, y: panStartY + deltaY };
+        pendingPan = newPan;
+        schedulePanDispatch();
+        try { event.preventDefault(); } catch {}
+      }
+    } catch {}
+  }
+
+  function onPointerUp(event) {
+    try {
+      if (!isMobileViewport()) return;
+      if (!event || event.pointerType !== 'touch') return;
+      touchPointers.delete(event.pointerId);
+      if (touchGesture && touchPointers.size < 2) {
+        touchGesture = null;
+      }
+      if (touchPointers.size === 0) {
+        touchIgnoreSingle = false;
+        isPanning = false;
+      }
+      try { event.currentTarget?.releasePointerCapture?.(event.pointerId); } catch {}
+      try { event.preventDefault(); } catch {}
+    } catch {}
   }
 
   function closeContextMenu() {
@@ -381,32 +537,41 @@
     document.removeEventListener('mouseup', handleMouseUp);
     if (panRafId) cancelAnimationFrame(panRafId);
     if (wheelRafId) cancelAnimationFrame(wheelRafId);
+    if (viewportRafId) cancelAnimationFrame(viewportRafId);
     if (wheelZoomTimer) { clearTimeout(wheelZoomTimer); wheelZoomTimer = null; }
     cleanupViewportCulling();
     cleanupResizeObserver();
   });
 </script>
-
-  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div 
   class="comparison-image-container"
   bind:this={containerRef}
-  on:wheel={handleWheel}
-  on:mousedown={handleMouseDown}
-  on:contextmenu={handleContextMenu}
   class:panning={isPanning}
-  role="application"
-  tabindex="-1"
-  aria-label={t('comparison.image.aria').replace('{0}', index)}
 >
+
+  <button
+    type="button"
+    class="comparison-image-hit"
+    on:wheel={handleWheel}
+    on:mousedown={handleMouseDown}
+    on:contextmenu={handleContextMenu}
+    on:pointerdown={onPointerDown}
+    on:pointermove={onPointerMove}
+    on:pointerup={onPointerUp}
+    on:pointercancel={onPointerUp}
+    aria-label={t('comparison.image.aria').replace('{0}', index)}
+  ></button>
   
-  <div class="image-index">{index}</div>
+  <div class="image-index" role="button" tabindex="0"
+       on:click={handleIndexClick}
+       on:pointerdown={(e) => { try { if (e.pointerType === 'touch') { handleIndexClick(e); e.preventDefault(); e.stopPropagation(); } } catch {} }}
+       on:keydown={(e) => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); handleIndexClick(e); } }}>{index}</div>
 
   
   <div class="image-wrapper" bind:this={wrapperRef}>
     {#if imageError}
       <div class="error-state">
-        <div class="error-icon">⚠️</div>
+        <div class="error-icon">!</div>
         <div class="error-text">{t('comparison.error.loading')}</div>
       </div>
     {:else if isVisible}
@@ -432,7 +597,7 @@
     {:else}
       
       <div class="invisible-placeholder">
-        <div class="placeholder-icon">🖼️</div>
+        <div class="placeholder-icon">IMG</div>
         <div class="placeholder-text">{t('comparison.image.alt').replace('{0}', index)}</div>
       </div>
     {/if}
@@ -473,7 +638,7 @@
       on:mousedown|stopPropagation
       on:click|stopPropagation
       on:mouseenter={() => { contextMenuHover = true; if (contextMenuOpenTimer) { clearTimeout(contextMenuOpenTimer); contextMenuOpenTimer = null; } }}
-      on:mouseleave={() => { contextMenuHover = false;  setTimeout(() => { if (!contextMenuHover) closeContextMenu(); }, 250); }}
+      on:mouseleave={() => { contextMenuHover = false;  try { if (!isMobileViewport()) { setTimeout(() => { if (!contextMenuHover) closeContextMenu(); }, 250); } } catch {} }}
       on:keydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); closeContextMenu(); } }}
     >
       <button class="menu-item" role="menuitem" on:click={openInEditor} data-tutorial="comparison-open-editor">
@@ -499,6 +664,7 @@
     overflow: hidden;
     cursor: grab;
     user-select: none;
+    touch-action: none;
     border: none;
     background: transparent;
     padding: 0;
@@ -506,6 +672,21 @@
     box-sizing: border-box;
     outline: none;
     display: block;
+  }
+
+  .comparison-image-hit {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: inherit;
+    outline: none;
+    z-index: 0;
+    touch-action: none;
   }
 
   .comparison-image-container.panning {
@@ -534,6 +715,8 @@
     position: absolute;
     inset: 0;
     overflow: hidden;
+    pointer-events: none;
+    z-index: 2;
   }
 
   .comparison-image {
@@ -643,6 +826,10 @@
     overflow: hidden;
     transition: max-height .2s ease;
     will-change: max-height;
+  }
+
+  @media (max-width: 720px), (hover: none) and (pointer: coarse) {
+    .image-info { pointer-events: none; }
   }
 
   .image-info:hover {
