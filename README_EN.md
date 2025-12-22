@@ -6,6 +6,8 @@
 
 Templates over the map, image editor, ability to share artworks, auto-painting, and auxiliary utilities
 
+Video: https://youtu.be/SVDrnqSt0Qs
+
 <a href="https://discord.gg/8WGkrhXKgX">
   <img src="https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Project Discord server" />
 </a>
