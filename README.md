@@ -6,6 +6,8 @@
 
 Шаблоны поверх карты, редактор изображения, возможность делиться артами, авто‑покраска и вспомогательные утилиты
 
+Видео: https://youtu.be/SVDrnqSt0Qs
+
 <a href="https://discord.gg/8WGkrhXKgX">
   <img src="https://img.shields.io/badge/Discord-%D0%9F%D1%80%D0%B8%D1%81%D0%BE%D0%B5%D0%B4%D0%B8%D0%BD%D0%B8%D1%82%D1%8C%D1%81%D1%8F-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord сервер проекта" />
 </a>
